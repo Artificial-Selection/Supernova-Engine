@@ -3,4 +3,4 @@ project(EventSystem)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(EventSystem main.cpp)
+add_executable(EventSystem source/main.cpp)
