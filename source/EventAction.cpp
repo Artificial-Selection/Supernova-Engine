@@ -5,23 +5,25 @@
 #include "EventAction.h"
 #include <iostream>
 
-template<typename T>
-void EventAction<T>::Invoke(T *value) {
+template<typename ... Args>
+void EventAction<Args...>::Invoke(Args... args) {
     std::cout << "invoked" << std::endl;
-    std::for_each(m_subscriptions.begin(), m_subscriptions.end(), [this, value](auto element) {
-        element(value);
+    std::for_each(m_subscriptions.begin(), m_subscriptions.end(), [this, args...](auto element) {
+        element(args...);
     });
 }
 
-template<typename T>
-EventAction<T> EventAction<T>::operator+=(std::function<void(void *)> handler) {
+template<typename ... Args>
+void EventAction<Args...>::Subscribe(handler_function handler) {
     m_subscriptions.emplace_back(handler);
-    m_lastFunction = handler;
-    return *this;
 }
 
-template<typename T>
-EventAction<T> EventAction<T>::operator-=(std::function<void(void *)> handler) {
-    //m_subscriptions.erase()
-    return *this;
+template<typename ... Args>
+void EventAction<Args...>::Unsubscribe(handler_function handler) {
+    //TODO impletemnt.
+}
+
+template<typename ... Args>
+void EventAction<Args...>::UnsubscribeAll() {
+    m_subscriptions.clear();
 }

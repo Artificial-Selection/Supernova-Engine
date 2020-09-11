@@ -1,22 +1,26 @@
 //
 // Created by Devilast on 08.09.2020.
 //
+#pragma once
 #include <vector>
 #include <functional>
 
 
-template<typename T = void>
+template<typename ... Args>
 class EventAction {
 public:
     EventAction() = default;
 
-    void Invoke(T *value = nullptr);
+    typedef std::function<void(Args...)> handler_function;
 
-    EventAction<T> operator+=(std::function<void(void *)>);
+    void Invoke(Args...);
 
-    EventAction<T> operator-=(std::function<void(void *)>);
+    void Subscribe(handler_function);
+
+    void Unsubscribe(handler_function);
+
+    void UnsubscribeAll();
 
 private:
-    std::function<void(void *)> m_lastFunction;
-    std::vector<std::function<void(void *)>> m_subscriptions;
+    std::vector<handler_function> m_subscriptions;
 };
