@@ -4,7 +4,6 @@
 #include <iostream>
 #include <string>
 
-#pragma once
 //remove cpp include currenty testing
 #include "ObservableField.cpp"
 #include "EventAction.cpp"

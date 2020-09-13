@@ -10,7 +10,7 @@ class ObservableField {
 public:
     ObservableField() = delete;
 
-    ObservableField(T defaultValue) noexcept;
+    explicit ObservableField(T defaultValue) noexcept;
 
     ObservableField<T> operator+=(T value);
 
