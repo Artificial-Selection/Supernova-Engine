@@ -19,10 +19,11 @@ public:
 
     EventAction<Args...> operator-=(handler_function);
 
-    void UnsubscribeAll();
-
+    ~EventAction();
 private:
     std::vector<handler_function> m_subscriptions;
+
+    void UnsubscribeAll();
 
     size_t GetAddress(handler_function);
 };

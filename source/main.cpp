@@ -21,7 +21,6 @@ void TestObservableField() {
     ObservableField<int> intValue(50);
     intValue.OnChange += (OnValueChanged);
     intValue += 30;
-    intValue.OnChange.UnsubscribeAll();
 }
 
 void TestSecondRequest(int value) {

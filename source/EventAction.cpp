@@ -40,3 +40,8 @@ size_t EventAction<Args...>::GetAddress(handler_function currentFunction) {
     fnType **fnPointer = currentFunction.template target<fnType *>();
     return (size_t) *fnPointer;
 }
+
+template<typename... Args>
+EventAction<Args...>::~EventAction() {
+    UnsubscribeAll();
+}
