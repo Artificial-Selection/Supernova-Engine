@@ -7,7 +7,8 @@
 #include <type_traits>
 
 template<typename T>
-class ObservableField {
+class ObservableField
+{
 public:
     ObservableField() = delete;
 

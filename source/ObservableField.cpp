@@ -5,12 +5,14 @@
 #include "ObservableField.h"
 
 template<typename T>
-ObservableField<T>::ObservableField(T defaultValue) noexcept {
+ObservableField<T>::ObservableField(T defaultValue) noexcept
+{
     _value = defaultValue;
 }
 
 template<typename T>
-ObservableField<T> ObservableField<T>::operator+=(T value) {
+ObservableField<T> ObservableField<T>::operator+=(T value)
+{
     auto previousValue = _value;
     _value += value;
     if (previousValue != _value) {
@@ -20,7 +22,8 @@ ObservableField<T> ObservableField<T>::operator+=(T value) {
 }
 
 template<typename T>
-ObservableField<T> ObservableField<T>::operator-=(T value) {
+ObservableField<T> ObservableField<T>::operator-=(T value)
+{
     auto previousValue = _value;
     _value -= value;
     if (previousValue != _value) {

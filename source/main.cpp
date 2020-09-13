@@ -19,7 +19,7 @@ void OnValueChanged(int newValue) {
 
 void TestObservableField() {
     ObservableField<int> intValue(50);
-    intValue.OnChange += (OnValueChanged);
+    intValue.OnChange += OnValueChanged;
     intValue += 30;
 }
 

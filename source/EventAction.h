@@ -2,12 +2,14 @@
 // Created by Devilast on 08.09.2020.
 //
 #pragma once
+
 #include <vector>
 #include <functional>
 
 
 template<typename ... Args>
-class EventAction {
+class EventAction
+{
 public:
     EventAction() = default;
 
@@ -20,6 +22,7 @@ public:
     EventAction<Args...> operator-=(handler_function);
 
     ~EventAction();
+
 private:
     std::vector<handler_function> m_subscriptions;
 
