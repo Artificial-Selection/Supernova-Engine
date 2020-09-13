@@ -26,9 +26,11 @@ EventAction<Args...> EventAction<Args...>::operator+=(handler_function handler) 
 
 template<typename ... Args>
 EventAction<Args...> EventAction<Args...>::operator-=(handler_function handler) {
-    std::remove_if(m_subscriptions.begin(), m_subscriptions.end(), [this, &handler](auto function) {
-        return GetAddress(function) == GetAddress(handler);
-    });
+    auto removedElement = std::remove_if(m_subscriptions.begin(), m_subscriptions.end(),
+                                         [this, handler](auto function) {
+                                             return GetAddress(function) == GetAddress(handler);
+                                         });
+    m_subscriptions.erase(removedElement, m_subscriptions.end());
     return *this;
 }
 

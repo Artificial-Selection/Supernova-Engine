@@ -24,10 +24,15 @@ void TestObservableField() {
     intValue.OnChange.UnsubscribeAll();
 }
 
+void TestSecondRequest(int value) {
+    std::cout << "TestSecondRequest" << std::endl;
+}
+
 int main() {
     std::cout << "project initialized" << std::endl;
     EventAction<int> OnChange;
     OnChange += RequestHandler;
+    OnChange += TestSecondRequest;
     OnChange.Invoke(22);
     OnChange -= RequestHandler;
     OnChange.Invoke(22);
