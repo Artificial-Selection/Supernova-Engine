@@ -15,12 +15,14 @@ public:
 
     void Invoke(Args...);
 
-    void Subscribe(handler_function);
+    EventAction<Args...> operator+=(handler_function);
 
-    void Unsubscribe(handler_function);
+    EventAction<Args...> operator-=(handler_function);
 
     void UnsubscribeAll();
 
 private:
     std::vector<handler_function> m_subscriptions;
+
+    size_t GetAddress(handler_function);
 };

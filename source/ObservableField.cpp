@@ -14,17 +14,17 @@ ObservableField<T> ObservableField<T>::operator+=(T value) {
     auto previousValue = _value;
     _value += value;
     if (previousValue != _value) {
-        OnChange.Invoke();
+        OnChange.Invoke(_value);
     }
-    return _value;
+    return *this;
 }
 
 template<typename T>
-ObservableField<T> ObservableField<T>::operator-=(T &value) {
+ObservableField<T> ObservableField<T>::operator-=(T value) {
     auto previousValue = _value;
     _value -= value;
     if (previousValue != _value) {
-        OnChange.Invoke();
+        OnChange.Invoke(_value);
     }
-    return _value;
+    return *this;
 }

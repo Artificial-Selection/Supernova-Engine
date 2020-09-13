@@ -14,16 +14,27 @@ void EventAction<Args...>::Invoke(Args... args) {
 }
 
 template<typename ... Args>
-void EventAction<Args...>::Subscribe(handler_function handler) {
-    m_subscriptions.emplace_back(handler);
-}
-
-template<typename ... Args>
-void EventAction<Args...>::Unsubscribe(handler_function handler) {
-    //TODO impletemnt.
-}
-
-template<typename ... Args>
 void EventAction<Args...>::UnsubscribeAll() {
     m_subscriptions.clear();
+}
+
+template<typename ... Args>
+EventAction<Args...> EventAction<Args...>::operator+=(handler_function handler) {
+    m_subscriptions.emplace_back(handler);
+    return *this;
+}
+
+template<typename ... Args>
+EventAction<Args...> EventAction<Args...>::operator-=(handler_function handler) {
+    std::remove_if(m_subscriptions.begin(), m_subscriptions.end(), [this, &handler](auto function) {
+        return GetAddress(function) == GetAddress(handler);
+    });
+    return *this;
+}
+
+template<typename ... Args>
+size_t EventAction<Args...>::GetAddress(handler_function currentFunction) {
+    typedef void (fnType)(Args...);
+    fnType **fnPointer = currentFunction.template target<fnType *>();
+    return (size_t) *fnPointer;
 }

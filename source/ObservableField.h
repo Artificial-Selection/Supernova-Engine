@@ -4,6 +4,7 @@
 #pragma once
 
 #include "EventAction.h"
+#include <type_traits>
 
 template<typename T>
 class ObservableField {
@@ -14,11 +15,11 @@ public:
 
     ObservableField<T> operator+=(T value);
 
-    ObservableField<T> operator-=(T &value);
+    ObservableField<T> operator-=(T value);
 
 private:
     T _value;
 public:
     //maybe should give actual T value
-    EventAction<> OnChange;
+    EventAction<T> OnChange;
 };
