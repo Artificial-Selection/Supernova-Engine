@@ -32,9 +32,9 @@ EventAction<Args...> EventAction<Args...>::operator-=(handler_function handler)
 {
     auto removedElement =
             std::remove_if(m_subscriptions.begin(), m_subscriptions.end(),
-                           [this, handler](auto function)
+                           [this, handlerAddress = GetAddress(handler)](auto function)
                            {
-                               return GetAddress(function) == GetAddress(handler);
+                               return GetAddress(function) == handlerAddress;
                            });
     m_subscriptions.erase(removedElement, m_subscriptions.end());
     return *this;
