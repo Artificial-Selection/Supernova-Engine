@@ -40,6 +40,7 @@ EventAction<Args...> EventAction<Args...>::operator-=(handler_function handler)
     return *this;
 }
 
+
 template<typename... Args>
 size_t EventAction<Args...>::GetAddress(handler_function currentFunction)
 {
