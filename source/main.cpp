@@ -1,15 +1,11 @@
 //
 // Created by Devilast on 08.09.2020.
 //
+#pragma once
 #include <iostream>
-#include <string>
 #include <chrono>
-#include <thread>
-
-//remove cpp include currenty testing
-#include "ObservableField.cpp"
-#include "EventAction.cpp"
-
+#include "EventAction.h"
+#include "Library/TestObservableField.h"
 
 void RequestHandler(int value)
 {
@@ -22,7 +18,7 @@ void OnValueChanged(int newValue) {
 
 void TestObservableField()
 {
-    ObservableField<int> intValue(50);
+    ObservableField intValue(50);
     intValue.OnChange += OnValueChanged;
     intValue += 30;
 }
@@ -53,6 +49,7 @@ int main()
     const int maxFPS = 60;
     const int maxPeriod = 1.0 / maxFPS;
     auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch();
+	TestObservableField();
     while (true) {
         //TODO FPS lock
         auto currentTime = std::chrono::high_resolution_clock::now().time_since_epoch();

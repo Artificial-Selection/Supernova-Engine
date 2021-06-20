@@ -4,6 +4,7 @@
 
 #include "ObservableField.h"
 
+
 template<typename T>
 ObservableField<T>::ObservableField(T defaultValue) noexcept
 {
@@ -31,3 +32,18 @@ ObservableField<T> ObservableField<T>::operator-=(T value)
     }
     return *this;
 }
+
+//template<typename T>
+//ObservableField<T> ObservableField<T>::operator+=(int value) {
+//    return *this;
+//}
+//
+//template<typename T>
+//ObservableField<T>::ObservableField(int defaultValue) noexcept {
+//
+//}
+//
+//template<typename T>
+//ObservableField<T> ObservableField<T>::operator-=(int value) {
+//    return *this;
+//}

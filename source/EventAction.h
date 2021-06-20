@@ -5,21 +5,20 @@
 
 #include <vector>
 #include <functional>
+#include "EngineDefinitions.h"
 
-
-template<typename ... Args>
 class EventAction
 {
 public:
-    EventAction() = default;
 
-    typedef std::function<void(Args...)> handler_function;
+    typedef std::function<void(int)> handler_function;
 
-    void Invoke(Args...);
+    void SNV_CALL_CONVECTION_API Invoke(int);
 
-    EventAction<Args...> operator+=(handler_function);
+    EventAction SNV_CALL_CONVECTION_API operator+=(handler_function);
 
-    EventAction<Args...> operator-=(handler_function);
+    EventAction SNV_CALL_CONVECTION_API operator-=(handler_function);
+
 
     ~EventAction();
 
