@@ -4,8 +4,7 @@
 #pragma once
 #include <iostream>
 #include <chrono>
-#include "EventAction.h"
-#include "Library/TestObservableField.h"
+#include "Library/ObservableField.h"
 
 void RequestHandler(int value)
 {
