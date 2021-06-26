@@ -3,8 +3,6 @@
 
 #include <glad/glad.h>
 
-#include <iostream>
-
 
 static_assert((GLenum)GLBlendFactor::One == GL_ONE);
 static_assert((GLenum)GLBlendFactor::SrcAlpha == GL_SRC_ALPHA);
@@ -119,6 +117,7 @@ void GLBackend::SetDepthFunction( GLDepthFunction depthFunction )
 
 void GLBackend::SetViewport( i32 x, i32 y, i32 width, i32 height )
 {
+    // NOTE: ??
     glViewport( 0, 0, width, height );
 }
 
