@@ -14,3 +14,11 @@ class SuperNovaEngine(ConanFile):
         'entt/3.7.1',
         'spdlog/1.8.5'
     ]
+
+    default_options = (
+        'glad:shared=False',
+        'glad:no_loader=False',
+        'glad:spec=gl',
+        'glad:gl_profile=core',
+        'glad:gl_version=4.6'
+    )

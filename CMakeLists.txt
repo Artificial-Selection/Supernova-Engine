@@ -30,6 +30,7 @@ conan_cmake_run(
     CONANFILE ${PROJECT_SOURCE_DIR}/conanfile.py
     CMAKE_TARGETS
     INSTALL_FOLDER ${CONAN_DIR}
+    BUILD missing
 )
 
 if(EXISTS ${CONAN_BUILD_INFO_FILE})
@@ -49,10 +50,35 @@ find_package(spdlog REQUIRED)
 
 set(MAIN_SRC_DIR ${PROJECT_SOURCE_DIR}/source)
 
+# ---------------------------- Core -----------------------------
+set(Core_SRC_DIR ${MAIN_SRC_DIR}/Core)
+set(Core_SRC
+    ${Core_SRC_DIR}/Core.hpp
+    ${Core_SRC_DIR}/Log.hpp
+    ${Core_SRC_DIR}/Log.cpp
+)
+
+# -------------------------- Renderer ---------------------------
+set(Renderer_SRC_DIR ${MAIN_SRC_DIR}/Renderer)
+
+set(OpenGL_SRC_DIR ${Renderer_SRC_DIR}/OpenGL)
+set(OpenGL_SRC
+    ${OpenGL_SRC_DIR}/GLBackend.hpp
+    ${OpenGL_SRC_DIR}/GLBackend.cpp
+    ${OpenGL_SRC_DIR}/GLShader.hpp
+    ${OpenGL_SRC_DIR}/GLShader.cpp
+)
+
+set(Renderer_SRC
+    ${OpenGL_SRC}
+)
+
 
 add_executable(SuperNova
     ${MAIN_SRC_DIR}/main.cpp
     ${MAIN_SRC_DIR}/EngineDefinitions.h
+    ${Core_SRC}
+    ${Renderer_SRC}
 )
 target_link_libraries(SuperNova PRIVATE
     glad::glad
@@ -62,7 +88,7 @@ target_link_libraries(SuperNova PRIVATE
     spdlog::spdlog
 )
 target_include_directories(SuperNova PRIVATE
-    ${MAIN_SRC_DIR}/Library
+    ${MAIN_SRC_DIR}
 )
 
 #TARGET_LINK_LIBRARIES(EventSystem ObservableField)
