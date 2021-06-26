@@ -1,18 +1,46 @@
 //
 // Created by Devilast on 08.09.2020.
 //
-#pragma once
-#include <iostream>
-#include <chrono>
-#include "Library/ObservableField.h"
+#include <Core/Log.hpp>
+#include <Library/ObservableField.h>
+#include <Renderer/OpenGL/GLBackend.hpp>
+#include <Renderer/OpenGL/GLShader.hpp>
 
-void RequestHandler(int value)
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+#include <chrono>
+#include <memory>
+#include <string_view>
+#include <fstream>
+#include <filesystem>
+
+
+constexpr ui32 k_ScreenWidth = 800;
+constexpr ui32 k_ScreenHeight = 600;
+
+const char* k_VertexSourcePath = "../../assets/shaders/triangle_vs.glsl";
+const char* k_FragmentSourcePath = "../../assets/shaders/triangle_fs.glsl";
+
+
+std::unique_ptr<char[]> LoadShaderFromFile( std::string_view shaderPath )
 {
-    std::cout << "Request proceed " << value << std::endl;
+    const auto size = std::filesystem::file_size( shaderPath );
+    auto shaderSource = std::make_unique<char[]>( size + 1 );
+
+    std::ifstream shaderFile( shaderPath, std::ios::binary | std::ios::in );
+    shaderFile.read( shaderSource.get(), size );
+
+    return shaderSource;
 }
 
-void OnValueChanged(int newValue) {
-    std::cout << "value changed" << std::endl;
+void RequestHandler(i32 value)
+{
+    LOG_INFO( "Request proceed {}", value );
+}
+
+void OnValueChanged(i32 newValue) {
+    LOG_INFO( "value changed" );
 }
 
 void TestObservableField()
@@ -22,44 +50,119 @@ void TestObservableField()
     intValue += 30;
 }
 
-void TestSecondRequest(int value)
+void TestSecondRequest(i32 value)
 {
-    std::cout << "TestSecondRequest" << std::endl;
+    LOG_INFO( "TestSecondRequest" );
 }
 
-void ProcessInput()
+void ProcessInput( GLFWwindow* window )
 {
-    //TODO IMPLEMENT
+    glfwPollEvents();
+
+    if (glfwGetKey( window, GLFW_KEY_ESCAPE ) == GLFW_PRESS) {
+        glfwSetWindowShouldClose( window, true );
+    }
 }
 
-void Render()
+void Render( GLFWwindow* window )
 {
-    //TODO Implement
+    // GG WP worth it
+    auto bufferBitMask = static_cast<GLBufferBit>((ui32)GLBufferBit::Color | (ui32)GLBufferBit::Depth);
+    GLBackend::Clear( bufferBitMask );
+
+    GLBackend::DrawArrays(3);
+
+    glfwSwapBuffers( window );
 }
 
-void Update(float deltaTime)
+void Update( f32 deltaTime )
 {
     //TODO Implement
 }
 
 int main()
 {
-    std::cout << "project initialized" << std::endl;
-    const int maxFPS = 60;
-    const int maxPeriod = 1.0 / maxFPS;
+    //Log::Init( spdlog::level::trace );
+    LOG_TRACE( "SuperNova-Engine Init" );
+
+    glfwInit();
+    glfwWindowHint( GLFW_CONTEXT_VERSION_MAJOR, 4 );
+    glfwWindowHint( GLFW_CONTEXT_VERSION_MINOR, 6 );
+    glfwWindowHint( GLFW_OPENGL_CORE_PROFILE, GLFW_OPENGL_CORE_PROFILE );
+    glfwWindowHint( GLFW_RESIZABLE, false );
+#ifdef SNV_ENABLE_DEBUG
+    glfwWindowHint( GLFW_OPENGL_DEBUG_CONTEXT, true );
+#endif
+
+    GLFWwindow* window = glfwCreateWindow( k_ScreenWidth, k_ScreenHeight, "SuperNova-Engine", nullptr, nullptr );
+    if (window == nullptr) {
+        LOG_CRITICAL( "Failed to create GLFW window" );
+        return -1;
+    }
+
+    glfwMakeContextCurrent( window );
+
+    if (!gladLoadGLLoader( (GLADloadproc)glfwGetProcAddress )) {
+        LOG_CRITICAL( "Failed to initialize GLAD" );
+        return -1;
+    }
+
+    GLBackend::Init();
+    GLBackend::SetViewport( 0, 0, k_ScreenWidth, k_ScreenHeight );
+    GLBackend::SetClearColor( 0.1f, 0.1f, 0.80f, 1.0f );
+    GLBackend::EnableDepthTest();
+    GLBackend::SetDepthFunction( GLDepthFunction::Less );
+
+    const auto vertexSource = LoadShaderFromFile( k_VertexSourcePath );
+    const auto fragmentSource = LoadShaderFromFile( k_FragmentSourcePath );
+    GLShader triangleShader( vertexSource.get(), fragmentSource.get() );
+    triangleShader.Bind();
+
+
+    // Triangle buffer
+    f32 vertices[] = {
+        // positions        // colors
+         0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+        -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
+         0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f
+    };
+    ui32 VBO, VAO;
+    glGenVertexArrays( 1, &VAO );
+    glGenBuffers( 1, &VBO );
+
+    glBindVertexArray( VAO );
+
+    glBindBuffer( GL_ARRAY_BUFFER, VBO );
+    glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+    // position
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( f32 ), (void*)0 );
+    glEnableVertexAttribArray( 0 );
+    // color
+    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( f32 ), (void*)(3 * sizeof( f32 )) );
+    glEnableVertexAttribArray( 1 );
+
+
+    const i32 maxFPS = 60;
+    const auto maxPeriod = 1.0 / maxFPS;
+    // NOTE: glfwGetTime() ?
     auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch();
-	TestObservableField();
-    while (true) {
+    TestObservableField();
+
+    while (!glfwWindowShouldClose( window )) {
         //TODO FPS lock
         auto currentTime = std::chrono::high_resolution_clock::now().time_since_epoch();
         auto elapsed = 1.0 / (currentTime - startTime).count();
-        std::cout << "current lag is " << elapsed << std::endl;
+        LOG_INFO( "current lag is {}", elapsed );
         startTime = currentTime;
-        ProcessInput();
+
+        ProcessInput(window);
         Update(elapsed);
-        Render();
+        Render(window);
     }
-    std::cout << "project ended" << std::endl;
+
+    LOG_TRACE( "SuperNova-Engine Shutdown" );
+
+    glfwTerminate();
+
     return 0;
 }
-
