@@ -1,0 +1,10 @@
+os:
+  Windows:
+
+arch: [x86_64]
+
+compiler:
+  msvc:
+    cppstd: [20]
+
+build_type: [Debug, Release]
