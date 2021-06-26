@@ -10,7 +10,7 @@ static_assert((GLenum)GLShaderType::Vertex == GL_VERTEX_SHADER);
 static_assert((GLenum)GLShaderType::Fragment == GL_FRAGMENT_SHADER);
 
 
-GLShader::GLShader( const char* const* vertexSource, const char* const* fragmentSource )
+GLShader::GLShader( const char* vertexSource, const char* fragmentSource )
 {
     const auto vertexShaderID = CreateShader( vertexSource, GLShaderType::Vertex );
     const auto fragmentShaderID = CreateShader( fragmentSource, GLShaderType::Fragment );
@@ -27,10 +27,16 @@ GLShader::GLShader( const char* const* vertexSource, const char* const* fragment
 }
 
 
-ui32 GLShader::CreateShader( const char* const* shaderSource, GLShaderType shaderType )
+void GLShader::Bind() const
+{
+    glUseProgram( m_shaderProgramID );
+}
+
+
+ui32 GLShader::CreateShader( const char* shaderSource, GLShaderType shaderType )
 {
     const auto shaderID = glCreateShader( static_cast<GLenum>(shaderType) );
-    glShaderSource( shaderID, 1, shaderSource, nullptr );
+    glShaderSource( shaderID, 1, &shaderSource, nullptr );
     glCompileShader( shaderID );
 
     return shaderID;

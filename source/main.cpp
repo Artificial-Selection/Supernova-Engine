@@ -4,16 +4,35 @@
 #include <Core/Log.hpp>
 #include <Library/ObservableField.h>
 #include <Renderer/OpenGL/GLBackend.hpp>
+#include <Renderer/OpenGL/GLShader.hpp>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <chrono>
+#include <memory>
+#include <string_view>
+#include <fstream>
+#include <filesystem>
 
 
 constexpr ui32 k_ScreenWidth = 800;
 constexpr ui32 k_ScreenHeight = 600;
 
+const char* k_VertexSourcePath = "../../assets/shaders/triangle_vs.glsl";
+const char* k_FragmentSourcePath = "../../assets/shaders/triangle_fs.glsl";
+
+
+std::unique_ptr<char[]> LoadShaderFromFile( std::string_view shaderPath )
+{
+    const auto size = std::filesystem::file_size( shaderPath );
+    auto shaderSource = std::make_unique<char[]>( size + 1 );
+
+    std::ifstream shaderFile( shaderPath, std::ios::binary | std::ios::in );
+    shaderFile.read( shaderSource.get(), size );
+
+    return shaderSource;
+}
 
 void RequestHandler(i32 value)
 {
@@ -50,6 +69,9 @@ void Render( GLFWwindow* window )
     // GG WP worth it
     auto bufferBitMask = static_cast<GLBufferBit>((ui32)GLBufferBit::Color | (ui32)GLBufferBit::Depth);
     GLBackend::Clear( bufferBitMask );
+
+    GLBackend::DrawArrays(3);
+
     glfwSwapBuffers( window );
 }
 
@@ -91,6 +113,35 @@ int main()
     GLBackend::EnableDepthTest();
     GLBackend::SetDepthFunction( GLDepthFunction::Less );
 
+    const auto vertexSource = LoadShaderFromFile( k_VertexSourcePath );
+    const auto fragmentSource = LoadShaderFromFile( k_FragmentSourcePath );
+    GLShader triangleShader( vertexSource.get(), fragmentSource.get() );
+    triangleShader.Bind();
+
+
+    // Triangle buffer
+    f32 vertices[] = {
+        // positions        // colors
+         0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+        -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
+         0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f
+    };
+    ui32 VBO, VAO;
+    glGenVertexArrays( 1, &VAO );
+    glGenBuffers( 1, &VBO );
+
+    glBindVertexArray( VAO );
+
+    glBindBuffer( GL_ARRAY_BUFFER, VBO );
+    glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+    // position
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( f32 ), (void*)0 );
+    glEnableVertexAttribArray( 0 );
+    // color
+    glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( f32 ), (void*)(3 * sizeof( f32 )) );
+    glEnableVertexAttribArray( 1 );
+
+
     const i32 maxFPS = 60;
     const auto maxPeriod = 1.0 / maxFPS;
     // NOTE: glfwGetTime() ?
@@ -115,4 +166,3 @@ int main()
 
     return 0;
 }
-

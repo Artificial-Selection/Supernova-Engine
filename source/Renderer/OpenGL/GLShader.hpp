@@ -12,10 +12,12 @@ enum class GLShaderType
 class GLShader
 {
 public:
-    GLShader( const char* const* vertexSource, const char* const* fragmentSource );
+    GLShader( const char* vertexSource, const char* fragmentSource );
+
+    void Bind() const;
 
 private:
-    static ui32 CreateShader( const char* const* shaderSource, GLShaderType shaderType );
+    static ui32 CreateShader( const char* shaderSource, GLShaderType shaderType );
     static ui32 CreateShaderProgram( i32 vertexShaderID, i32 fragmentShaderID );
 
     static void CheckShaderCompilationStatus( ui32 shaderID );
