@@ -2,7 +2,7 @@
 
 ## Build
 
-1. Поставить [python 3.9.5](https://www.python.org/downloads/release/python-395/) При установке прописать его в PATH. Убедится, что питон ставится в `C:\Program Files`
+1. Поставить [python 3.9.5](https://www.python.org/downloads/release/python-395/) При установке прописать его в PATH. Убедиться, что питон ставится в `C:\Program Files`
 
 2. Запустить консоль от одмена
 
