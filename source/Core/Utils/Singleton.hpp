@@ -1,10 +1,7 @@
 //
 // Created by Devilast on 6/27/2021.
 //
-
-#ifndef SUPERNOVA_SINGLETON_HPP
-#define SUPERNOVA_SINGLETON_HPP
-
+#pragma once
 
 template<typename T>
 class Singleton
@@ -25,6 +22,3 @@ protected:
 
     Singleton& operator=(const Singleton&) = delete;
 };
-
-
-#endif //SUPERNOVA_SINGLETON_HPP
