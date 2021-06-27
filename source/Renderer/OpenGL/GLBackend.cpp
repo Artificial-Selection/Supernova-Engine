@@ -24,7 +24,7 @@ static_assert((GLenum)GLBufferBit::Stencil == GL_STENCIL_BUFFER_BIT);
 
 
 #ifdef SNV_ENABLE_DEBUG
-void openGLMessageCallback(GLenum source, GLenum type,
+void APIENTRY openGLMessageCallback(GLenum source, GLenum type,
                            ui32 id, GLenum severity, GLsizei length,
                            const char* message, const void* userParam)
 {

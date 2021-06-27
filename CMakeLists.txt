@@ -56,6 +56,8 @@ set(Core_SRC
     ${Core_SRC_DIR}/Core.hpp
     ${Core_SRC_DIR}/Log.hpp
     ${Core_SRC_DIR}/Log.cpp
+    ${Core_SRC_DIR}/ComponentFactory.cpp
+    ${Core_SRC_DIR}/ComponentFactory.hpp
 )
 
 # -------------------------- Renderer ---------------------------
@@ -73,6 +75,12 @@ set(Renderer_SRC
     ${OpenGL_SRC}
 )
 
+# -------------------------- Components ---------------------------
+set(Components_SRC_DIR ${MAIN_SRC_DIR}/Components)
+set(Components_SRC
+    ${Components_SRC_DIR}/Transform.hpp
+    ${Components_SRC_DIR}/Transform.cpp
+)
 
 add_executable(SuperNova
     ${MAIN_SRC_DIR}/main.cpp
