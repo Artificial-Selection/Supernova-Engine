@@ -1,5 +1,16 @@
-//
-// Created by Devilast on 6/27/2021.
-//
+#include <Components/Transform.hpp>
 
-#include "Transform.hpp"
+
+namespace snv
+{
+
+Transform::Transform() noexcept
+    : m_transform(glm::mat4x4(1.0f))
+{}
+
+const glm::mat4x4& Transform::GetTransform() const noexcept
+{
+    return m_transform;
+}
+
+} // namespace snv

@@ -3,7 +3,21 @@
 //
 #pragma once
 
+#include <glm/mat4x4.hpp>
+
+
+namespace snv
+{
+
 class Transform
 {
-    //TODO
+public:
+    Transform() noexcept;
+
+    const glm::mat4x4& GetTransform() const noexcept;
+
+private:
+    glm::mat4x4 m_transform;
 };
+
+} // namespace snv

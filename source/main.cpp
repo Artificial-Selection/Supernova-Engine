@@ -2,13 +2,14 @@
 // Created by Devilast on 08.09.2020.
 //
 #include <Core/Log.hpp>
-#include <Library/ObservableField.h>
 #include <Renderer/OpenGL/GLBackend.hpp>
 #include <Renderer/OpenGL/GLShader.hpp>
-#include <Core/ComponentFactory.hpp>
+#include <Entity/GameObject.hpp>
+#include <Components/Transform.hpp>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/gtx/string_cast.hpp>
 
 #include <chrono>
 #include <memory>
@@ -23,7 +24,6 @@ constexpr ui32 k_ScreenHeight = 600;
 const char* k_VertexSourcePath = "../../assets/shaders/triangle_vs.glsl";
 const char* k_FragmentSourcePath = "../../assets/shaders/triangle_fs.glsl";
 
-using ComponentPool = ComponentFactory<entt::entity>;
 
 std::unique_ptr<char[]> LoadShaderFromFile(std::string_view shaderPath)
 {
@@ -34,6 +34,11 @@ std::unique_ptr<char[]> LoadShaderFromFile(std::string_view shaderPath)
     shaderFile.read(shaderSource.get(), size);
 
     return shaderSource;
+}
+
+void GlfwErrorCallback(i32 what_is_this, const char* error)
+{
+    LOG_ERROR("GLFW: {}", error);
 }
 
 void TestSecondRequest(i32 value)
@@ -54,10 +59,10 @@ void ProcessInput(GLFWwindow* window)
 void Render(GLFWwindow* window)
 {
     // GG WP worth it
-    auto bufferBitMask = static_cast<GLBufferBit>((ui32) GLBufferBit::Color | (ui32) GLBufferBit::Depth);
-    GLBackend::Clear(bufferBitMask);
+    auto bufferBitMask = static_cast<snv::GLBufferBit>((ui32) snv::GLBufferBit::Color | (ui32) snv::GLBufferBit::Depth);
+    snv::GLBackend::Clear(bufferBitMask);
 
-    GLBackend::DrawArrays(3);
+    snv::GLBackend::DrawArrays(3);
 
     glfwSwapBuffers(window);
 }
@@ -107,10 +112,12 @@ int main()
 {
     //Log::Init( spdlog::level::trace );
     LOG_TRACE("SuperNova-Engine Init");
+
+    glfwSetErrorCallback(GlfwErrorCallback);
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_CORE_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, false);
 #ifdef SNV_ENABLE_DEBUG
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
@@ -125,30 +132,31 @@ int main()
 
     glfwMakeContextCurrent(window);
 
-    if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress))
+    if (gladLoadGLLoader((GLADloadproc) glfwGetProcAddress) == 0)
     {
         LOG_CRITICAL("Failed to initialize GLAD");
         return -1;
     }
 
-    GLBackend::Init();
-    GLBackend::SetViewport(0, 0, k_ScreenWidth, k_ScreenHeight);
-    GLBackend::SetClearColor(0.1f, 0.1f, 0.80f, 1.0f);
-    GLBackend::EnableDepthTest();
-    GLBackend::SetDepthFunction(GLDepthFunction::Less);
+    snv::GLBackend::Init();
+    snv::GLBackend::SetViewport(0, 0, k_ScreenWidth, k_ScreenHeight);
+    snv::GLBackend::SetClearColor(0.1f, 0.1f, 0.80f, 1.0f);
+    snv::GLBackend::EnableDepthTest();
+    snv::GLBackend::SetDepthFunction(snv::GLDepthFunction::Less);
 
     const auto vertexSource = LoadShaderFromFile(k_VertexSourcePath);
     const auto fragmentSource = LoadShaderFromFile(k_FragmentSourcePath);
-    GLShader triangleShader(vertexSource.get(), fragmentSource.get());
+    snv::GLShader triangleShader(vertexSource.get(), fragmentSource.get());
     triangleShader.Bind();
 
 
     // Triangle buffer
-    f32 vertices[] = {
-            // positions        // colors
-            0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-            -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f
+    f32 vertices[] =
+    {
+        // positions        // colors
+         0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+        -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
+         0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f
     };
     ui32 VBO, VAO;
     glGenVertexArrays(1, &VAO);
@@ -166,12 +174,17 @@ int main()
     glEnableVertexAttribArray(1);
 
 
+    snv::GameObject gameObject;
+    const auto& transform = gameObject.GetComponent<snv::Transform>();
+    LOG_INFO(glm::to_string(transform.GetTransform()));
+
+
     const i32 maxFPS = 60;
     const auto maxPeriod = 1.0 / maxFPS;
     // NOTE: glfwGetTime() ?
     auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch();
 
-    while (!glfwWindowShouldClose(window))
+    while (glfwWindowShouldClose(window) == 0)
     {
         //TODO FPS lock
         auto currentTime = std::chrono::high_resolution_clock::now().time_since_epoch();

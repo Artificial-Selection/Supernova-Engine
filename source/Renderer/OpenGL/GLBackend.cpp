@@ -4,32 +4,36 @@
 #include <glad/glad.h>
 
 
-static_assert((GLenum)GLBlendFactor::One == GL_ONE);
-static_assert((GLenum)GLBlendFactor::SrcAlpha == GL_SRC_ALPHA);
+namespace snv
+{
+
+static_assert((GLenum)GLBlendFactor::One              == GL_ONE);
+static_assert((GLenum)GLBlendFactor::SrcAlpha         == GL_SRC_ALPHA);
 static_assert((GLenum)GLBlendFactor::OneMinusSrcAlpha == GL_ONE_MINUS_SRC_ALPHA);
 
-static_assert((GLenum)GLDepthFunction::Never == GL_NEVER);
-static_assert((GLenum)GLDepthFunction::Less == GL_LESS);
-static_assert((GLenum)GLDepthFunction::Equal == GL_EQUAL);
-static_assert((GLenum)GLDepthFunction::LessOrEqual == GL_LEQUAL);
-static_assert((GLenum)GLDepthFunction::Greater == GL_GREATER);
-static_assert((GLenum)GLDepthFunction::NotEqual == GL_NOTEQUAL);
+static_assert((GLenum)GLDepthFunction::Never          == GL_NEVER);
+static_assert((GLenum)GLDepthFunction::Less           == GL_LESS);
+static_assert((GLenum)GLDepthFunction::Equal          == GL_EQUAL);
+static_assert((GLenum)GLDepthFunction::LessOrEqual    == GL_LEQUAL);
+static_assert((GLenum)GLDepthFunction::Greater        == GL_GREATER);
+static_assert((GLenum)GLDepthFunction::NotEqual       == GL_NOTEQUAL);
 static_assert((GLenum)GLDepthFunction::GreaterOrEqual == GL_GEQUAL);
-static_assert((GLenum)GLDepthFunction::Always == GL_ALWAYS);
+static_assert((GLenum)GLDepthFunction::Always         == GL_ALWAYS);
 
-static_assert((GLenum)GLBufferBit::Color == GL_COLOR_BUFFER_BIT);
-static_assert((GLenum)GLBufferBit::Depth == GL_DEPTH_BUFFER_BIT);
+static_assert((GLenum)GLBufferBit::Color   == GL_COLOR_BUFFER_BIT);
+static_assert((GLenum)GLBufferBit::Depth   == GL_DEPTH_BUFFER_BIT);
 //static_assert((GLenum)GLBufferBit::Accum == GL_ACCUM_BUFFER_BIT); // WTF IT'S UNDEFINED?
 static_assert((GLenum)GLBufferBit::Stencil == GL_STENCIL_BUFFER_BIT);
 
 
 #ifdef SNV_ENABLE_DEBUG
-void APIENTRY openGLMessageCallback(GLenum source, GLenum type,
-                           ui32 id, GLenum severity, GLsizei length,
-                           const char* message, const void* userParam)
+void APIENTRY openGLMessageCallback(
+    GLenum source, GLenum type, ui32 id, GLenum severity, GLsizei length, const char* message, const void* userParam
+)
 {
     const char* messageSource;
-    switch (source) {
+    switch(source)
+    {
         case GL_DEBUG_SOURCE_API:             messageSource = "API"; break;
         case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   messageSource = "Window System"; break;
         case GL_DEBUG_SOURCE_SHADER_COMPILER: messageSource = "Shader Compiler"; break;
@@ -38,7 +42,8 @@ void APIENTRY openGLMessageCallback(GLenum source, GLenum type,
         case GL_DEBUG_SOURCE_OTHER:           messageSource = "Other"; break;
     }
     const char* messageType;
-    switch (type) {
+    switch(type)
+    {
         case GL_DEBUG_TYPE_ERROR:               messageType = "Error"; break;
         case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: messageType = "Deprecated Behaviour"; break;
         case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  messageType = "Undefined Behaviour"; break;
@@ -49,18 +54,33 @@ void APIENTRY openGLMessageCallback(GLenum source, GLenum type,
         case GL_DEBUG_TYPE_POP_GROUP:           messageType = "Pop Group"; break;
         case GL_DEBUG_TYPE_OTHER:               messageType = "Other"; break;
     }
-    const char* messageSeverity;
-    switch (severity) {
-        case GL_DEBUG_SEVERITY_HIGH:         messageSeverity = "high"; break;
-        case GL_DEBUG_SEVERITY_MEDIUM:       messageSeverity = "medium"; break;
-        case GL_DEBUG_SEVERITY_LOW:          messageSeverity = "low"; break;
-        case GL_DEBUG_SEVERITY_NOTIFICATION: messageSeverity = "notification"; break;
+    switch(severity)
+    {
+        case GL_DEBUG_SEVERITY_HIGH:
+            LOG_CRITICAL(
+                "OpenGL debug message ({0})\n\t{1}\n\tSource: {2}\n\tType: {3}\n\tSeverity: high",
+                id, message, messageSource, messageType
+            );
+            break;
+        case GL_DEBUG_SEVERITY_MEDIUM:
+            LOG_ERROR(
+                "OpenGL debug message ({0})\n\t{1}\n\tSource: {2}\n\tType: {3}\n\tSeverity: medium",
+                id, message, messageSource, messageType
+            );
+            break;
+        case GL_DEBUG_SEVERITY_LOW:
+            LOG_WARN(
+                "OpenGL debug message ({0})\n\t{1}\n\tSource: {2}\n\tType: {3}\n\tSeverity: low",
+                id, message, messageSource, messageType
+            );
+            break;
+        case GL_DEBUG_SEVERITY_NOTIFICATION:
+            LOG_INFO(
+                "OpenGL debug message ({0})\n\t{1}\n\tSource: {2}\n\tType: {3}\n\tSeverity: notification",
+                id, message, messageSource, messageType
+            );
+            break;
     }
-
-    LOG_WARN(
-        "OpenGL debug message ({0}): {1}\n\tSource: {2}\n\tType:{3}\n\tSeverity: {4}",
-        id, message, messageSource, messageType, messageSeverity
-    );
 }
 #endif // SNV_ENABLE_DEBUG
 
@@ -76,27 +96,30 @@ void GLBackend::Init()
     );
 
 #ifdef SNV_ENABLE_DEBUG
+
     i32 flags;
-    glGetIntegerv( GL_CONTEXT_FLAGS, &flags );
-    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
-        glEnable( GL_DEBUG_OUTPUT );
-        glEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS );
-        glDebugMessageCallback( openGLMessageCallback, nullptr );
-        glDebugMessageControl( GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE );
+    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(openGLMessageCallback, nullptr);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
     }
+
 #endif // SNV_ENABLE_DEBUG
 }
 
 
 void GLBackend::EnableBlend()
 {
-    glEnable( GL_BLEND );
+    glEnable(GL_BLEND);
 }
 
 
 void GLBackend::EnableDepthTest()
 {
-    glEnable( GL_DEPTH_TEST );
+    glEnable(GL_DEPTH_TEST);
 }
 
 
@@ -110,21 +133,21 @@ void GLBackend::SetClearColor( f32 r, f32 g, f32 b, f32 a )
     glClearColor( r, g, b, a );
 }
 
-void GLBackend::SetDepthFunction( GLDepthFunction depthFunction )
+void GLBackend::SetDepthFunction(GLDepthFunction depthFunction)
 {
-    glDepthFunc( static_cast<GLenum>(depthFunction) );
+    glDepthFunc(static_cast<GLenum>(depthFunction));
 }
 
-void GLBackend::SetViewport( i32 x, i32 y, i32 width, i32 height )
+void GLBackend::SetViewport(i32 x, i32 y, i32 width, i32 height)
 {
     // NOTE: ??
-    glViewport( 0, 0, width, height );
+    glViewport(0, 0, width, height);
 }
 
 
-void GLBackend::Clear( GLBufferBit bufferBitMask )
+void GLBackend::Clear(GLBufferBit bufferBitMask)
 {
-    glClear( static_cast<GLbitfield>(bufferBitMask) );
+    glClear(static_cast<GLbitfield>(bufferBitMask));
 }
 
 
@@ -132,3 +155,5 @@ void GLBackend::DrawArrays(i32 count)
 {
     glDrawArrays(GL_TRIANGLES, 0, count);
 }
+
+} // namespace snv

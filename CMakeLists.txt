@@ -56,8 +56,6 @@ set(Core_SRC
     ${Core_SRC_DIR}/Core.hpp
     ${Core_SRC_DIR}/Log.hpp
     ${Core_SRC_DIR}/Log.cpp
-    ${Core_SRC_DIR}/ComponentFactory.cpp
-    ${Core_SRC_DIR}/ComponentFactory.hpp
 )
 
 # -------------------------- Renderer ---------------------------
@@ -78,15 +76,27 @@ set(Renderer_SRC
 # -------------------------- Components ---------------------------
 set(Components_SRC_DIR ${MAIN_SRC_DIR}/Components)
 set(Components_SRC
+    ${Components_SRC_DIR}/ComponentFactory.hpp
+    ${Components_SRC_DIR}/ComponentFactory.cpp
     ${Components_SRC_DIR}/Transform.hpp
     ${Components_SRC_DIR}/Transform.cpp
 )
+
+# ---------------------------- Entity -----------------------------
+set(Entity_SRC_DIR ${MAIN_SRC_DIR}/Entity)
+set(Entity_SRC
+    ${Entity_SRC_DIR}/GameObject.hpp
+    ${Entity_SRC_DIR}/GameObject.cpp
+)
+
 
 add_executable(SuperNova
     ${MAIN_SRC_DIR}/main.cpp
     ${MAIN_SRC_DIR}/EngineDefinitions.h
     ${Core_SRC}
     ${Renderer_SRC}
+    ${Components_SRC}
+    ${Entity_SRC}
 )
 target_link_libraries(SuperNova PRIVATE
     glad::glad

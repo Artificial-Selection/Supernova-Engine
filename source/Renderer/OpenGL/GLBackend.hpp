@@ -3,6 +3,9 @@
 #include <Core/Core.hpp>
 
 
+namespace snv
+{
+
 enum class GLBlendFactor
 {
     One              = 1,
@@ -38,12 +41,14 @@ public:
     static void EnableBlend();
     static void EnableDepthTest();
 
-    static void SetBlendFunction( GLBlendFactor source, GLBlendFactor destination );
-    static void SetClearColor( f32 r, f32 g, f32 b, f32 a );
-    static void SetDepthFunction( GLDepthFunction depthFunction );
-    static void SetViewport( i32 x, i32 y, i32 width, i32 height );
+    static void SetBlendFunction(GLBlendFactor source, GLBlendFactor destination);
+    static void SetClearColor(f32 r, f32 g, f32 b, f32 a);
+    static void SetDepthFunction(GLDepthFunction depthFunction);
+    static void SetViewport(i32 x, i32 y, i32 width, i32 height);
 
-    static void Clear( GLBufferBit bufferBitMask );
+    static void Clear(GLBufferBit bufferBitMask);
 
-    static void DrawArrays( i32 count );
+    static void DrawArrays(i32 count);
 };
+
+} // namespace snv
