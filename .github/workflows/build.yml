@@ -1,0 +1,47 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+      - 'feature/*'
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    name: ${{ matrix.config.os }}-${{ matrix.config.compiler }}-${{ matrix.config.compiler }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - os: windows-latest
+            compiler: msvc
+
+    steps:
+      - name: Get source code
+        uses: actions/checkout@v2
+
+      - name: Setup VS Environment
+        uses: seanmiddleditch/gha-setup-vsdevenv@master
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Install python and conan
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9.5'
+          architecture: 'x64'
+
+      - name: Install conan
+        run:
+          pip install wheel setuptools
+          pip install conan
+
+      - name: Configure CMake
+        run: cmake . --preset Release
+
+      - name: Build
+        run: cmake --build --preset Release
