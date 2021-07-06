@@ -8,20 +8,20 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }}-${{ matrix.config.compiler }}-${{ matrix.config.version }}
+    name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
       matrix:
         config:
           - os: windows-latest
-            compiler: msvc
+            name: Windows MSVC
 
     steps:
       - name: Get source code
         uses: actions/checkout@v2
 
-      - name: Setup VS Environment
+      - name: Setup VisualStudio Environment
         uses: egor-tensin/vs-shell@v2
         with:
           arch: x64
@@ -38,7 +38,7 @@ jobs:
       - name: Install conan
         run: |
           pip install wheel setuptools
-        #  pip install conan
+          pip install conan
 
       - name: Configure CMake
         run: cmake . --preset Release
