@@ -38,7 +38,7 @@ jobs:
       - name: Install conan
         run: |
           pip install wheel setuptools
-          pip install conan
+        #  pip install conan
 
       - name: Configure CMake
         run: cmake . --preset Release
