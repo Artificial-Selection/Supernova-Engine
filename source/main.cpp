@@ -6,10 +6,11 @@
 #include <Renderer/OpenGL/GLShader.hpp>
 #include <Entity/GameObject.hpp>
 #include <Components/Transform.hpp>
+#include <Core/Window.hpp>
 
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include <glm/gtx/string_cast.hpp>
+#include <Input/InputSystem.hpp>
 
 #include <chrono>
 #include <memory>
@@ -41,22 +42,19 @@ void GlfwErrorCallback(i32 what_is_this, const char* error)
     LOG_ERROR("GLFW: {}", error);
 }
 
-void TestSecondRequest(i32 value)
-{
-    LOG_INFO("TestSecondRequest");
-}
 
-void ProcessInput(GLFWwindow* window)
-{
-    glfwPollEvents();
+//void ProcessInput(GLFWwindow* window, svn::InputSystemEditor* inputSystemBase)
+//{
+//    glfwPollEvents();
+//
+//    glfwSetKeyCallback(window, svn::InputSystemEditor::MessageTest);
+//    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+//    {
+//        glfwSetWindowShouldClose(window, true);
+//    }
+//}
 
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-    {
-        glfwSetWindowShouldClose(window, true);
-    }
-}
-
-void Render(GLFWwindow* window)
+void Render()
 {
     // GG WP worth it
     auto bufferBitMask = static_cast<snv::GLBufferBit>((ui32) snv::GLBufferBit::Color | (ui32) snv::GLBufferBit::Depth);
@@ -64,7 +62,7 @@ void Render(GLFWwindow* window)
 
     snv::GLBackend::DrawArrays(3);
 
-    glfwSwapBuffers(window);
+    Window::SwapBuffers();
 }
 
 void Update(f32 deltaTime)
@@ -110,36 +108,20 @@ void Update(f32 deltaTime)
 
 int main()
 {
-    //Log::Init( spdlog::level::trace );
     LOG_TRACE("SuperNova-Engine Init");
 
-    glfwSetErrorCallback(GlfwErrorCallback);
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, false);
-#ifdef SNV_ENABLE_DEBUG
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
-#endif
+    Window::Initialize();
+    std::unique_ptr<snv::InputSystem> _inputSystem = std::make_unique<snv::InputSystem>();
+    //snv::InputSystemEditor::Initialize();
 
-    GLFWwindow* window = glfwCreateWindow(k_ScreenWidth, k_ScreenHeight, "SuperNova-Engine", nullptr, nullptr);
-    if (window == nullptr)
-    {
-        LOG_CRITICAL("Failed to create GLFW window");
-        return -1;
-    }
-
-    glfwMakeContextCurrent(window);
-
-    if (gladLoadGLLoader((GLADloadproc) glfwGetProcAddress) == 0)
+    if (gladLoadGLLoader((GLADloadproc) Window::GetProcAddress) == 0)
     {
         LOG_CRITICAL("Failed to initialize GLAD");
         return -1;
     }
 
     snv::GLBackend::Init();
-    snv::GLBackend::SetViewport(0, 0, k_ScreenWidth, k_ScreenHeight);
+    snv::GLBackend::SetViewport(0, 0, Window::DefaultWindowWidth, Window::DefaultWindowHeight);
     snv::GLBackend::SetClearColor(0.1f, 0.1f, 0.80f, 1.0f);
     snv::GLBackend::EnableDepthTest();
     snv::GLBackend::SetDepthFunction(snv::GLDepthFunction::Less);
@@ -181,25 +163,23 @@ int main()
 
     const i32 maxFPS = 60;
     const auto maxPeriod = 1.0 / maxFPS;
-    // NOTE: glfwGetTime() ?
     auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch();
-
-    while (glfwWindowShouldClose(window) == 0)
+    while (!Window::IsShouldBeClosed())
     {
+
         //TODO FPS lock
         auto currentTime = std::chrono::high_resolution_clock::now().time_since_epoch();
         auto elapsed = 1.0 / (currentTime - startTime).count();
-        //LOG_INFO("current lag is {}", elapsed);
+        //LOG_INFO("CORRECT");
         startTime = currentTime;
-
-        ProcessInput(window);
+        //snv::InputSystem::Update(elapsed);
         Update(elapsed);
-        Render(window);
+        Render();
     }
 
     LOG_TRACE("SuperNova-Engine Shutdown");
 
-    glfwTerminate();
+    Window::Terminate();
 
     return 0;
 }

@@ -56,6 +56,8 @@ set(Core_SRC
     ${Core_SRC_DIR}/Core.hpp
     ${Core_SRC_DIR}/Log.hpp
     ${Core_SRC_DIR}/Log.cpp
+    ${Core_SRC_DIR}/Window.cpp
+    ${Core_SRC_DIR}/Window.hpp
 )
 
 # -------------------------- Renderer ---------------------------
@@ -89,6 +91,11 @@ set(Entity_SRC
     ${Entity_SRC_DIR}/GameObject.cpp
 )
 
+set(Input_SRC_DIR ${MAIN_SRC_DIR}/Input)
+set(Input_SRC_DIR
+    ${Input_SRC_DIR}/InputSystem.cpp
+    ${Input_SRC_DIR}/InputSystem.hpp
+    ${Input_SRC_DIR}/InputUtils.hpp)
 
 add_executable(SuperNova
     ${MAIN_SRC_DIR}/main.cpp
@@ -97,6 +104,7 @@ add_executable(SuperNova
     ${Renderer_SRC}
     ${Components_SRC}
     ${Entity_SRC}
+    ${Input_SRC_DIR}
 )
 target_link_libraries(SuperNova PRIVATE
     glad::glad
