@@ -2,6 +2,8 @@
 
 #include <Core/Core.hpp>
 
+#include <glm/ext/matrix_float4x4.hpp>
+
 
 namespace snv
 {
@@ -18,6 +20,8 @@ public:
     GLShader(const char* vertexSource, const char* fragmentSource);
 
     void Bind() const;
+
+    void SetMatrix4(const std::string& name, const glm::mat4& value) const;
 
 private:
     static ui32 CreateShader(const char* shaderSource, GLShaderType shaderType);
