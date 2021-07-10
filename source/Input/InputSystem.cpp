@@ -13,12 +13,12 @@ namespace snv
     InputSystem::InputSystem()
     {
         MemZero(m_mappedKeys, sizeof(m_mappedKeys));
-        for (int32_t i = '0'; i<='9'; i++)
+        for (int32_t i = '0'; i <= '9'; i++)
         {
             m_mappedKeys[i] = static_cast<InputKey>(K_0 + i - '0');
         }
-        
-        for (int32_t i='A'; i<='Z'; i++)
+
+        for (int32_t i = 'A'; i <= 'Z'; i++)
         {
             m_mappedKeys[i] = static_cast<InputKey>(K_A + (i - 'A'));
         }
@@ -31,7 +31,7 @@ namespace snv
         Window::SetKeyPressedCallback(KeyCallback);
     }
 
-    void InputSystem::KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+    void InputSystem::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
     {
         switch (action)
         {
