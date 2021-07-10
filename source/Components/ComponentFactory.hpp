@@ -17,19 +17,19 @@ public:
     template<typename Component, typename... Args>
     Component& AddComponent(const entt::entity entity, Args&&... args)
     {
-        return m_registry.emplace<Component>(entity, std::forward<Args...>( args )...);
+        return m_registry.emplace<Component>(entity, std::forward<Args...>(args)...);
     }
 
     template<class Component>
-    Component& GetComponent( const entt::entity entity)
+    Component& GetComponent(const entt::entity entity)
     {
-        return m_registry.get<Component>( entity );
+        return m_registry.get<Component>(entity);
     }
 
     template<typename... Component, typename... Exclude>
     entt::basic_view<entt::exclude_t<Exclude...>, Component...> GetViewByComponents(entt::exclude_t<Exclude...> = {})
     {
-        return m_registry.view<Component... , Exclude...>();
+        return m_registry.view<Component..., Exclude...>();
     }
 
 private:

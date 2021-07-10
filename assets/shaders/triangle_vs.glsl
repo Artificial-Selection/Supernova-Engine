@@ -5,8 +5,11 @@ layout(location = 1) in vec3 aColor;
 
 out vec3 ourColor;
 
+uniform mat4x4 _ObjectToWorld;
+
+
 void main()
 {
-    gl_Position = vec4(aPos, 1.0f);
+    gl_Position = _ObjectToWorld * vec4(aPos, 1.0f);
     ourColor = aColor;
 }

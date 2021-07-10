@@ -2,6 +2,7 @@
 #include <Renderer/OpenGL/GLShader.hpp>
 
 #include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <memory>
 
@@ -33,6 +34,13 @@ GLShader::GLShader(const char* vertexSource, const char* fragmentSource)
 void GLShader::Bind() const
 {
     glUseProgram(m_shaderProgramID);
+}
+
+
+void GLShader::SetMatrix4(const std::string& name, const glm::mat4& value) const
+{
+    auto location = glGetUniformLocation(m_shaderProgramID, name.c_str());
+    glProgramUniformMatrix4fv(m_shaderProgramID, location, 1, GL_FALSE, glm::value_ptr(value));
 }
 
 

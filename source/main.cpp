@@ -1,6 +1,3 @@
-//
-// Created by Devilast on 08.09.2020.
-//
 #include <Core/Log.hpp>
 #include <Renderer/OpenGL/GLBackend.hpp>
 #include <Renderer/OpenGL/GLShader.hpp>
@@ -9,8 +6,6 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/gtx/string_cast.hpp>
-
 #include <chrono>
 #include <memory>
 #include <string_view>
@@ -173,15 +168,12 @@ int main()
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(f32), (void*) (3 * sizeof(f32)));
     glEnableVertexAttribArray(1);
 
-
     snv::GameObject gameObject;
-    const auto& transform = gameObject.GetComponent<snv::Transform>();
-    LOG_INFO(glm::to_string(transform.GetTransform()));
-
+    auto& transform = gameObject.GetComponent<snv::Transform>();
 
     const i32 maxFPS = 60;
     const auto maxPeriod = 1.0 / maxFPS;
-    // NOTE: glfwGetTime() ?
+
     auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch();
 
     while (glfwWindowShouldClose(window) == 0)
@@ -194,6 +186,16 @@ int main()
 
         ProcessInput(window);
         Update(elapsed);
+
+        auto time = f32(glfwGetTime());
+        auto sinFromTime = std::sin(time);
+        auto cosFromTime = std::cos(time);
+        transform.SetPosition(0.0f, cosFromTime, 0.0f);
+        transform.Translate(sinFromTime, 0.0f, 0.0f);
+        transform.SetScale(sinFromTime + 1.0f);
+        transform.Rotate(0.2f, 1.0f, 0.0f);
+        triangleShader.SetMatrix4("_ObjectToWorld", transform.GetMatrix());
+
         Render(window);
     }
 
