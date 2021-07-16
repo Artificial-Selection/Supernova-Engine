@@ -7,23 +7,29 @@
 namespace snv
 {
 
-static_assert((GLenum)GLBlendFactor::One              == GL_ONE);
-static_assert((GLenum)GLBlendFactor::SrcAlpha         == GL_SRC_ALPHA);
-static_assert((GLenum)GLBlendFactor::OneMinusSrcAlpha == GL_ONE_MINUS_SRC_ALPHA);
+constexpr ui32 g_BlendFactorToGL[] = {
+    GL_ONE,                // BlendFactor::One
+    GL_SRC_ALPHA,          // BlendFactor::SrcAlpha
+    GL_ONE_MINUS_SRC_ALPHA // BlendFactor::OneMinusSrcAlpha
+};
 
-static_assert((GLenum)GLDepthFunction::Never          == GL_NEVER);
-static_assert((GLenum)GLDepthFunction::Less           == GL_LESS);
-static_assert((GLenum)GLDepthFunction::Equal          == GL_EQUAL);
-static_assert((GLenum)GLDepthFunction::LessOrEqual    == GL_LEQUAL);
-static_assert((GLenum)GLDepthFunction::Greater        == GL_GREATER);
-static_assert((GLenum)GLDepthFunction::NotEqual       == GL_NOTEQUAL);
-static_assert((GLenum)GLDepthFunction::GreaterOrEqual == GL_GEQUAL);
-static_assert((GLenum)GLDepthFunction::Always         == GL_ALWAYS);
+constexpr ui32 g_DepthFunctionToGL[] = {
+    GL_NEVER,    // DepthFunction::Never
+    GL_LESS,     // DepthFunction::Less
+    GL_EQUAL,    // DepthFunction::Equal
+    GL_LEQUAL,   // DepthFunction::LessOrEqual
+    GL_GREATER,  // DepthFunction::Greater
+    GL_NOTEQUAL, // DepthFunction::NotEqual
+    GL_GEQUAL,   // DepthFunction::GreaterOrEqual
+    GL_ALWAYS    // DepthFunction::Always
+};
 
-static_assert((GLenum)GLBufferBit::Color   == GL_COLOR_BUFFER_BIT);
-static_assert((GLenum)GLBufferBit::Depth   == GL_DEPTH_BUFFER_BIT);
-//static_assert((GLenum)GLBufferBit::Accum == GL_ACCUM_BUFFER_BIT); // WTF IT'S UNDEFINED?
-static_assert((GLenum)GLBufferBit::Stencil == GL_STENCIL_BUFFER_BIT);
+constexpr ui32 g_BufferBitToGL[] = {
+    GL_COLOR_BUFFER_BIT,  // BufferBit::Color
+    GL_DEPTH_BUFFER_BIT,  // BufferBit::Depth
+    // GL_ACCUM_BUFFER_BIT,  // BufferBit::Accum
+    GL_STENCIL_BUFFER_BIT // BufferBit::Stencil
+};
 
 
 #ifdef SNV_ENABLE_DEBUG
@@ -31,6 +37,14 @@ void APIENTRY openGLMessageCallback(
     GLenum source, GLenum type, ui32 id, GLenum severity, GLsizei length, const char* message, const void* userParam
 )
 {
+    // Ignore OpenGL debug message (131185)
+    //  "Buffer detailed info : Buffer object 786 (bound to GL_ELEMENT_ARRAY_BUFFER_ARB, usage hint is GL_STATIC_DRAW)
+    //   will use VIDEO memory as the source for buffer object operations."
+    if (id == 131185)
+    {
+        return;
+    }
+
     const char* messageSource;
     switch(source)
     {
@@ -116,26 +130,28 @@ void GLBackend::EnableBlend()
     glEnable(GL_BLEND);
 }
 
-
 void GLBackend::EnableDepthTest()
 {
     glEnable(GL_DEPTH_TEST);
 }
 
 
-void GLBackend::SetBlendFunction(GLBlendFactor source, GLBlendFactor destination)
+void GLBackend::SetBlendFunction(BlendFactor source, BlendFactor destination)
 {
-    glBlendFunc(static_cast<ui32>(source), static_cast<ui32>(destination));
+    const auto sourceFactor      = g_BlendFactorToGL[static_cast<ui32>(source)];
+    const auto destinationFactor = g_BlendFactorToGL[static_cast<ui32>(destination)];
+    glBlendFunc(sourceFactor, destinationFactor);
 }
 
-void GLBackend::SetClearColor( f32 r, f32 g, f32 b, f32 a )
+void GLBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
 {
     glClearColor( r, g, b, a );
 }
 
-void GLBackend::SetDepthFunction(GLDepthFunction depthFunction)
+void GLBackend::SetDepthFunction(DepthFunction depthFunction)
 {
-    glDepthFunc(static_cast<GLenum>(depthFunction));
+    const auto function = g_DepthFunctionToGL[static_cast<ui32>(depthFunction)];
+    glDepthFunc(function);
 }
 
 void GLBackend::SetViewport(i32 x, i32 y, i32 width, i32 height)
@@ -145,15 +161,56 @@ void GLBackend::SetViewport(i32 x, i32 y, i32 width, i32 height)
 }
 
 
-void GLBackend::Clear(GLBufferBit bufferBitMask)
+void GLBackend::Clear(BufferBit bufferBitMask)
 {
-    glClear(static_cast<GLbitfield>(bufferBitMask));
+    // TODO: Somehow make this better ???
+    ui32 mask = 0;
+    if (bufferBitMask & BufferBit::Color)
+    {
+        mask |= g_BufferBitToGL[0];
+    }
+    if (bufferBitMask & BufferBit::Depth)
+    {
+        mask |= g_BufferBitToGL[1];
+    }
+    if (bufferBitMask & BufferBit::Stencil)
+    {
+        mask |= g_BufferBitToGL[2];
+    }
+    glClear(mask);
 }
 
+
+void GLBackend::DrawGraphicsBuffer(GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount)
+{
+    const auto& graphicsBuffer = m_graphicsBuffers[handle];
+    graphicsBuffer.Bind();
+    glDrawElements(GL_TRIANGLES, indexCount , GL_UNSIGNED_INT, 0);
+}
 
 void GLBackend::DrawArrays(i32 count)
 {
     glDrawArrays(GL_TRIANGLES, 0, count);
+}
+
+void GLBackend::DrawElements(i32 count)
+{
+    LOG_ERROR("GLBackend::DrawElements() is not implemented");
+    //glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, )
+}
+
+
+GraphicsBufferHandle GLBackend::CreateGraphicsBuffer(
+    std::span<const std::byte> indexData,
+    std::span<const std::byte> vertexData,
+    const std::vector<VertexAttributeDescriptor>& vertexLayout
+)
+{
+    GLGraphicsBuffer glGraphicsBuffer(indexData, vertexData, vertexLayout);
+    const auto handle = glGraphicsBuffer.GetHandle();
+    m_graphicsBuffers.emplace(handle, std::move(glGraphicsBuffer));
+
+    return handle;
 }
 
 } // namespace snv

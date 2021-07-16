@@ -12,7 +12,8 @@ class SuperNovaEngine(ConanFile):
         'glfw/3.3.4',
         'glm/0.9.9.8',
         'entt/3.7.1',
-        'spdlog/1.8.5'
+        'spdlog/1.8.5',
+        'assimp/5.0.1'
     ]
 
     default_options = (
