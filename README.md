@@ -25,3 +25,9 @@
    - Жмем Ctrl+Shift+A/⇧⌘A (Find Action), пишем `Load Cmake Presets`, выбираем Debug, повторяем для Release
    - Ждем пока CLion сконфигурит билд конфигурации и conan поставит пакеты
    - Advanced манипуляции на этом должны закончится
+
+## Run
+
+Нужно взять модель [Sponza](https://github.com/jimmiebergmann/Sponza) и положить ее в папку `assets/models/Sponza`
+
+Assimp в Debug билде очень медленно грузит модели

@@ -1,11 +1,14 @@
 #include <Core/Log.hpp>
-#include <Renderer/OpenGL/GLBackend.hpp>
+#include <Renderer/Renderer.hpp>
 #include <Renderer/OpenGL/GLShader.hpp>
 #include <Entity/GameObject.hpp>
 #include <Components/Transform.hpp>
+#include <Assets/Model.hpp>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <chrono>
 #include <memory>
 #include <string_view>
@@ -13,10 +16,12 @@
 #include <filesystem>
 
 
-constexpr ui32 k_ScreenWidth = 800;
-constexpr ui32 k_ScreenHeight = 600;
+constexpr ui32 k_ScreenWidth = 1100;
+constexpr ui32 k_ScreenHeight = 800;
 
-const char* k_VertexSourcePath = "../../assets/shaders/triangle_vs.glsl";
+const char* k_SponzaObjPath   = "../../assets/models/Sponza/sponza.obj";
+
+const char* k_VertexSourcePath   = "../../assets/shaders/triangle_vs.glsl";
 const char* k_FragmentSourcePath = "../../assets/shaders/triangle_fs.glsl";
 
 
@@ -41,7 +46,7 @@ void TestSecondRequest(i32 value)
     LOG_INFO("TestSecondRequest");
 }
 
-void ProcessInput(GLFWwindow* window)
+void ProcessInput(GLFWwindow* window, glm::mat4& transform, snv::Transform& model)
 {
     glfwPollEvents();
 
@@ -49,15 +54,54 @@ void ProcessInput(GLFWwindow* window)
     {
         glfwSetWindowShouldClose(window, true);
     }
+
+    constexpr f32 step = 0.05f;
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    {
+        transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, step));
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    {
+        transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, -step));
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    {
+        transform = glm::translate(transform, glm::vec3(step, 0.0f, 0.0f));
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    {
+        transform = glm::translate(transform, glm::vec3(-step, 0.0f, 0.0f));
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+    {
+        transform = glm::translate(transform, glm::vec3(0.0f, step, 0.0f));
+    }
+    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
+    {
+        transform = glm::translate(transform, glm::vec3(0.0f, -step, 0.0f));
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    {
+        model.Rotate(0.0f, -1.0f, 0.0f);
+    }
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    {
+        model.Rotate(0.0f, 1.0f, 0.0f);
+    }
 }
 
-void Render(GLFWwindow* window)
+void Render(GLFWwindow* window, const snv::Model& model)
 {
-    // GG WP worth it
-    auto bufferBitMask = static_cast<snv::GLBufferBit>((ui32) snv::GLBufferBit::Color | (ui32) snv::GLBufferBit::Depth);
-    snv::GLBackend::Clear(bufferBitMask);
+    // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
+    snv::Renderer::Clear(static_cast<snv::BufferBit>(snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil));
 
-    snv::GLBackend::DrawArrays(3);
+    for (const auto& mesh : model.GetMeshes())
+    {
+        snv::Renderer::DrawGraphicsBuffer(mesh.GetHandle(), mesh.GetIndexCount(), mesh.GetVertexCount());
+    }
 
     glfwSwapBuffers(window);
 }
@@ -133,43 +177,25 @@ int main()
         return -1;
     }
 
-    snv::GLBackend::Init();
-    snv::GLBackend::SetViewport(0, 0, k_ScreenWidth, k_ScreenHeight);
-    snv::GLBackend::SetClearColor(0.1f, 0.1f, 0.80f, 1.0f);
-    snv::GLBackend::EnableDepthTest();
-    snv::GLBackend::SetDepthFunction(snv::GLDepthFunction::Less);
+    snv::Renderer::Init();
+    snv::Renderer::SetViewport(0, 0, k_ScreenWidth, k_ScreenHeight);
+    snv::Renderer::SetClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+    snv::Renderer::EnableDepthTest();
+    snv::Renderer::SetDepthFunction(snv::DepthFunction::Less);
 
     const auto vertexSource = LoadShaderFromFile(k_VertexSourcePath);
     const auto fragmentSource = LoadShaderFromFile(k_FragmentSourcePath);
     snv::GLShader triangleShader(vertexSource.get(), fragmentSource.get());
     triangleShader.Bind();
 
-
-    // Triangle buffer
-    f32 vertices[] =
-    {
-        // positions        // colors
-         0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
-         0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f
-    };
-    ui32 VBO, VAO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    // position
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(f32), (void*) 0);
-    glEnableVertexAttribArray(0);
-    // color
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(f32), (void*) (3 * sizeof(f32)));
-    glEnableVertexAttribArray(1);
+    const auto model = snv::Model::LoadAsset(k_SponzaObjPath);
 
     snv::GameObject gameObject;
     auto& transform = gameObject.GetComponent<snv::Transform>();
+    transform.SetScale(0.005f);
+
+    auto view = glm::identity<glm::mat4>();
+    auto projection = glm::perspective(glm::radians(90.0f), f32(k_ScreenWidth) / k_ScreenHeight, 0.1f, 100.0f);
 
     const i32 maxFPS = 60;
     const auto maxPeriod = 1.0 / maxFPS;
@@ -184,23 +210,19 @@ int main()
         //LOG_INFO("current lag is {}", elapsed);
         startTime = currentTime;
 
-        ProcessInput(window);
+        ProcessInput(window, view, transform);
         Update(elapsed);
 
-        auto time = f32(glfwGetTime());
-        auto sinFromTime = std::sin(time);
-        auto cosFromTime = std::cos(time);
-        transform.SetPosition(0.0f, cosFromTime, 0.0f);
-        transform.Translate(sinFromTime, 0.0f, 0.0f);
-        transform.SetScale(sinFromTime + 1.0f);
-        transform.Rotate(0.2f, 1.0f, 0.0f);
         triangleShader.SetMatrix4("_ObjectToWorld", transform.GetMatrix());
+        triangleShader.SetMatrix4("_MatrixP", projection);
+        triangleShader.SetMatrix4("_MatrixV", view);
 
-        Render(window);
+        Render(window, model);
     }
 
     LOG_TRACE("SuperNova-Engine Shutdown");
 
+    snv::Renderer::Shutdown();
     glfwTerminate();
 
     return 0;

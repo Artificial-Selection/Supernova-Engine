@@ -5,6 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <memory>
+#include <utility>
 
 
 namespace snv
@@ -28,6 +29,17 @@ GLShader::GLShader(const char* vertexSource, const char* fragmentSource)
 
     glDeleteShader(vertexShaderID);
     glDeleteShader(fragmentShaderID);
+}
+
+GLShader::GLShader(GLShader&& other) noexcept
+    : m_shaderProgramID(std::exchange(other.m_shaderProgramID, -1))
+{}
+
+GLShader& GLShader::operator=(GLShader&& other) noexcept
+{
+    m_shaderProgramID = std::exchange(other.m_shaderProgramID, -1);
+
+    return *this;
 }
 
 

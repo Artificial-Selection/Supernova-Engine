@@ -19,6 +19,12 @@ class GLShader
 public:
     GLShader(const char* vertexSource, const char* fragmentSource);
 
+    GLShader(GLShader&& other) noexcept;
+    GLShader& operator=(GLShader&& other) noexcept;
+
+    GLShader(const GLShader& other) = delete;
+    GLShader& operator=(const GLShader& other) = delete;
+
     void Bind() const;
 
     void SetMatrix4(const std::string& name, const glm::mat4& value) const;

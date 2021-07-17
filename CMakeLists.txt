@@ -46,9 +46,19 @@ find_package(glfw3  REQUIRED)
 find_package(glm    REQUIRED)
 find_package(EnTT   REQUIRED)
 find_package(spdlog REQUIRED)
+find_package(assimp REQUIRED)
 
 
 set(MAIN_SRC_DIR ${PROJECT_SOURCE_DIR}/source)
+
+# --------------------------- Assets ----------------------------
+set(Assets_SRC_DIR ${MAIN_SRC_DIR}/Assets)
+set(Assets_SRC
+    ${Assets_SRC_DIR}/Mesh.hpp
+    ${Assets_SRC_DIR}/Mesh.cpp
+    ${Assets_SRC_DIR}/Model.hpp
+    ${Assets_SRC_DIR}/Model.cpp
+)
 
 # ---------------------------- Core -----------------------------
 set(Core_SRC_DIR ${MAIN_SRC_DIR}/Core)
@@ -67,10 +77,16 @@ set(OpenGL_SRC
     ${OpenGL_SRC_DIR}/GLBackend.cpp
     ${OpenGL_SRC_DIR}/GLShader.hpp
     ${OpenGL_SRC_DIR}/GLShader.cpp
+    ${OpenGL_SRC_DIR}/GLGraphicsBuffer.hpp
+    ${OpenGL_SRC_DIR}/GLGraphicsBuffer.cpp
 )
 
 set(Renderer_SRC
     ${OpenGL_SRC}
+    ${Renderer_SRC_DIR}/RenderTypes.hpp
+    ${Renderer_SRC_DIR}/IRendererBackend.hpp
+    ${Renderer_SRC_DIR}/Renderer.hpp
+    ${Renderer_SRC_DIR}/Renderer.cpp
 )
 
 # -------------------------- Components ---------------------------
@@ -97,6 +113,7 @@ add_executable(SuperNova
     ${Renderer_SRC}
     ${Components_SRC}
     ${Entity_SRC}
+    ${Assets_SRC}
 )
 target_link_libraries(SuperNova PRIVATE
     glad::glad
@@ -104,6 +121,7 @@ target_link_libraries(SuperNova PRIVATE
     glm::glm
     EnTT::EnTT
     spdlog::spdlog
+    assimp::assimp
 )
 target_include_directories(SuperNova PRIVATE
     ${MAIN_SRC_DIR}

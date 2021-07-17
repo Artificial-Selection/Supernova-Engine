@@ -1,54 +1,46 @@
 #pragma once
 
 #include <Core/Core.hpp>
+#include <Renderer/IRendererBackend.hpp>
+#include <Renderer/OpenGL/GLGraphicsBuffer.hpp>
+
+#include <unordered_map>
 
 
 namespace snv
 {
 
-enum class GLBlendFactor
-{
-    One              = 1,
-    SrcAlpha         = 0x0302,
-    OneMinusSrcAlpha = 0x0303
-};
+struct VertexAttributeDescriptor;
 
-enum class GLDepthFunction
-{
-    Never          = 0x0200,
-    Less           = 0x0201,
-    Equal          = 0x0202,
-    LessOrEqual    = 0x0203,
-    Greater        = 0x0204,
-    NotEqual       = 0x0205,
-    GreaterOrEqual = 0x0206,
-    Always         = 0x0207
-};
 
-enum class GLBufferBit : ui32
-{
-    Color   = 1 << 14,
-    Depth   = 1 << 8,
-    //Accum   = 0x00000200,
-    Stencil = 1 << 10
-};
-
-class GLBackend
+class GLBackend final : public IRendererBackend
 {
 public:
-    static void Init();
+    GLBackend();
+    ~GLBackend() override = default;
 
-    static void EnableBlend();
-    static void EnableDepthTest();
+    void EnableBlend() override;
+    void EnableDepthTest() override;
 
-    static void SetBlendFunction(GLBlendFactor source, GLBlendFactor destination);
-    static void SetClearColor(f32 r, f32 g, f32 b, f32 a);
-    static void SetDepthFunction(GLDepthFunction depthFunction);
-    static void SetViewport(i32 x, i32 y, i32 width, i32 height);
+    void SetBlendFunction(BlendFactor source, BlendFactor destination) override;
+    void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
+    void SetDepthFunction(DepthFunction depthFunction) override;
+    void SetViewport(i32 x, i32 y, i32 width, i32 height) override;
 
-    static void Clear(GLBufferBit bufferBitMask);
+    void Clear(BufferBit bufferBitMask) override;
 
-    static void DrawArrays(i32 count);
+    void DrawGraphicsBuffer(GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount) override;
+    void DrawArrays(i32 count) override;
+    void DrawElements(i32 count) override;
+
+    GraphicsBufferHandle CreateGraphicsBuffer(
+        std::span<const std::byte> indexData,
+        std::span<const std::byte> vertexData,
+        const std::vector<VertexAttributeDescriptor>& vertexLayout
+    ) override;
+
+private:
+    std::unordered_map<GraphicsBufferHandle, GLGraphicsBuffer> m_graphicsBuffers;
 };
 
 } // namespace snv
