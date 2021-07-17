@@ -9,6 +9,7 @@
 #include <Assets/Model.hpp>
 
 #include <Input/Keyboard.hpp>
+#include <Input/Mouse.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -81,11 +82,13 @@ void ProcessInput(const snv::Window& window, glm::mat4& transform, snv::Transfor
         transform = glm::translate(transform, glm::vec3(0.0f, -step, 0.0f));
     }
 
-    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Q))
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Q)
+        || snv::Input::Mouse::IsButtonPressed(snv::Input::MouseButton::Left))
     {
         model.Rotate(0.0f, -1.0f, 0.0f);
     }
-    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::E))
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::E)
+        || snv::Input::Mouse::IsButtonPressed(snv::Input::MouseButton::Right))
     {
         model.Rotate(0.0f, 1.0f, 0.0f);
     }
@@ -117,6 +120,7 @@ int main()
 
     snv::Window window(k_WindowWidth, k_WindowHeight, "SuperNova-Engine");
     window.SetKeyCallback(snv::Input::Keyboard::KeyCallback);
+    window.SetMouseButtonCallback(snv::Input::Mouse::ButtonCallback);
 
     snv::Renderer::Init();
     snv::Renderer::SetViewport(0, 0, k_WindowWidth, k_WindowHeight);

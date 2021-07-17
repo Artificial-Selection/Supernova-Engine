@@ -73,9 +73,12 @@ set(Core_SRC
 # ---------------------------- Input ----------------------------
 set(Input_SRC_DIR ${MAIN_SRC_DIR}/Input)
 set(Input_SRC
+    ${Input_SRC_DIR}/Input.hpp
     ${Input_SRC_DIR}/KeyboardKey.hpp
     ${Input_SRC_DIR}/Keyboard.hpp
     ${Input_SRC_DIR}/Keyboard.cpp
+    ${Input_SRC_DIR}/Mouse.hpp
+    ${Input_SRC_DIR}/Mouse.cpp
 )
 
 # -------------------------- Renderer ---------------------------

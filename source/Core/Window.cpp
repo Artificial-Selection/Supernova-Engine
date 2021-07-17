@@ -50,10 +50,12 @@ Window::Window(i32 width, i32 height, const char* title)
 
     glfwSetWindowUserPointer(m_window, this);
 
+    // NOTE(v.matushkin): Do I need to set callbacks here or only when Set*Callback methods are called?
     // When a window loses input focus, it will generate synthetic key release events for all pressed keys.
     //  You can tell these events from user-generated events by the fact that the synthetic ones are generated
     //  after the focus loss event has been processed, i.e. after the window focus callback has been called.
     glfwSetKeyCallback(m_window, Window::GLFWKeyCallback);
+    glfwSetMouseButtonCallback(m_window, Window::GLFWMouseButtonCallback);
 }
 
 Window::~Window()
@@ -71,6 +73,11 @@ bool Window::IsShouldBeClosed() const
 void Window::SetKeyCallback(KeyCallback keyCallback)
 {
     m_keyCallback = keyCallback;
+}
+
+void Window::SetMouseButtonCallback(MouseButtonCallback mouseButtonCallback)
+{
+    m_mouseButtonCallback = mouseButtonCallback;
 }
 
 
@@ -93,6 +100,7 @@ void Window::SwapBuffers() const
 
 void Window::GLFWKeyCallback(GLFWwindow* glfwWindow, i32 key, i32 scancode, i32 action, i32 mods)
 {
+    // TODO(v.matushkin): Handle GLFW_KEY_UNKNOWN
     const char* actionString;
     if (action == GLFW_REPEAT)
         actionString = "REPEAT";
@@ -100,12 +108,28 @@ void Window::GLFWKeyCallback(GLFWwindow* glfwWindow, i32 key, i32 scancode, i32 
         actionString = "PRESS";
     else
         actionString = "RELEASE";
-    LOG_INFO("[Window::KeyCallback] Key: {} | Action: {}", key, actionString);
+    LOG_INFO("[Window::GLFWKeyCallback] Key: {} | Action: {}", key, actionString);
 
 
-    auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
+    const auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
     // TODO(v.matushkin): Assert that callback is set
     window->m_keyCallback(key, scancode, action, mods);
+}
+
+void Window::GLFWMouseButtonCallback(GLFWwindow* glfwWindow, i32 button, i32 action, i32 mods)
+{
+    const char* actionString;
+    if (action == GLFW_REPEAT)
+        actionString = "REPEAT";
+    else if (action == GLFW_PRESS)
+        actionString = "PRESS";
+    else
+        actionString = "RELEASE";
+    LOG_INFO("[Window::GLFWMouseButtonCallback] Button: {} | Action: {}", button, actionString);
+
+    const auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
+    // TODO(v.matushkin): Assert that callback is set
+    window->m_mouseButtonCallback(button, action, mods);
 }
 
 } // namespace snv

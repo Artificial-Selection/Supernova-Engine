@@ -14,7 +14,8 @@ namespace snv
 class Window
 {
 public:
-    using KeyCallback = std::function<void(i32 key, i32 scancode, i32 action, i32 mods)>;
+    using KeyCallback         = std::function<void(i32 key, i32 scancode, i32 action, i32 mods)>;
+    using MouseButtonCallback = std::function<void(i32 button, i32 action, i32 mods)>;
 
 public:
     Window(i32 width, i32 height, const char* title);
@@ -23,6 +24,7 @@ public:
     [[nodiscard]] bool IsShouldBeClosed() const;
 
     void SetKeyCallback(KeyCallback keyCallback);
+    void SetMouseButtonCallback(MouseButtonCallback mouseButtonCallback);
 
     void Close() const;
     void PollEvents() const;
@@ -30,11 +32,13 @@ public:
 
 private:
     static void GLFWKeyCallback(GLFWwindow* glfwWindow, i32 key, i32 scancode, i32 action, i32 mods);
+    static void GLFWMouseButtonCallback(GLFWwindow* glfwWindow, i32 button, i32 action, i32 mods);
 
 private:
-    GLFWwindow* m_window;
+    GLFWwindow*         m_window;
 
-    KeyCallback m_keyCallback;
+    KeyCallback         m_keyCallback;
+    MouseButtonCallback m_mouseButtonCallback;
 };
 
 } // namespace snv

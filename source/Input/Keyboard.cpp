@@ -4,10 +4,10 @@
 namespace snv::Input
 {
 
-KeyAction Keyboard::m_keys[349];
+InputAction Keyboard::m_keys[349];
 
 
-KeyAction Keyboard::GetKey(KeyboardKey key)
+InputAction Keyboard::GetKey(KeyboardKey key)
 {
     return m_keys[static_cast<i32>(key)];
 }
@@ -16,18 +16,18 @@ KeyAction Keyboard::GetKey(KeyboardKey key)
 //   But probably should not be like that
 bool Keyboard::IsKeyPressed(KeyboardKey key)
 {
-    return GetKey(key) != KeyAction::Release;
+    return GetKey(key) != InputAction::Release;
 }
 
 bool Keyboard::IsKeyReleased(KeyboardKey key)
 {
-    return GetKey(key) == KeyAction::Release;
+    return GetKey(key) == InputAction::Release;
 }
 
 
 void Keyboard::KeyCallback(i32 key, i32 scancode, i32 action, i32 mods)
 {
-    m_keys[key] = static_cast<KeyAction>(action);
+    m_keys[key] = static_cast<InputAction>(action);
 }
 
 } // namespace snv::Input
