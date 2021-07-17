@@ -66,6 +66,8 @@ set(Core_SRC
     ${Core_SRC_DIR}/Core.hpp
     ${Core_SRC_DIR}/Log.hpp
     ${Core_SRC_DIR}/Log.cpp
+    ${Core_SRC_DIR}/Window.hpp
+    ${Core_SRC_DIR}/Window.cpp
 )
 
 # -------------------------- Renderer ---------------------------
