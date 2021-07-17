@@ -1,10 +1,14 @@
 #include <Core/Log.hpp>
 #include <Core/Window.hpp>
+
 #include <Renderer/Renderer.hpp>
 #include <Renderer/OpenGL/GLShader.hpp>
+
 #include <Entity/GameObject.hpp>
 #include <Components/Transform.hpp>
 #include <Assets/Model.hpp>
+
+#include <Input/Keyboard.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -15,7 +19,7 @@
 #include <filesystem>
 
 
-constexpr ui32 k_WindowWidth = 1100;
+constexpr ui32 k_WindowWidth  = 1100;
 constexpr ui32 k_WindowHeight = 800;
 
 const char* k_SponzaObjPath   = "../../assets/models/Sponza/sponza.obj";
@@ -44,44 +48,44 @@ void ProcessInput(const snv::Window& window, glm::mat4& transform, snv::Transfor
 {
     window.PollEvents();
 
-    if (window.GetKey(snv::KeyCode::Escape) == snv::KeyStatus::Press)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Escape))
     {
         window.Close();
     }
 
     constexpr f32 step = 0.05f;
 
-    if (window.GetKey(snv::KeyCode::W) == snv::KeyStatus::Press)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::W))
     {
         transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, step));
     }
-    if (window.GetKey(snv::KeyCode::S) == snv::KeyStatus::Press)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::S))
     {
         transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, -step));
     }
-    if (window.GetKey(snv::KeyCode::A) == snv::KeyStatus::Press)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::A))
     {
         transform = glm::translate(transform, glm::vec3(step, 0.0f, 0.0f));
     }
-    if (window.GetKey(snv::KeyCode::D) == snv::KeyStatus::Press)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::D))
     {
         transform = glm::translate(transform, glm::vec3(-step, 0.0f, 0.0f));
     }
 
-    if (window.GetKey(snv::KeyCode::Z) == snv::KeyStatus::Press)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Z))
     {
         transform = glm::translate(transform, glm::vec3(0.0f, step, 0.0f));
     }
-    if (window.GetKey(snv::KeyCode::X) == snv::KeyStatus::Press)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::X))
     {
         transform = glm::translate(transform, glm::vec3(0.0f, -step, 0.0f));
     }
 
-    if (window.GetKey(snv::KeyCode::Q) == snv::KeyStatus::Press)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Q))
     {
         model.Rotate(0.0f, -1.0f, 0.0f);
     }
-    if (window.GetKey(snv::KeyCode::E) == snv::KeyStatus::Press)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::E))
     {
         model.Rotate(0.0f, 1.0f, 0.0f);
     }
@@ -112,6 +116,7 @@ int main()
     LOG_TRACE("SuperNova-Engine Init");
 
     snv::Window window(k_WindowWidth, k_WindowHeight, "SuperNova-Engine");
+    window.SetKeyCallback(snv::Input::Keyboard::KeyCallback);
 
     snv::Renderer::Init();
     snv::Renderer::SetViewport(0, 0, k_WindowWidth, k_WindowHeight);

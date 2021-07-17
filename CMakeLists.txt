@@ -70,6 +70,14 @@ set(Core_SRC
     ${Core_SRC_DIR}/Window.cpp
 )
 
+# ---------------------------- Input ----------------------------
+set(Input_SRC_DIR ${MAIN_SRC_DIR}/Input)
+set(Input_SRC
+    ${Input_SRC_DIR}/KeyboardKey.hpp
+    ${Input_SRC_DIR}/Keyboard.hpp
+    ${Input_SRC_DIR}/Keyboard.cpp
+)
+
 # -------------------------- Renderer ---------------------------
 set(Renderer_SRC_DIR ${MAIN_SRC_DIR}/Renderer)
 
@@ -116,6 +124,7 @@ add_executable(SuperNova
     ${Components_SRC}
     ${Entity_SRC}
     ${Assets_SRC}
+    ${Input_SRC}
 )
 target_link_libraries(SuperNova PRIVATE
     glad::glad

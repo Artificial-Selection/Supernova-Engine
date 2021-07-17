@@ -19,20 +19,6 @@ void GlfwErrorCallback(i32 what_is_this, const char* error)
 namespace snv
 {
 
-static_assert(static_cast<i32>(KeyStatus::Release) == GLFW_RELEASE);
-static_assert(static_cast<i32>(KeyStatus::Press)   == GLFW_PRESS);
-
-static_assert(static_cast<i32>(KeyCode::A)      == GLFW_KEY_A);
-static_assert(static_cast<i32>(KeyCode::D)      == GLFW_KEY_D);
-static_assert(static_cast<i32>(KeyCode::E)      == GLFW_KEY_E);
-static_assert(static_cast<i32>(KeyCode::Q)      == GLFW_KEY_Q);
-static_assert(static_cast<i32>(KeyCode::S)      == GLFW_KEY_S);
-static_assert(static_cast<i32>(KeyCode::W)      == GLFW_KEY_W);
-static_assert(static_cast<i32>(KeyCode::X)      == GLFW_KEY_X);
-static_assert(static_cast<i32>(KeyCode::Z)      == GLFW_KEY_Z);
-static_assert(static_cast<i32>(KeyCode::Escape) == GLFW_KEY_ESCAPE);
-
-
 Window::Window(i32 width, i32 height, const char* title)
 {
     glfwSetErrorCallback(GlfwErrorCallback);
@@ -61,6 +47,13 @@ Window::Window(i32 width, i32 height, const char* title)
         // TODO: Assert
         //return -1;
     }
+
+    glfwSetWindowUserPointer(m_window, this);
+
+    // When a window loses input focus, it will generate synthetic key release events for all pressed keys.
+    //  You can tell these events from user-generated events by the fact that the synthetic ones are generated
+    //  after the focus loss event has been processed, i.e. after the window focus callback has been called.
+    glfwSetKeyCallback(m_window, Window::GLFWKeyCallback);
 }
 
 Window::~Window()
@@ -69,20 +62,21 @@ Window::~Window()
 }
 
 
-KeyStatus Window::GetKey(KeyCode key) const
-{
-    return static_cast<KeyStatus>(glfwGetKey(m_window, static_cast<i32>(key)));
-}
-
 bool Window::IsShouldBeClosed() const
 {
     return glfwWindowShouldClose(m_window) != 0;
 }
 
 
+void Window::SetKeyCallback(KeyCallback keyCallback)
+{
+    m_keyCallback = keyCallback;
+}
+
+
 void Window::Close() const
 {
-    // NOTE(v.matushkin): Check IsOpen?
+    // NOTE(v.matushkin): Check IsOpen() ?
     glfwSetWindowShouldClose(m_window, GLFW_TRUE);
 }
 
@@ -94,6 +88,24 @@ void Window::PollEvents() const
 void Window::SwapBuffers() const
 {
     glfwSwapBuffers(m_window);
+}
+
+
+void Window::GLFWKeyCallback(GLFWwindow* glfwWindow, i32 key, i32 scancode, i32 action, i32 mods)
+{
+    const char* actionString;
+    if (action == GLFW_REPEAT)
+        actionString = "REPEAT";
+    else if (action == GLFW_PRESS)
+        actionString = "PRESS";
+    else
+        actionString = "RELEASE";
+    LOG_INFO("[Window::KeyCallback] Key: {} | Action: {}", key, actionString);
+
+
+    auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
+    // TODO(v.matushkin): Assert that callback is set
+    window->m_keyCallback(key, scancode, action, mods);
 }
 
 } // namespace snv
