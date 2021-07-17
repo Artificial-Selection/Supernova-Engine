@@ -29,9 +29,9 @@ public:
     GLGraphicsBuffer(const GLGraphicsBuffer& other) = delete;
     GLGraphicsBuffer& operator=(const GLGraphicsBuffer& other) = delete;
 
-    [[nodiscard]] GraphicsBufferHandle GetHandle() const { return static_cast<GraphicsBufferHandle>(m_vao); }
-
     void Bind() const;
+
+    [[nodiscard]] GraphicsBufferHandle GetHandle() const { return static_cast<GraphicsBufferHandle>(m_vao); }
 
 private:
     ui32 m_vao;

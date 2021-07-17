@@ -12,7 +12,6 @@ IRendererBackend* Renderer::s_RendererBackend;
 void Renderer::Init()
 {
     s_RendererBackend = new GLBackend();
-    s_RendererBackend->Init();
 }
 
 void Renderer::Shutdown()

@@ -99,18 +99,17 @@ void APIENTRY openGLMessageCallback(
 #endif // SNV_ENABLE_DEBUG
 
 
-void GLBackend::Init()
+GLBackend::GLBackend()
 {
     LOG_INFO(
         "OpengGL Info\n"
         "\tVendor: {0}\n"
         "\tRenderer: {1}\n"
         "\tVersion: {2}",
-        glGetString( GL_VENDOR ), glGetString( GL_RENDERER ), glGetString( GL_VERSION )
+        glGetString(GL_VENDOR), glGetString(GL_RENDERER), glGetString(GL_VERSION)
     );
 
 #ifdef SNV_ENABLE_DEBUG
-
     i32 flags;
     glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
     if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
@@ -120,7 +119,6 @@ void GLBackend::Init()
         glDebugMessageCallback(openGLMessageCallback, nullptr);
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
     }
-
 #endif // SNV_ENABLE_DEBUG
 }
 
@@ -145,7 +143,7 @@ void GLBackend::SetBlendFunction(BlendFactor source, BlendFactor destination)
 
 void GLBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
 {
-    glClearColor( r, g, b, a );
+    glClearColor(r, g, b, a);
 }
 
 void GLBackend::SetDepthFunction(DepthFunction depthFunction)

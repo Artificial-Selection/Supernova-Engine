@@ -13,7 +13,7 @@ namespace snv
 class IRendererBackend
 {
 public:
-    virtual void Init() = 0;
+    virtual ~IRendererBackend() {}
 
     virtual void EnableBlend() = 0;
     virtual void EnableDepthTest() = 0;

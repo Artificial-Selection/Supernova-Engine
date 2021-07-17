@@ -13,10 +13,11 @@ namespace snv
 struct VertexAttributeDescriptor;
 
 
-class GLBackend : public IRendererBackend
+class GLBackend final : public IRendererBackend
 {
 public:
-    void Init() override;
+    GLBackend();
+    ~GLBackend() override = default;
 
     void EnableBlend() override;
     void EnableDepthTest() override;
