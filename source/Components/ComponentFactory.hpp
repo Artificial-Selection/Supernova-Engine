@@ -6,6 +6,9 @@
 #include <Core/Utils/Singleton.hpp>
 #include <entt/entt.hpp>
 
+#include <utility>
+
+
 namespace snv
 {
 
@@ -17,7 +20,7 @@ public:
     template<typename Component, typename... Args>
     Component& AddComponent(const entt::entity entity, Args&&... args)
     {
-        return m_registry.emplace<Component>(entity, std::forward<Args...>(args)...);
+        return m_registry.emplace<Component>(entity, std::forward<Args>(args)...);
     }
 
     template<class Component>

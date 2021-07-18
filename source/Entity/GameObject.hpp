@@ -11,10 +11,10 @@ class GameObject
 public:
     GameObject();
 
-    template<class Component>
-    Component& AddComponent()
+    template<class Component, typename... Args>
+    Component& AddComponent(Args&&... args)
     {
-        return ComponentFactory::Instance().AddComponent<Component>(m_entity);
+        return ComponentFactory::Instance().AddComponent<Component>(m_entity, std::forward<Args>(args)...);
     }
 
     template<class Component>
