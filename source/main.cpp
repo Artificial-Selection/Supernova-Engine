@@ -1,12 +1,16 @@
 #include <Core/Log.hpp>
+#include <Core/Window.hpp>
+
 #include <Renderer/Renderer.hpp>
 #include <Renderer/OpenGL/GLShader.hpp>
+
 #include <Entity/GameObject.hpp>
 #include <Components/Transform.hpp>
 #include <Assets/Model.hpp>
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include <Input/Keyboard.hpp>
+#include <Input/Mouse.hpp>
+
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <chrono>
@@ -16,8 +20,8 @@
 #include <filesystem>
 
 
-constexpr ui32 k_ScreenWidth = 1100;
-constexpr ui32 k_ScreenHeight = 800;
+constexpr ui32 k_WindowWidth  = 1100;
+constexpr ui32 k_WindowHeight = 800;
 
 const char* k_SponzaObjPath   = "../../assets/models/Sponza/sponza.obj";
 
@@ -36,64 +40,61 @@ std::unique_ptr<char[]> LoadShaderFromFile(std::string_view shaderPath)
     return shaderSource;
 }
 
-void GlfwErrorCallback(i32 what_is_this, const char* error)
-{
-    LOG_ERROR("GLFW: {}", error);
-}
-
 void TestSecondRequest(i32 value)
 {
     LOG_INFO("TestSecondRequest");
 }
 
-void ProcessInput(GLFWwindow* window, glm::mat4& transform, snv::Transform& model)
+void ProcessInput(const snv::Window& window, glm::mat4& transform, snv::Transform& model)
 {
-    glfwPollEvents();
+    window.PollEvents();
 
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Escape))
     {
-        glfwSetWindowShouldClose(window, true);
+        window.Close();
     }
 
     constexpr f32 step = 0.05f;
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::W))
     {
         transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, step));
     }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::S))
     {
         transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, -step));
     }
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::A))
     {
         transform = glm::translate(transform, glm::vec3(step, 0.0f, 0.0f));
     }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::D))
     {
         transform = glm::translate(transform, glm::vec3(-step, 0.0f, 0.0f));
     }
 
-    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Z))
     {
         transform = glm::translate(transform, glm::vec3(0.0f, step, 0.0f));
     }
-    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::X))
     {
         transform = glm::translate(transform, glm::vec3(0.0f, -step, 0.0f));
     }
 
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Q)
+        || snv::Input::Mouse::IsButtonPressed(snv::Input::MouseButton::Left))
     {
         model.Rotate(0.0f, -1.0f, 0.0f);
     }
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::E)
+        || snv::Input::Mouse::IsButtonPressed(snv::Input::MouseButton::Right))
     {
         model.Rotate(0.0f, 1.0f, 0.0f);
     }
 }
 
-void Render(GLFWwindow* window, const snv::Model& model)
+void Render(const snv::Window& window, const snv::Model& model)
 {
     // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
     snv::Renderer::Clear(static_cast<snv::BufferBit>(snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil));
@@ -103,7 +104,7 @@ void Render(GLFWwindow* window, const snv::Model& model)
         snv::Renderer::DrawGraphicsBuffer(mesh.GetHandle(), mesh.GetIndexCount(), mesh.GetVertexCount());
     }
 
-    glfwSwapBuffers(window);
+    window.SwapBuffers();
 }
 
 void Update(f32 deltaTime)
@@ -111,74 +112,18 @@ void Update(f32 deltaTime)
     //TODO Implement
 }
 
-//struct Position
-//{
-//    float X;
-//    float Y;
-//};
-//
-//struct Rotation
-//{
-//    float Euler;
-//};
-
-//void UpdateView()
-//{
-//    auto currentView = ComponentPool::Instance().GetViewByComponents<Position, Rotation>();
-//    for(auto [entity, pos, rot]: currentView.each()) {
-//        LOG_INFO("Current Entity {}", entity);
-//        LOG_INFO("Current Position {}", pos.X);
-//        LOG_INFO("Current Rotation {}", rot.Euler);
-//    }
-//}
-//
-//void Test()
-//{
-//    for (auto i = 0u; i < 10u; ++i)
-//    {
-//        const auto entity = ComponentPool::Instance().Create();
-//        ComponentPool::Instance().Emplace<Position>(entity, static_cast<float>(i * 1.f, i * 1.f));
-//        if (i % 2 == 0)
-//        {
-//            ComponentPool::Instance().Emplace<Rotation>(entity, static_cast<float>(i * .1f));
-//        }
-//    }
-//    UpdateView();
-//}
-
 
 int main()
 {
     //Log::Init( spdlog::level::trace );
     LOG_TRACE("SuperNova-Engine Init");
 
-    glfwSetErrorCallback(GlfwErrorCallback);
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, false);
-#ifdef SNV_ENABLE_DEBUG
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
-#endif
-
-    GLFWwindow* window = glfwCreateWindow(k_ScreenWidth, k_ScreenHeight, "SuperNova-Engine", nullptr, nullptr);
-    if (window == nullptr)
-    {
-        LOG_CRITICAL("Failed to create GLFW window");
-        return -1;
-    }
-
-    glfwMakeContextCurrent(window);
-
-    if (gladLoadGLLoader((GLADloadproc) glfwGetProcAddress) == 0)
-    {
-        LOG_CRITICAL("Failed to initialize GLAD");
-        return -1;
-    }
+    snv::Window window(k_WindowWidth, k_WindowHeight, "SuperNova-Engine");
+    window.SetKeyCallback(snv::Input::Keyboard::KeyCallback);
+    window.SetMouseButtonCallback(snv::Input::Mouse::ButtonCallback);
 
     snv::Renderer::Init();
-    snv::Renderer::SetViewport(0, 0, k_ScreenWidth, k_ScreenHeight);
+    snv::Renderer::SetViewport(0, 0, k_WindowWidth, k_WindowHeight);
     snv::Renderer::SetClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     snv::Renderer::EnableDepthTest();
     snv::Renderer::SetDepthFunction(snv::DepthFunction::Less);
@@ -195,14 +140,14 @@ int main()
     transform.SetScale(0.005f);
 
     auto view = glm::identity<glm::mat4>();
-    auto projection = glm::perspective(glm::radians(90.0f), f32(k_ScreenWidth) / k_ScreenHeight, 0.1f, 100.0f);
+    auto projection = glm::perspective(glm::radians(90.0f), f32(k_WindowWidth) / k_WindowHeight, 0.1f, 100.0f);
 
     const i32 maxFPS = 60;
     const auto maxPeriod = 1.0 / maxFPS;
 
     auto startTime = std::chrono::high_resolution_clock::now().time_since_epoch();
 
-    while (glfwWindowShouldClose(window) == 0)
+    while (window.IsShouldBeClosed() == false)
     {
         //TODO FPS lock
         auto currentTime = std::chrono::high_resolution_clock::now().time_since_epoch();
@@ -223,7 +168,6 @@ int main()
     LOG_TRACE("SuperNova-Engine Shutdown");
 
     snv::Renderer::Shutdown();
-    glfwTerminate();
 
     return 0;
 }
