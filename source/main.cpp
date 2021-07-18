@@ -13,8 +13,6 @@
 #include <Input/Keyboard.hpp>
 #include <Input/Mouse.hpp>
 
-#include <glm/gtc/matrix_transform.hpp>
-
 #include <chrono>
 #include <memory>
 #include <string_view>

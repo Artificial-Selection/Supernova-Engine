@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Core/Core.hpp>
+#include <Components/Component.hpp>
 
 #include <glm/ext/matrix_float4x4.hpp>
 
@@ -11,7 +12,7 @@
 namespace snv
 {
 
-class Camera
+class Camera final : public BaseComponent
 {
 public:
     Camera() noexcept;

@@ -11,11 +11,11 @@ Camera::Camera() noexcept
 {}
 
 Camera::Camera(f32 fieldOfView, f32 aspectRatio, f32 nearClipPlane, f32 farClipPlane) noexcept
-    : m_fieldOfView(fieldOfView)
+    : m_fieldOfView(glm::radians(fieldOfView))
     , m_aspectRatio(aspectRatio)
     , m_nearClipPlane(nearClipPlane)
     , m_farClipPlane(farClipPlane)
-    , m_projection(glm::perspective(glm::radians(m_fieldOfView), m_aspectRatio, m_nearClipPlane, m_farClipPlane))
+    , m_projection(glm::perspective(m_fieldOfView, m_aspectRatio, m_nearClipPlane, m_farClipPlane))
     , m_dirty(false)
 {}
 
@@ -24,7 +24,7 @@ const glm::mat4x4& Camera::GetProjectionMatrix() const
 {
     if (m_dirty)
     {
-        m_projection = glm::perspective(glm::radians(m_fieldOfView), m_aspectRatio, m_nearClipPlane, m_farClipPlane);
+        m_projection = glm::perspective(m_fieldOfView, m_aspectRatio, m_nearClipPlane, m_farClipPlane);
         m_dirty = false;
     }
 
@@ -34,7 +34,7 @@ const glm::mat4x4& Camera::GetProjectionMatrix() const
 
 void Camera::SetFieldOfView(f32 fieldOfView)
 {
-    m_fieldOfView = fieldOfView;
+    m_fieldOfView = glm::radians(fieldOfView);
     m_dirty = true;
 }
 

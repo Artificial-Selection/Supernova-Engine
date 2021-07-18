@@ -106,6 +106,7 @@ set(Renderer_SRC
 # -------------------------- Components ---------------------------
 set(Components_SRC_DIR ${MAIN_SRC_DIR}/Components)
 set(Components_SRC
+    ${Components_SRC_DIR}/Component.hpp
     ${Components_SRC_DIR}/ComponentFactory.hpp
     ${Components_SRC_DIR}/ComponentFactory.cpp
     ${Components_SRC_DIR}/Camera.hpp

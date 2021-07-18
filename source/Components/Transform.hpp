@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Core/Core.hpp>
+#include <Components/Component.hpp>
 
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/quaternion_float.hpp>
@@ -10,7 +11,7 @@
 namespace snv
 {
 
-class Transform
+class Transform final : public BaseComponent
 {
 public:
     Transform() noexcept;
@@ -46,7 +47,7 @@ private:
     glm::quat m_rotation;
 
     mutable glm::mat4x4 m_transform;
-    mutable bool m_dirty;
+    mutable bool        m_dirty;
 };
 
 } // namespace snv
