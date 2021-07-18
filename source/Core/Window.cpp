@@ -1,5 +1,5 @@
 #include <Core/Window.hpp>
-#include <Core/Log.hpp>
+#include <Core/Assert.hpp>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -10,10 +10,12 @@
 //  Leave this shit to the future me
 
 
+#ifdef SNV_ENABLE_DEBUG
 void GlfwErrorCallback(i32 what_is_this, const char* error)
 {
     LOG_ERROR("GLFW: {}", error);
 }
+#endif
 
 
 namespace snv
@@ -21,7 +23,9 @@ namespace snv
 
 Window::Window(i32 width, i32 height, const char* title)
 {
+#ifdef SNV_ENABLE_DEBUG
     glfwSetErrorCallback(GlfwErrorCallback);
+#endif
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -32,21 +36,12 @@ Window::Window(i32 width, i32 height, const char* title)
 #endif
 
     m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
-    if (m_window == nullptr)
-    {
-        LOG_CRITICAL("Failed to create GLFW window");
-        // TODO: Assert
-        //return -1;
-    }
+    SNV_ASSERT(m_window != nullptr, "Failed to create GLFW window");
 
     glfwMakeContextCurrent(m_window);
 
-    if (gladLoadGLLoader((GLADloadproc)glfwGetProcAddress) == 0)
-    {
-        LOG_CRITICAL("Failed to initialize GLAD");
-        // TODO: Assert
-        //return -1;
-    }
+    const auto glad_dont_know_what = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+    SNV_ASSERT(glad_dont_know_what != 0, "Failed to initialize GLAD");
 
     glfwSetWindowUserPointer(m_window, this);
 
@@ -100,7 +95,8 @@ void Window::SwapBuffers() const
 
 void Window::GLFWKeyCallback(GLFWwindow* glfwWindow, i32 key, i32 scancode, i32 action, i32 mods)
 {
-    // TODO(v.matushkin): Handle GLFW_KEY_UNKNOWN
+    SNV_ASSERT(key != GLFW_KEY_UNKNOWN, "GLFW_KEY_UNKNOWN is not handled");
+
     const char* actionString;
     if (action == GLFW_REPEAT)
         actionString = "REPEAT";
@@ -110,9 +106,9 @@ void Window::GLFWKeyCallback(GLFWwindow* glfwWindow, i32 key, i32 scancode, i32 
         actionString = "RELEASE";
     LOG_INFO("[Window::GLFWKeyCallback] Key: {} | Action: {}", key, actionString);
 
-
     const auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
-    // TODO(v.matushkin): Assert that callback is set
+
+    SNV_ASSERT(window->m_keyCallback != nullptr, "KeyCallback was not set");
     window->m_keyCallback(key, scancode, action, mods);
 }
 
@@ -128,7 +124,8 @@ void Window::GLFWMouseButtonCallback(GLFWwindow* glfwWindow, i32 button, i32 act
     LOG_INFO("[Window::GLFWMouseButtonCallback] Button: {} | Action: {}", button, actionString);
 
     const auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
-    // TODO(v.matushkin): Assert that callback is set
+
+    SNV_ASSERT(window->m_mouseButtonCallback != nullptr, "MouseButtonCallback was not set");
     window->m_mouseButtonCallback(button, action, mods);
 }
 

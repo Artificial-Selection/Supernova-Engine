@@ -63,6 +63,7 @@ set(Assets_SRC
 # ---------------------------- Core -----------------------------
 set(Core_SRC_DIR ${MAIN_SRC_DIR}/Core)
 set(Core_SRC
+    ${Core_SRC_DIR}/Assert.hpp
     ${Core_SRC_DIR}/Core.hpp
     ${Core_SRC_DIR}/Log.hpp
     ${Core_SRC_DIR}/Log.cpp

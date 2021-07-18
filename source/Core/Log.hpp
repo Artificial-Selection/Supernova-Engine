@@ -18,7 +18,7 @@
 //    static std::shared_ptr<spdlog::logger> s_logger;
 //};
 
-#ifdef SNV_ENABLE_LOGGING
+#ifdef SNV_LOGGING_ENABLED
     /*#define LOG_TRACE(...)    ::Log::GetLogger()->trace(__VA_ARGS__)
     #define LOG_INFO(...)     ::Log::GetLogger()->info(__VA_ARGS__)
     #define LOG_WARN(...)     ::Log::GetLogger()->warn(__VA_ARGS__)
