@@ -11,6 +11,8 @@ namespace snv
 
 class Model
 {
+    friend class AssetDatabase;
+
 public:
     Model() = default;
 
@@ -22,6 +24,7 @@ public:
 
     [[nodiscard]] const std::vector<Mesh>& GetMeshes() const { return m_meshes; }
 
+private:
     static Model LoadAsset(const char* assetPath);
 
 private:

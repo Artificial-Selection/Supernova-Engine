@@ -54,6 +54,8 @@ set(MAIN_SRC_DIR ${PROJECT_SOURCE_DIR}/source)
 # --------------------------- Assets ----------------------------
 set(Assets_SRC_DIR ${MAIN_SRC_DIR}/Assets)
 set(Assets_SRC
+    ${Assets_SRC_DIR}/AssetDatabase.hpp
+    ${Assets_SRC_DIR}/AssetDatabase.cpp
     ${Assets_SRC_DIR}/Mesh.hpp
     ${Assets_SRC_DIR}/Mesh.cpp
     ${Assets_SRC_DIR}/Model.hpp

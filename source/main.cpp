@@ -8,6 +8,7 @@
 #include <Components/Transform.hpp>
 #include <Components/Camera.hpp>
 
+#include <Assets/AssetDatabase.hpp>
 #include <Assets/Model.hpp>
 
 #include <Input/Keyboard.hpp>
@@ -23,7 +24,7 @@
 constexpr ui32 k_WindowWidth  = 1100;
 constexpr ui32 k_WindowHeight = 800;
 
-const char* k_SponzaObjPath   = "../../assets/models/Sponza/sponza.obj";
+const char* k_SponzaObjPath = "../../assets/models/Sponza/sponza.obj";
 
 const char* k_VertexSourcePath   = "../../assets/shaders/triangle_vs.glsl";
 const char* k_FragmentSourcePath = "../../assets/shaders/triangle_fs.glsl";
@@ -94,12 +95,12 @@ void ProcessInput(const snv::Window& window, snv::Transform& cameraTransform, sn
     }
 }
 
-void Render(const snv::Window& window, const snv::Model& model)
+void Render(const snv::Window& window, const snv::ModelPtr model)
 {
     // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
     snv::Renderer::Clear(static_cast<snv::BufferBit>(snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil));
 
-    for (const auto& mesh : model.GetMeshes())
+    for (const auto& mesh : model->GetMeshes())
     {
         snv::Renderer::DrawGraphicsBuffer(mesh.GetHandle(), mesh.GetIndexCount(), mesh.GetVertexCount());
     }
@@ -133,7 +134,7 @@ int main()
     snv::GLShader triangleShader(vertexSource.get(), fragmentSource.get());
     triangleShader.Bind();
 
-    const auto model = snv::Model::LoadAsset(k_SponzaObjPath);
+    const auto sponzaModel = snv::AssetDatabase::LoadAsset<snv::Model>(k_SponzaObjPath);
 
     snv::GameObject modelGameObject;
     auto& modelTransform = modelGameObject.GetComponent<snv::Transform>();
@@ -164,7 +165,7 @@ int main()
         triangleShader.SetMatrix4("_MatrixP", projectionMatrix);
         triangleShader.SetMatrix4("_MatrixV", cameraTransform.GetMatrix());
 
-        Render(window, model);
+        Render(window, sponzaModel);
     }
 
     LOG_TRACE("SuperNova-Engine Shutdown");
