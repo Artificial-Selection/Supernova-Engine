@@ -38,6 +38,8 @@ Texture& Texture::operator=(Texture&& other) noexcept
 
 Texture Texture::LoadAsset(const char* texturePath)
 {
+    stbi_set_flip_vertically_on_load(true); // TODO(v.matushkin): Set only once
+
     // TODO(v.matushkin): Asset class shouldn't handle path adjusting
     std::string fullPath = "../../assets/models/Sponza/" + std::string(texturePath);
 
@@ -45,16 +47,22 @@ Texture Texture::LoadAsset(const char* texturePath)
     // TODO(v.matushkin): Assert data != null
     ui8* data = stbi_load(fullPath.c_str(), &width, &height, &numComponents, 0);
     SNV_ASSERT(data != nullptr, "Error while loading texture");
+    // TODO(v.matushkin): TextureGraphicsFormat selection need to be more robust
+    if (numComponents != 3 && numComponents != 4)
+    {
+        LOG_WARN("Texture path: {}, numComponents: {}", texturePath, numComponents);
+    }
 
     // NOTE(v.matushkin): Idk why the fuck make_unique doesn't work
     //std::unique_ptr<ui8> textureData = std::make_unique<ui8(data);
     std::unique_ptr<ui8> textureData(data);
-
+    // TODO(v.matushkin): Load Sponza textures as R8G8B8A8_SRGB ?
+    // NOTE(v.matushkin): TextureWrapMode::Repeat by default?
     TextureDescriptor textureDescriptor{
         .Width          = width,
         .Height         = height,
-        .GraphicsFormat = TextureGraphicsFormat::RGB8,
-        .WrapMode       = TextureWrapMode::ClampToBorder
+        .GraphicsFormat = numComponents == 3 ? TextureGraphicsFormat::RGB8 : TextureGraphicsFormat::RGBA8,
+        .WrapMode       = TextureWrapMode::Repeat
     };
 
     return Texture(textureDescriptor, std::move(textureData));

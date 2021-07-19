@@ -63,6 +63,7 @@ Model Model::LoadAsset(const char* assetPath)
         assetPath,
         aiPostProcessSteps::aiProcess_Triangulate
         | aiPostProcessSteps::aiProcess_GenNormals
+        // | aiPostProcessSteps::aiProcess_FlipUVs Instead of stbi_set_flip_vertically_on_load(true); ?
     );
 
     Model model;
@@ -137,6 +138,7 @@ Model Model::LoadAsset(const char* assetPath)
                 .Dimension = AssimpConstants::TexCoord0Dimension,
                 .Offset    = vertexBufferSize
             };
+            vertexLayout.push_back(texCoord0Attribute);
 
             vertexBufferSize += numVertices * AssimpConstants::TexCoord0Size;
         }
@@ -179,6 +181,10 @@ Model Model::LoadAsset(const char* assetPath)
                 std::forward_as_tuple(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout),
                 std::forward_as_tuple(diffuseTexture)
             );
+        }
+        else
+        {
+            LOG_WARN("Mesh: {}, has no Diffuse Texture", mesh->mName.C_Str());
         }
     }
 

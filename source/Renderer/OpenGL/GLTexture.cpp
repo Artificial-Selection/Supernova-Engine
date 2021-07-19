@@ -45,6 +45,9 @@ GLTexture::GLTexture(const TextureDescriptor& textureDescriptor, const ui8* data
     const auto glWrapMode = gl_wrapTable[static_cast<ui8>(textureDescriptor.WrapMode)];
     glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_S, glWrapMode);
     glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_T, glWrapMode);
+    // TODO: Add control for min/mag filtering
+    glTextureParameteri(m_textureID, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(m_textureID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     const auto width  = textureDescriptor.Width;
     const auto height = textureDescriptor.Height;
