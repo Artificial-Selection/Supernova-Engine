@@ -1,6 +1,7 @@
 #include <Assets/Model.hpp>
 #include <Core/Log.hpp>
 #include <Core/Assert.hpp>
+#include <Assets/AssetDatabase.hpp>
 #include <Assets/Texture.hpp>
 #include <Renderer/Renderer.hpp>
 
@@ -105,30 +106,32 @@ Model Model::LoadAsset(const char* assetPath)
 
         if (mesh->HasPositions())
         {
-            VertexAttributeDescriptor vertexAttributeDescriptor;
-            vertexAttributeDescriptor.Attribute = VertexAttribute::Position;
-            vertexAttributeDescriptor.Dimension = AssimpConstants::PositionDimension;
-            vertexAttributeDescriptor.Format    = VertexAttributeFormat::Float32;
-            vertexAttributeDescriptor.Offset    = vertexBufferSize;
-            vertexLayout.push_back(vertexAttributeDescriptor);
+            VertexAttributeDescriptor positionAttribute{
+                .Attribute = VertexAttribute::Position,
+                .Format    = VertexAttributeFormat::Float32,
+                .Dimension = AssimpConstants::PositionDimension,
+                .Offset    = vertexBufferSize
+            };
+            vertexLayout.push_back(positionAttribute);
 
             vertexBufferSize += numVertices * AssimpConstants::PositionSize;
         }
         if (mesh->HasNormals())
         {
-            VertexAttributeDescriptor vertexAttributeDescriptor;
-            vertexAttributeDescriptor.Attribute = VertexAttribute::Normal;
-            vertexAttributeDescriptor.Dimension = AssimpConstants::NormalDimension;
-            vertexAttributeDescriptor.Format    = VertexAttributeFormat::Float32;
-            vertexAttributeDescriptor.Offset    = vertexBufferSize;
-            vertexLayout.push_back(vertexAttributeDescriptor);
+            VertexAttributeDescriptor normalAttribute{
+                .Attribute = VertexAttribute::Normal,
+                .Format    = VertexAttributeFormat::Float32,
+                .Dimension = AssimpConstants::NormalDimension,
+                .Offset    = vertexBufferSize
+            };
+            vertexLayout.push_back(normalAttribute);
 
             vertexBufferSize += numVertices * AssimpConstants::NormalSize;
         }
         // TODO(v.matushkin): Texture coords copying should be reworked
         if (mesh->HasTextureCoords(0))
         {
-            VertexAttributeDescriptor texCoordAttribute{
+            VertexAttributeDescriptor texCoord0Attribute{
                 .Attribute = VertexAttribute::TexCoord0,
                 .Format    = VertexAttributeFormat::Float32,
                 .Dimension = AssimpConstants::TexCoord0Dimension,
@@ -162,15 +165,14 @@ Model Model::LoadAsset(const char* assetPath)
         }
 
         //meshes.emplace_back(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout);
-        //aiMaterial
+
         auto material = scene->mMaterials[mesh->mMaterialIndex];
         if (material->GetTextureCount(aiTextureType::aiTextureType_DIFFUSE) > 0)
         {
             aiString texturePath;
-            // TODO(v.matushkin): Check success
             auto error = material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, 0, &texturePath);
-            SNV_ASSERT(error == aiReturn::aiReturn_SUCCESS, "LOL");
-            auto diffuseTexture = std::make_shared<Texture>(Texture::LoadAsset(texturePath.C_Str()));
+            SNV_ASSERT(error == aiReturn::aiReturn_SUCCESS, error == aiReturn_FAILURE ? "aiReturn_FAILURE" : "aiReturn_OUTOFMEMORY");
+            auto diffuseTexture = AssetDatabase::LoadAsset<Texture>(texturePath.C_Str());
 
             meshes.emplace_back(
                 std::piecewise_construct,

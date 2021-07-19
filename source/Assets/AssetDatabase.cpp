@@ -1,11 +1,13 @@
 #include <Assets/AssetDatabase.hpp>
 #include <Assets/Model.hpp>
+#include <Assets/Texture.hpp>
 
 
 namespace snv
 {
 
-std::unordered_map<std::string, std::shared_ptr<Model>> AssetDatabase::m_models;
+AssetDatabase::Models   AssetDatabase::m_models;
+AssetDatabase::Textures AssetDatabase::m_textures;
 
 
 // TODO(v.matushkin): Heterogeneous lookup for string_view assetPath?
@@ -13,14 +15,14 @@ std::unordered_map<std::string, std::shared_ptr<Model>> AssetDatabase::m_models;
 //   but coding asset importers is complicated, leave it like this for now
 template<>
 ModelPtr AssetDatabase::LoadAsset(const std::string& assetPath)
-{    
-    auto modelIt = m_models.find(assetPath);
-    if (modelIt == m_models.end())
-    {
-        modelIt = m_models.emplace(assetPath, std::make_shared<Model>(Model::LoadAsset(assetPath.c_str()))).first;
-    }
+{
+    return LoadAssetInternal(assetPath, m_models);
+}
 
-    return modelIt->second;
+template<>
+TexturePtr AssetDatabase::LoadAsset(const std::string& assetPath)
+{
+    return LoadAssetInternal(assetPath, m_textures);
 }
 
 } // namespace snv

@@ -46,6 +46,7 @@ Texture Texture::LoadAsset(const char* texturePath)
     ui8* data = stbi_load(fullPath.c_str(), &width, &height, &numComponents, 0);
     SNV_ASSERT(data != nullptr, "Error while loading texture");
 
+    // NOTE(v.matushkin): Idk why the fuck make_unique doesn't work
     //std::unique_ptr<ui8> textureData = std::make_unique<ui8(data);
     std::unique_ptr<ui8> textureData(data);
 
@@ -58,6 +59,5 @@ Texture Texture::LoadAsset(const char* texturePath)
 
     return Texture(textureDescriptor, std::move(textureData));
 }
-
 
 } // namespace snv

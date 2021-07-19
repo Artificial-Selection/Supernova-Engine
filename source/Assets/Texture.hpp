@@ -10,6 +10,8 @@ namespace snv
 
 class Texture
 {
+    friend class AssetDatabase;
+
 public:
     Texture(const TextureDescriptor& textureDescriptor, std::unique_ptr<ui8>&& textureData);
     ~Texture();
@@ -22,12 +24,13 @@ public:
 
     [[nodiscard]] TextureHandle GetTextureHandle() const { return m_textureHandle; }
 
-    static Texture LoadAsset(const char* assetPath);
+private:
+    [[nodiscard]] static Texture LoadAsset(const char* assetPath);
 
 private:
     std::unique_ptr<ui8> m_textureData;
 
-    TextureHandle         m_textureHandle;
+    TextureHandle        m_textureHandle;
 };
 
 } // namespace snv

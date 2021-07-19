@@ -138,9 +138,10 @@ int main()
     snv::GLShader modelShader(vertexSource.get(), fragmentSource.get());
     modelShader.Bind();
 
-    snv::GLTexture texture;
-
+    const auto sponzaLoadStart = std::chrono::high_resolution_clock::now();
     const auto sponzaModel = snv::AssetDatabase::LoadAsset<snv::Model>(k_SponzaObjPath);
+    const auto sponzaLoadTime = std::chrono::high_resolution_clock::now() - sponzaLoadStart;
+    LOG_INFO("Sponza loading time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(sponzaLoadTime).count());
 
     snv::GameObject modelGameObject;
     auto& modelTransform = modelGameObject.GetComponent<snv::Transform>();
