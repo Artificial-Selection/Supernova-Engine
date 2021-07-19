@@ -40,6 +40,7 @@ enum BufferBit : ui32
 constexpr ui32 k_InvalidHandle = -1;
 
 enum class GraphicsBufferHandle : ui32 { id = k_InvalidHandle };
+enum class TextureHandle        : ui32 { id = k_InvalidHandle };
 
 
 enum class VertexAttribute
@@ -68,6 +69,41 @@ struct VertexAttributeDescriptor
     VertexAttributeFormat Format;
     ui32                  Dimension;
     ui32                  Offset;
+};
+
+
+enum class TextureGraphicsFormat : ui8
+{
+    R8,
+    R16,
+    R16F,
+    R32F,
+    RG8,
+    RG16,
+    RGB8,
+    RGB16,
+    RGBA8,
+    RGBA16F,
+    DEPTH16,
+    DEPTH24,
+    DEPTH32,
+    DEPTH32F
+};
+
+enum class TextureWrapMode : ui8
+{
+    ClampToEdge,
+    ClampToBorder,
+    MirroredRepeat,
+    Repeat
+};
+
+struct TextureDescriptor
+{
+    i32                   Width;
+    i32                   Height;
+    TextureGraphicsFormat GraphicsFormat;
+    TextureWrapMode       WrapMode;
 };
 
 } // namespace snv

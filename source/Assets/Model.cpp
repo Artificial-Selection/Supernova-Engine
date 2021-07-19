@@ -1,10 +1,14 @@
 #include <Assets/Model.hpp>
 #include <Core/Log.hpp>
+#include <Core/Assert.hpp>
 #include <Renderer/Renderer.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 
 namespace AssimpConstants
@@ -19,7 +23,10 @@ namespace AssimpConstants
     static constexpr i32 NormalDimension = 3;
     static constexpr i32 NormalTypeSize = sizeof(f32);
     static constexpr i32 NormalSize = NormalDimension * NormalTypeSize;
-
+    // TexCoord0
+    static constexpr i32 TexCoord0Dimension = 3;
+    static constexpr i32 TexCoord0TypeSize = sizeof(f32);
+    static constexpr i32 TexCoord0Size = TexCoord0Dimension * TexCoord0TypeSize;
 
 #define MEMBER_SIZEOF(type, member) sizeof(((type *)0)->member)
     static_assert(MEMBER_SIZEOF(aiVector3D, x) == PositionTypeSize);
@@ -120,6 +127,18 @@ Model Model::LoadAsset(const char* assetPath)
 
             vertexBufferSize += numVertices * AssimpConstants::NormalSize;
         }
+        // TODO(v.matushkin): Texture coords copying should be reworked
+        if (mesh->HasTextureCoords(0))
+        {
+            VertexAttributeDescriptor texCoordAttribute{
+                .Attribute = VertexAttribute::TexCoord0,
+                .Format    = VertexAttributeFormat::Float32,
+                .Dimension = AssimpConstants::TexCoord0Dimension,
+                .Offset    = vertexBufferSize
+            };
+
+            vertexBufferSize += numVertices * AssimpConstants::TexCoord0Size;
+        }
 
         // TODO: What type should I use?
         auto vertexData = std::make_unique<i8[]>(vertexBufferSize);
@@ -137,11 +156,53 @@ Model Model::LoadAsset(const char* assetPath)
             std::memcpy(vertexDataPtr, mesh->mNormals, bytesToCopy);
             vertexDataPtr += bytesToCopy;
         }
+        if (mesh->HasTextureCoords(0))
+        {
+            const auto bytesToCopy = numVertices * AssimpConstants::TexCoord0Size;
+            std::memcpy(vertexDataPtr, mesh->mTextureCoords[0], bytesToCopy);
+            vertexDataPtr += bytesToCopy;
+        }
 
-        meshes.emplace_back(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout);
+        //meshes.emplace_back(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout);
+        //aiMaterial
+        auto material = scene->mMaterials[mesh->mMaterialIndex];
+        if (material->GetTextureCount(aiTextureType::aiTextureType_DIFFUSE) > 0)
+        {
+            aiString texturePath;
+            // TODO(v.matushkin): Check success
+            auto error = material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, 0, &texturePath);
+            SNV_ASSERT(error == aiReturn::aiReturn_SUCCESS, "LOL");
+            auto textureInfo = LoadTexture(texturePath.C_Str());
+
+            meshes.emplace_back(
+                std::piecewise_construct,
+                std::forward_as_tuple(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout),
+                std::forward_as_tuple(textureInfo.first, textureInfo.second)
+            );
+        }
     }
 
     return model;
+}
+
+
+std::pair<TextureDescriptor, ui8*> Model::LoadTexture(const char* texturePath)
+{
+    std::string fullPath = "../../assets/models/Sponza/" + std::string(texturePath);
+    LOG_INFO("Loading texture: {}", fullPath);
+
+    i32 width, height, numComponents;
+    // TODO(v.matushkin): Assert data != null
+    ui8* data = stbi_load(fullPath.c_str(), &width, &height, &numComponents, 0);
+    SNV_ASSERT(data != nullptr, "LOL");
+    TextureDescriptor textureDescriptor{
+        .Width = width,
+        .Height = height,
+        .GraphicsFormat = TextureGraphicsFormat::RGB8,
+        .WrapMode = TextureWrapMode::ClampToBorder
+    };
+
+    return { textureDescriptor, data };
 }
 
 } // namespace snv

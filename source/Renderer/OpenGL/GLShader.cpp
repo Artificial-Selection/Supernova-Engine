@@ -49,6 +49,12 @@ void GLShader::Bind() const
 }
 
 
+void GLShader::SetInt1(const std::string& name, i32 value) const
+{
+    auto location = glGetUniformLocation(m_shaderProgramID, name.c_str());
+    glProgramUniform1i(m_shaderProgramID, location, value);
+}
+
 void GLShader::SetMatrix4(const std::string& name, const glm::mat4& value) const
 {
     auto location = glGetUniformLocation(m_shaderProgramID, name.c_str());

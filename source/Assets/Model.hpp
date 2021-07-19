@@ -1,6 +1,9 @@
 #pragma once
 
 #include <Assets/Mesh.hpp>
+#include <Assets/Material.hpp>
+
+#include <utility>
 
 
 namespace snv
@@ -22,13 +25,14 @@ public:
     Model(const Model& other) = delete;
     Model& operator=(const Model& other) = delete;
 
-    [[nodiscard]] const std::vector<Mesh>& GetMeshes() const { return m_meshes; }
+    [[nodiscard]] const std::vector<std::pair<Mesh, Material>>& GetMeshes() const { return m_meshes; }
 
 private:
     static Model LoadAsset(const char* assetPath);
+    static std::pair<TextureDescriptor, ui8*> LoadTexture(const char* texturePath);
 
 private:
-    std::vector<Mesh> m_meshes;
+    std::vector<std::pair<Mesh, Material>> m_meshes;
 };
 
 } // namespace snv

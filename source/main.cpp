@@ -3,6 +3,7 @@
 
 #include <Renderer/Renderer.hpp>
 #include <Renderer/OpenGL/GLShader.hpp>
+#include <Renderer/OpenGL/GLTexture.hpp>
 
 #include <Entity/GameObject.hpp>
 #include <Components/Transform.hpp>
@@ -95,14 +96,16 @@ void ProcessInput(const snv::Window& window, snv::Transform& cameraTransform, sn
     }
 }
 
-void Render(const snv::Window& window, const snv::ModelPtr model)
+void Render(const snv::Window& window, const snv::ModelPtr model, const snv::GLShader& shader)
 {
     // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
     snv::Renderer::Clear(static_cast<snv::BufferBit>(snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil));
 
-    for (const auto& mesh : model->GetMeshes())
+    for (const auto&[mesh, material] : model->GetMeshes())
     {
-        snv::Renderer::DrawGraphicsBuffer(mesh.GetHandle(), mesh.GetIndexCount(), mesh.GetVertexCount());
+        const auto textureHandle = material.GetTextureHandle();
+        shader.SetInt1("_DiffuseTexture", 0); // Can set only once?
+        snv::Renderer::DrawGraphicsBuffer(mesh.GetHandle(), textureHandle, mesh.GetIndexCount(), mesh.GetVertexCount());
     }
 
     window.SwapBuffers();
@@ -131,8 +134,10 @@ int main()
 
     const auto vertexSource = LoadShaderFromFile(k_VertexSourcePath);
     const auto fragmentSource = LoadShaderFromFile(k_FragmentSourcePath);
-    snv::GLShader triangleShader(vertexSource.get(), fragmentSource.get());
-    triangleShader.Bind();
+    snv::GLShader modelShader(vertexSource.get(), fragmentSource.get());
+    modelShader.Bind();
+
+    snv::GLTexture texture;
 
     const auto sponzaModel = snv::AssetDatabase::LoadAsset<snv::Model>(k_SponzaObjPath);
 
@@ -161,11 +166,11 @@ int main()
         ProcessInput(window, cameraTransform, modelTransform);
         Update(elapsed);
 
-        triangleShader.SetMatrix4("_ObjectToWorld", modelTransform.GetMatrix());
-        triangleShader.SetMatrix4("_MatrixP", projectionMatrix);
-        triangleShader.SetMatrix4("_MatrixV", cameraTransform.GetMatrix());
+        modelShader.SetMatrix4("_ObjectToWorld", modelTransform.GetMatrix());
+        modelShader.SetMatrix4("_MatrixP", projectionMatrix);
+        modelShader.SetMatrix4("_MatrixV", cameraTransform.GetMatrix());
 
-        Render(window, sponzaModel);
+        Render(window, sponzaModel, modelShader);
     }
 
     LOG_TRACE("SuperNova-Engine Shutdown");

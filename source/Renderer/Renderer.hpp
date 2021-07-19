@@ -28,7 +28,7 @@ public:
 
     static void Clear(BufferBit bufferBitMask);
 
-    static void DrawGraphicsBuffer(GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount);
+    static void DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount);
     static void DrawArrays(i32 count);
     static void DrawElements(i32 count);
 
@@ -37,6 +37,7 @@ public:
         std::span<const std::byte> vertexData,
         const std::vector<VertexAttributeDescriptor>& vertexLayout
     );
+    static TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data);
 
 private:
     static IRendererBackend* s_RendererBackend;

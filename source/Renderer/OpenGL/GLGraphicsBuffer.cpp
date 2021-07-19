@@ -62,11 +62,6 @@ GLGraphicsBuffer::GLGraphicsBuffer(
 }
 
 
-void GLGraphicsBuffer::Bind() const
-{
-    glBindVertexArray(m_vao);
-}
-
 GLGraphicsBuffer::GLGraphicsBuffer(GLGraphicsBuffer&& other) noexcept
     : m_vao(std::exchange(other.m_vao, -1))
     , m_vbo(std::exchange(other.m_vbo, -1))
@@ -81,6 +76,12 @@ GLGraphicsBuffer& GLGraphicsBuffer::operator=(GLGraphicsBuffer&& other) noexcept
     m_ibo = std::exchange(other.m_ibo, -1);
 
     return *this;
+}
+
+
+void GLGraphicsBuffer::Bind() const
+{
+    glBindVertexArray(m_vao);
 }
 
 } // namespace snv

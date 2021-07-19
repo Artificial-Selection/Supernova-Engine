@@ -2,11 +2,6 @@
 #include <Renderer/Renderer.hpp>
 #include <Core/Log.hpp>
 
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-#include <glad/glad.h>
-
 #include <span>
 #include <utility>
 
