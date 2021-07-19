@@ -1,20 +1,23 @@
 #pragma once
 
-#include <Renderer/RenderTypes.hpp>
+#include <memory>
 
 
 namespace snv
 {
 
+class Texture;
+
+
 class Material
 {
 public:
-    Material(const TextureDescriptor& textureDescriptor, const ui8* data);
+    Material(std::shared_ptr<Texture> diffuseTexture);
 
-    [[nodiscard]] TextureHandle GetTextureHandle() const { return m_textureHandle; }
+    [[nodiscard]] const std::shared_ptr<Texture>& GetDiffuseTexture() const { return m_diffuseTexture; }
 
 private:
-    TextureHandle m_textureHandle;
+    std::shared_ptr<Texture> m_diffuseTexture;
 };
 
 } // namespace snv

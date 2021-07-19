@@ -1,14 +1,12 @@
 #include <Assets/Model.hpp>
 #include <Core/Log.hpp>
 #include <Core/Assert.hpp>
+#include <Assets/Texture.hpp>
 #include <Renderer/Renderer.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 
 
 namespace AssimpConstants
@@ -172,37 +170,17 @@ Model Model::LoadAsset(const char* assetPath)
             // TODO(v.matushkin): Check success
             auto error = material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, 0, &texturePath);
             SNV_ASSERT(error == aiReturn::aiReturn_SUCCESS, "LOL");
-            auto textureInfo = LoadTexture(texturePath.C_Str());
+            auto diffuseTexture = std::make_shared<Texture>(Texture::LoadAsset(texturePath.C_Str()));
 
             meshes.emplace_back(
                 std::piecewise_construct,
                 std::forward_as_tuple(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout),
-                std::forward_as_tuple(textureInfo.first, textureInfo.second)
+                std::forward_as_tuple(diffuseTexture)
             );
         }
     }
 
     return model;
-}
-
-
-std::pair<TextureDescriptor, ui8*> Model::LoadTexture(const char* texturePath)
-{
-    std::string fullPath = "../../assets/models/Sponza/" + std::string(texturePath);
-    LOG_INFO("Loading texture: {}", fullPath);
-
-    i32 width, height, numComponents;
-    // TODO(v.matushkin): Assert data != null
-    ui8* data = stbi_load(fullPath.c_str(), &width, &height, &numComponents, 0);
-    SNV_ASSERT(data != nullptr, "LOL");
-    TextureDescriptor textureDescriptor{
-        .Width = width,
-        .Height = height,
-        .GraphicsFormat = TextureGraphicsFormat::RGB8,
-        .WrapMode = TextureWrapMode::ClampToBorder
-    };
-
-    return { textureDescriptor, data };
 }
 
 } // namespace snv

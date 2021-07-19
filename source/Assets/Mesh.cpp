@@ -1,6 +1,5 @@
 #include <Assets/Mesh.hpp>
 #include <Renderer/Renderer.hpp>
-#include <Core/Log.hpp>
 
 #include <span>
 #include <utility>
@@ -37,7 +36,7 @@ Mesh::Mesh(Mesh&& other) noexcept
     , m_vertexData(std::exchange(other.m_vertexData, nullptr))
     , m_indexCount(std::exchange(other.m_indexCount, -1))
     , m_vertexCount(std::exchange(other.m_vertexCount, -1))
-    , m_graphicsBufferHandle(std::exchange(other.m_graphicsBufferHandle, static_cast<GraphicsBufferHandle>(k_InvalidHandle)))
+    , m_graphicsBufferHandle(std::exchange(other.m_graphicsBufferHandle, GraphicsBufferHandle::InvalidHandle))
 {}
 
 Mesh& Mesh::operator=(Mesh&& other) noexcept
@@ -46,7 +45,7 @@ Mesh& Mesh::operator=(Mesh&& other) noexcept
     m_vertexData = std::exchange(other.m_vertexData, nullptr);
     m_indexCount  = std::exchange(other.m_indexCount, -1);
     m_vertexCount = std::exchange(other.m_vertexCount, -1);
-    m_graphicsBufferHandle = std::exchange(other.m_graphicsBufferHandle, static_cast<GraphicsBufferHandle>(k_InvalidHandle));
+    m_graphicsBufferHandle = std::exchange(other.m_graphicsBufferHandle, GraphicsBufferHandle::InvalidHandle);
 
     return *this;
 }

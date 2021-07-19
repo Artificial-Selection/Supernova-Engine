@@ -1,13 +1,11 @@
 #include <Assets/Material.hpp>
-#include <Renderer/Renderer.hpp>
 
 
 namespace snv
 {
 
-Material::Material(const TextureDescriptor& textureDescriptor, const ui8* data)
-{
-    m_textureHandle = snv::Renderer::CreateTexture(textureDescriptor, data);
-}
+Material::Material(std::shared_ptr<Texture> diffuseTexture)
+    : m_diffuseTexture(diffuseTexture)
+{}
 
 } // namespace snv

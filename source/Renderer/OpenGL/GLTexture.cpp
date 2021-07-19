@@ -54,12 +54,12 @@ GLTexture::GLTexture(const TextureDescriptor& textureDescriptor, const ui8* data
 }
 
 GLTexture::GLTexture(GLTexture&& other) noexcept
-    : m_textureID(std::exchange(other.m_textureID, -1))
+    : m_textureID(std::exchange(other.m_textureID, k_InvalidHandle))
 {}
 
 GLTexture& GLTexture::operator=(GLTexture&& other) noexcept
 {
-    m_textureID = std::exchange(other.m_textureID, -1);
+    m_textureID = std::exchange(other.m_textureID, k_InvalidHandle);
 
     return *this;
 }

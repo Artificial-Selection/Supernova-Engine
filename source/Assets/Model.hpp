@@ -29,7 +29,6 @@ public:
 
 private:
     static Model LoadAsset(const char* assetPath);
-    static std::pair<TextureDescriptor, ui8*> LoadTexture(const char* texturePath);
 
 private:
     std::vector<std::pair<Mesh, Material>> m_meshes;

@@ -11,6 +11,7 @@
 
 #include <Assets/AssetDatabase.hpp>
 #include <Assets/Model.hpp>
+#include <Assets/Texture.hpp>
 
 #include <Input/Keyboard.hpp>
 #include <Input/Mouse.hpp>
@@ -103,7 +104,7 @@ void Render(const snv::Window& window, const snv::ModelPtr model, const snv::GLS
 
     for (const auto&[mesh, material] : model->GetMeshes())
     {
-        const auto textureHandle = material.GetTextureHandle();
+        const auto textureHandle = material.GetDiffuseTexture()->GetTextureHandle();
         shader.SetInt1("_DiffuseTexture", 0); // Can set only once?
         snv::Renderer::DrawGraphicsBuffer(mesh.GetHandle(), textureHandle, mesh.GetIndexCount(), mesh.GetVertexCount());
     }

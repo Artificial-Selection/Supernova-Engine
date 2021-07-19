@@ -63,6 +63,8 @@ set(Assets_SRC
     ${Assets_SRC_DIR}/Mesh.cpp
     ${Assets_SRC_DIR}/Model.hpp
     ${Assets_SRC_DIR}/Model.cpp
+    ${Assets_SRC_DIR}/Texture.hpp
+    ${Assets_SRC_DIR}/Texture.cpp
 )
 
 # ---------------------------- Core -----------------------------
