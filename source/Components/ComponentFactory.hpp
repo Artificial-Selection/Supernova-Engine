@@ -6,6 +6,9 @@
 #include <Core/Utils/Singleton.hpp>
 #include <entt/entt.hpp>
 
+#include <utility>
+
+
 namespace snv
 {
 
@@ -14,22 +17,22 @@ class ComponentFactory : public Singleton<ComponentFactory>
 public:
     entt::entity CreateEntity();
 
-    template<typename Component, typename... Args>
-    Component& AddComponent(const entt::entity entity, Args&&... args)
+    template<typename T, typename... Args>
+    T& AddComponent(const entt::entity entity, Args&&... args)
     {
-        return m_registry.emplace<Component>(entity, std::forward<Args...>(args)...);
+        return m_registry.emplace<T>(entity, std::forward<Args>(args)...);
     }
 
-    template<class Component>
-    Component& GetComponent(const entt::entity entity)
+    template<class T>
+    T& GetComponent(const entt::entity entity)
     {
-        return m_registry.get<Component>(entity);
+        return m_registry.get<T>(entity);
     }
 
-    template<typename... Component, typename... Exclude>
-    entt::basic_view<entt::exclude_t<Exclude...>, Component...> GetViewByComponents(entt::exclude_t<Exclude...> = {})
+    template<typename... T, typename... Exclude>
+    entt::basic_view<entt::exclude_t<Exclude...>, T...> GetViewByComponents(entt::exclude_t<Exclude...> = {})
     {
-        return m_registry.view<Component..., Exclude...>();
+        return m_registry.view<T..., Exclude...>();
     }
 
 private:

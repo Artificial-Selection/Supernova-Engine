@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Components/ComponentFactory.hpp>
+#include <Components/Component.hpp>
 
 
 namespace snv
@@ -11,16 +12,16 @@ class GameObject
 public:
     GameObject();
 
-    template<class Component>
-    Component& AddComponent()
+    template<Component T, typename... Args>
+    T& AddComponent(Args&&... args)
     {
-        return ComponentFactory::Instance().AddComponent<Component>(m_entity);
+        return ComponentFactory::Instance().AddComponent<T>(m_entity, std::forward<Args>(args)...);
     }
 
-    template<class Component>
-    Component& GetComponent()
+    template<Component T>
+    T& GetComponent()
     {
-        return ComponentFactory::Instance().GetComponent<Component>(m_entity);
+        return ComponentFactory::Instance().GetComponent<T>(m_entity);
     }
 
 private:
