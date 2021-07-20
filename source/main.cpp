@@ -6,8 +6,9 @@
 #include <Renderer/OpenGL/GLTexture.hpp>
 
 #include <Entity/GameObject.hpp>
-#include <Components/Transform.hpp>
 #include <Components/Camera.hpp>
+#include <Components/CameraController.hpp>
+#include <Components/Transform.hpp>
 
 #include <Assets/AssetDatabase.hpp>
 #include <Assets/Model.hpp>
@@ -59,10 +60,10 @@ void ProcessInput(const snv::Window& window, snv::Transform& cameraTransform, sn
 
     constexpr f32 step = 0.05f;
 
-    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::W))
+    /*if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::W))
     {
         cameraTransform.Translate(0.0f, 0.0f, step);
-    }
+    }*/
     if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::S))
     {
         cameraTransform.Translate(0.0f, 0.0f, -step);
@@ -148,9 +149,11 @@ int main()
     modelTransform.SetScale(0.005f);
 
     snv::GameObject cameraGameObject;
-    const auto& camera = modelGameObject.AddComponent<snv::Camera>(90.0f, f32(k_WindowWidth) / k_WindowHeight, 0.1f, 100.0f);
+    const auto& camera = cameraGameObject.AddComponent<snv::Camera>(90.0f, f32(k_WindowWidth) / k_WindowHeight, 0.1f, 100.0f);
     const auto& projectionMatrix = camera.GetProjectionMatrix();
     auto& cameraTransform = cameraGameObject.GetComponent<snv::Transform>();
+
+    cameraGameObject.AddComponent<snv::CameraController>();
 
     const i32 maxFPS = 60;
     const auto maxPeriod = 1.0 / maxFPS;

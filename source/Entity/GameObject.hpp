@@ -15,12 +15,15 @@ public:
     template<Component T, typename... Args>
     T& AddComponent(Args&&... args)
     {
-        return ComponentFactory::Instance().AddComponent<T>(m_entity, std::forward<Args>(args)...);
+        T& component = ComponentFactory::Instance().AddComponent<T>(m_entity, std::forward<Args>(args)...);
+        component.SetGameObject(this);
+        return component;
     }
 
     template<Component T>
     T& GetComponent()
     {
+        
         return ComponentFactory::Instance().GetComponent<T>(m_entity);
     }
 

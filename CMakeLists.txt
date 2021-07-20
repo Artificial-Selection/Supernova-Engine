@@ -120,6 +120,8 @@ set(Components_SRC
     ${Components_SRC_DIR}/ComponentFactory.cpp
     ${Components_SRC_DIR}/Camera.hpp
     ${Components_SRC_DIR}/Camera.cpp
+    ${Components_SRC_DIR}/CameraController.hpp
+    ${Components_SRC_DIR}/CameraController.cpp
     ${Components_SRC_DIR}/Transform.hpp
     ${Components_SRC_DIR}/Transform.cpp
 )
