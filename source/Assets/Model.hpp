@@ -23,6 +23,7 @@ public:
     Model(const Model& other) = delete;
     Model& operator=(const Model& other) = delete;
 
+    // TODO(v.matushkin): Unite Mesh and Material under MeshRenderer component
     [[nodiscard]] const std::vector<std::pair<Mesh, Material>>& GetMeshes() const { return m_meshes; }
 
 private:

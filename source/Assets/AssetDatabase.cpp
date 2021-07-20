@@ -64,6 +64,9 @@ AssetDatabase::Models   AssetDatabase::m_models;
 AssetDatabase::Textures AssetDatabase::m_textures;
 
 
+std::vector<Material> GetAssimpMaterials(const aiScene* scene);
+
+
 // TODO(v.matushkin): Heterogeneous lookup for string_view assetPath?
 // TODO(v.matushkin): I think assets shouldn't have *::LoadAsset() method,
 //   but coding asset importers is complicated, leave it like this for now
@@ -91,8 +94,6 @@ TexturePtr AssetDatabase::LoadAsset(const std::string& assetPath)
     return assetIt->second;
 }
 
-// TODO(v.matushkin): There should be a default material with default textures
-//   Because rn I don't load meshes with materials without diffuse textures
 
 Model AssetDatabase::LoadModel(const char* assetPath)
 {
@@ -115,6 +116,8 @@ Model AssetDatabase::LoadModel(const char* assetPath)
         );
         SNV_ASSERT(false, "REMOVE THIS SOMEHOW");
     }
+
+    const auto materials = GetAssimpMaterials(scene);
 
     std::vector<std::pair<Mesh, Material>> meshes;
 
@@ -211,48 +214,10 @@ Model AssetDatabase::LoadModel(const char* assetPath)
             vertexDataPtr += bytesToCopy;
         }
 
-        const auto assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
-        Material material(assimpMaterial->GetName().C_Str());
-
-        // Get Material BaseColorMap
-        const auto diffuseTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_DIFFUSE);
-        if (diffuseTexturesCount > 0)
-        {
-            const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_DIFFUSE);
-            material.SetBaseColorMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
-
-            if (diffuseTexturesCount != 1)
-            {
-                LOG_WARN("Mesh: {}, has {} baseColor textures", mesh->mName.C_Str(), diffuseTexturesCount);
-            }
-        }
-        else
-        {
-            LOG_WARN("Mesh: {}, has 0 baseColor textures, using default Black texture");
-            material.SetBaseColorMap(Texture::GetBlackTexture());
-        }
-        // Get Material NormalMap
-        const auto normalTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_NORMALS);
-        if (normalTexturesCount > 0)
-        {
-            const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_NORMALS);
-            material.SetNormalMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
-
-            if (normalTexturesCount != 1)
-            {
-                LOG_WARN("Mesh: {}, has {} normal textures", mesh->mName.C_Str(), diffuseTexturesCount);
-            }
-        }
-        else
-        {
-            LOG_WARN("Mesh: {}, has 0 normal textures, using default Normal texture");
-            material.SetNormalMap(Texture::GetNormalTexture());
-        }
-
         meshes.emplace_back(
             std::piecewise_construct,
             std::forward_as_tuple(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout),
-            std::forward_as_tuple(std::move(material))
+            std::forward_as_tuple(materials[mesh->mMaterialIndex])
         );
     }
 
@@ -294,6 +259,61 @@ Texture AssetDatabase::LoadTexture(const char* texturePath)
     };
 
     return Texture(textureDescriptor, std::move(textureData));
+}
+
+
+std::vector<Material> GetAssimpMaterials(const aiScene* scene)
+{
+    SNV_ASSERT(scene->HasMaterials(), "LOL");
+    
+    std::vector<Material> materials;
+    const auto numMaterials = scene->mNumMaterials;
+
+    for (ui32 i = 0; i < numMaterials; ++i)
+    {
+        const auto assimpMaterial = scene->mMaterials[i];
+        const auto assimpMaterialName = assimpMaterial->GetName().C_Str();
+        Material material(assimpMaterialName);
+
+        // Get Material BaseColorMap
+        const auto diffuseTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_DIFFUSE);
+        if (diffuseTexturesCount > 0)
+        {
+            const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_DIFFUSE);
+            material.SetBaseColorMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
+
+            if (diffuseTexturesCount != 1)
+            {
+                LOG_WARN("Material: {}, has {} BaseColor textures", assimpMaterialName, diffuseTexturesCount);
+            }
+        }
+        else
+        {
+            LOG_WARN("Material: {}, has 0 baseColor textures, using default Black texture", assimpMaterialName);
+            material.SetBaseColorMap(Texture::GetBlackTexture());
+        }
+        // Get Material NormalMap
+        const auto normalTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_NORMALS);
+        if (normalTexturesCount > 0)
+        {
+            const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_NORMALS);
+            material.SetNormalMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
+
+            if (normalTexturesCount != 1)
+            {
+                LOG_WARN("Material: {}, has {} Normal textures", assimpMaterialName, diffuseTexturesCount);
+            }
+        }
+        else
+        {
+            LOG_WARN("Material: {}, has 0 normal textures, using default Normal texture", assimpMaterialName);
+            material.SetNormalMap(Texture::GetNormalTexture());
+        }
+
+        materials.push_back(material);
+    }
+
+    return materials;
 }
 
 } // namespace snv
