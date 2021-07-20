@@ -21,6 +21,9 @@ public:
 
     [[nodiscard]] TextureHandle GetTextureHandle() const { return m_textureHandle; }
 
+    [[nodiscard]] static std::shared_ptr<Texture> GetBlackTexture();
+    [[nodiscard]] static std::shared_ptr<Texture> GetWhiteTexture();
+
 private:
     std::unique_ptr<ui8[]> m_textureData;
 
