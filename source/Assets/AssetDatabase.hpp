@@ -28,17 +28,8 @@ public:
     [[nodiscard]] static std::shared_ptr<T> LoadAsset(const std::string& assetPath);
 
 private:
-    template<class T>
-    [[nodiscard]] static std::shared_ptr<T> LoadAssetInternal(const std::string& assetPath, Assets<T>& assets)
-    {
-        auto assetIt = assets.find(assetPath);
-        if (assetIt == assets.end())
-        {
-            assetIt = assets.emplace(assetPath, std::make_shared<T>(T::LoadAsset(assetPath.c_str()))).first;
-        }
-
-        return assetIt->second;
-    }
+    [[nodiscard]] static Model   LoadModel(const char* assetPath);
+    [[nodiscard]] static Texture LoadTexture(const char* texturePath);
 
 private:
     static Models   m_models;

@@ -14,10 +14,8 @@ namespace snv
 
 class Model
 {
-    friend class AssetDatabase;
-
 public:
-    Model() = default;
+    Model(std::vector<std::pair<Mesh, Material>>&& meshes);
 
     Model(Model&& other) noexcept;
     Model& operator=(Model&& other) noexcept;
@@ -26,9 +24,6 @@ public:
     Model& operator=(const Model& other) = delete;
 
     [[nodiscard]] const std::vector<std::pair<Mesh, Material>>& GetMeshes() const { return m_meshes; }
-
-private:
-    static Model LoadAsset(const char* assetPath);
 
 private:
     std::vector<std::pair<Mesh, Material>> m_meshes;
