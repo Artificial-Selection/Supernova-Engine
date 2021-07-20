@@ -4,8 +4,8 @@
 namespace snv
 {
 
-Material::Material(std::shared_ptr<Texture> diffuseTexture)
-    : m_diffuseTexture(diffuseTexture)
+Material::Material(std::string_view materialName)
+    : m_materialName(materialName)
 {}
 
 } // namespace snv

@@ -47,6 +47,16 @@ namespace AssimpConstants
 };
 
 
+aiString GetAssimpMaterialTexturePath(const aiMaterial* material, aiTextureType textureType)
+{
+    aiString texturePath;
+    auto error = material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, 0, &texturePath);
+    SNV_ASSERT(error == aiReturn::aiReturn_SUCCESS, error == aiReturn_FAILURE ? "aiReturn_FAILURE" : "aiReturn_OUTOFMEMORY");
+
+    return texturePath;
+}
+
+
 namespace snv
 {
 
@@ -81,6 +91,8 @@ TexturePtr AssetDatabase::LoadAsset(const std::string& assetPath)
     return assetIt->second;
 }
 
+// TODO(v.matushkin): There should be a default material with default textures
+//   Because rn I don't load meshes with materials without diffuse textures
 
 Model AssetDatabase::LoadModel(const char* assetPath)
 {
@@ -135,6 +147,7 @@ Model AssetDatabase::LoadModel(const char* assetPath)
         std::vector<VertexAttributeDescriptor> vertexLayout;
         ui32 vertexBufferSize = 0;
 
+        // Vertex Positions Layout
         {
             VertexAttributeDescriptor positionAttribute{
                 .Attribute = VertexAttribute::Position,
@@ -146,6 +159,7 @@ Model AssetDatabase::LoadModel(const char* assetPath)
 
             vertexBufferSize += numVertices * AssimpConstants::PositionSize;
         }
+        // Vertex Normals Layout
         {
             VertexAttributeDescriptor normalAttribute{
                 .Attribute = VertexAttribute::Normal,
@@ -157,6 +171,7 @@ Model AssetDatabase::LoadModel(const char* assetPath)
 
             vertexBufferSize += numVertices * AssimpConstants::NormalSize;
         }
+        // Vertex TexCoord0 Layout
         // TODO(v.matushkin): Texture coords copying should be reworked
         //   There is no need for Float32 uv(as far as I know)
         if (mesh->HasTextureCoords(0))
@@ -176,16 +191,19 @@ Model AssetDatabase::LoadModel(const char* assetPath)
         auto vertexData = std::make_unique<i8[]>(vertexBufferSize);
         auto vertexDataPtr = vertexData.get();
 
+        // Get Vertex Positions
         {
             const auto bytesToCopy = numVertices * AssimpConstants::PositionSize;
             std::memcpy(vertexDataPtr, mesh->mVertices, bytesToCopy);
             vertexDataPtr += bytesToCopy;
         }
+        // Get Vertex Normals
         {
             const auto bytesToCopy = numVertices * AssimpConstants::NormalSize;
             std::memcpy(vertexDataPtr, mesh->mNormals, bytesToCopy);
             vertexDataPtr += bytesToCopy;
         }
+        // Get Vertex TexCoord0
         if (mesh->HasTextureCoords(0))
         {
             const auto bytesToCopy = numVertices * AssimpConstants::TexCoord0Size;
@@ -193,27 +211,32 @@ Model AssetDatabase::LoadModel(const char* assetPath)
             vertexDataPtr += bytesToCopy;
         }
 
-        //meshes.emplace_back(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout);
-        // TODO(v.matushkin): There should be a default material with default textures
-
-        auto material = scene->mMaterials[mesh->mMaterialIndex];
-        if (material->GetTextureCount(aiTextureType::aiTextureType_DIFFUSE) > 0)
+        const auto assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
+        const auto diffuseTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_DIFFUSE);
+        if (diffuseTexturesCount != 1)
         {
-            aiString texturePath;
-            auto error = material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, 0, &texturePath);
-            SNV_ASSERT(error == aiReturn::aiReturn_SUCCESS, error == aiReturn_FAILURE ? "aiReturn_FAILURE" : "aiReturn_OUTOFMEMORY");
-            auto diffuseTexture = AssetDatabase::LoadAsset<Texture>(texturePath.C_Str());
+            LOG_WARN("Skipping loading of mesh: {}, with diffuseTexturesCount={}", mesh->mName.C_Str(), diffuseTexturesCount);
+            continue;
+        }
 
-            meshes.emplace_back(
-                std::piecewise_construct,
-                std::forward_as_tuple(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout),
-                std::forward_as_tuple(diffuseTexture)
-            );
-        }
-        else
+        Material material(assimpMaterial->GetName().C_Str());
+        // Get Material BaseColorMap
         {
-            LOG_WARN("Mesh: {}, has no Diffuse Texture", mesh->mName.C_Str());
+            const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_DIFFUSE);
+            material.SetBaseColorMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
         }
+        // Get Material NormalMap
+        if(assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_NORMALS) > 0)
+        {
+            const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_NORMALS);
+            material.SetNormalMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
+        }
+
+        meshes.emplace_back(
+            std::piecewise_construct,
+            std::forward_as_tuple(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout),
+            std::forward_as_tuple(std::move(material))
+        );
     }
 
     return Model(std::move(meshes));
@@ -247,10 +270,10 @@ Texture AssetDatabase::LoadTexture(const char* texturePath)
     // TODO(v.matushkin): Load Sponza textures as R8G8B8A8_SRGB ?
     // NOTE(v.matushkin): TextureWrapMode::Repeat by default?
     TextureDescriptor textureDescriptor{
-        .Width = width,
-        .Height = height,
+        .Width          = width,
+        .Height         = height,
         .GraphicsFormat = numComponents == 3 ? TextureGraphicsFormat::RGB8 : TextureGraphicsFormat::RGBA8,
-        .WrapMode = TextureWrapMode::Repeat
+        .WrapMode       = TextureWrapMode::Repeat
     };
 
     return Texture(textureDescriptor, std::move(textureData));

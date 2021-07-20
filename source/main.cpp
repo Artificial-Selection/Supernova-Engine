@@ -104,7 +104,7 @@ void Render(const snv::Window& window, const snv::ModelPtr model, const snv::GLS
 
     for (const auto&[mesh, material] : model->GetMeshes())
     {
-        const auto textureHandle = material.GetDiffuseTexture()->GetTextureHandle();
+        const auto textureHandle = material.GetBaseColorMap()->GetTextureHandle();
         shader.SetInt1("_DiffuseTexture", 0); // Can set only once?
         snv::Renderer::DrawGraphicsBuffer(mesh.GetHandle(), textureHandle, mesh.GetIndexCount(), mesh.GetVertexCount());
     }
