@@ -70,4 +70,20 @@ std::shared_ptr<Texture> Texture::GetWhiteTexture()
     return whiteTexture;
 }
 
+std::shared_ptr<Texture> Texture::GetNormalTexture()
+{
+    static constexpr ui8 normalTextureData[4 * 4 * 4] = {
+        127, 127, 255, 255, 127, 127, 255, 255, 127, 127, 255, 255, 127, 127, 255, 255,
+        127, 127, 255, 255, 127, 127, 255, 255, 127, 127, 255, 255, 127, 127, 255, 255,
+        127, 127, 255, 255, 127, 127, 255, 255, 127, 127, 255, 255, 127, 127, 255, 255,
+        127, 127, 255, 255, 127, 127, 255, 255, 127, 127, 255, 255, 127, 127, 255, 255,
+    };
+    auto normalTextureDataPtr = std::make_unique<ui8[]>(4 * 4 * 4);
+    std::memcpy(normalTextureDataPtr.get(), normalTextureData, 4 * 4 * 4);
+
+    static auto normalTexture = std::make_shared<Texture>(defaultTextureDescriptor, std::move(normalTextureDataPtr));
+
+    return normalTexture;
+}
+
 } // namespace snv

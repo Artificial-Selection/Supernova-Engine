@@ -212,24 +212,41 @@ Model AssetDatabase::LoadModel(const char* assetPath)
         }
 
         const auto assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
-        const auto diffuseTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_DIFFUSE);
-        if (diffuseTexturesCount != 1)
-        {
-            LOG_WARN("Skipping loading of mesh: {}, with diffuseTexturesCount={}", mesh->mName.C_Str(), diffuseTexturesCount);
-            continue;
-        }
-
         Material material(assimpMaterial->GetName().C_Str());
+
         // Get Material BaseColorMap
+        const auto diffuseTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_DIFFUSE);
+        if (diffuseTexturesCount > 0)
         {
             const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_DIFFUSE);
             material.SetBaseColorMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
+
+            if (diffuseTexturesCount != 1)
+            {
+                LOG_WARN("Mesh: {}, has {} baseColor textures", mesh->mName.C_Str(), diffuseTexturesCount);
+            }
+        }
+        else
+        {
+            LOG_WARN("Mesh: {}, has 0 baseColor textures, using default Black texture");
+            material.SetBaseColorMap(Texture::GetBlackTexture());
         }
         // Get Material NormalMap
-        if(assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_NORMALS) > 0)
+        const auto normalTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_NORMALS);
+        if (normalTexturesCount > 0)
         {
             const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_NORMALS);
             material.SetNormalMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
+
+            if (normalTexturesCount != 1)
+            {
+                LOG_WARN("Mesh: {}, has {} normal textures", mesh->mName.C_Str(), diffuseTexturesCount);
+            }
+        }
+        else
+        {
+            LOG_WARN("Mesh: {}, has 0 normal textures, using default Normal texture");
+            material.SetNormalMap(Texture::GetNormalTexture());
         }
 
         meshes.emplace_back(

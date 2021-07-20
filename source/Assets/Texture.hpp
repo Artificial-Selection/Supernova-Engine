@@ -23,6 +23,7 @@ public:
 
     [[nodiscard]] static std::shared_ptr<Texture> GetBlackTexture();
     [[nodiscard]] static std::shared_ptr<Texture> GetWhiteTexture();
+    [[nodiscard]] static std::shared_ptr<Texture> GetNormalTexture();
 
 private:
     std::unique_ptr<ui8[]> m_textureData;
