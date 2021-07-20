@@ -25,7 +25,7 @@ public:
 
     virtual void Clear(BufferBit bufferBitMask) = 0;
 
-    virtual void DrawGraphicsBuffer(GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount) = 0; // NOTE(v.matushkin): Questionable method
+    virtual void DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount) = 0; // NOTE(v.matushkin): Questionable method
     virtual void DrawArrays(i32 count) = 0;
     virtual void DrawElements(i32 count) = 0;
 
@@ -34,6 +34,7 @@ public:
         std::span<const std::byte> vertexData,
         const std::vector<VertexAttributeDescriptor>& vertexLayout
     ) = 0;
+    virtual TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data) = 0;
 };
 
 } // namespace snv

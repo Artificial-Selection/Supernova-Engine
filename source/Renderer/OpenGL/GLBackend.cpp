@@ -179,10 +179,12 @@ void GLBackend::Clear(BufferBit bufferBitMask)
 }
 
 
-void GLBackend::DrawGraphicsBuffer(GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount)
+void GLBackend::DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount)
 {
     const auto& graphicsBuffer = m_graphicsBuffers[handle];
+    const auto& texture        = m_textures[textureHandle];
     graphicsBuffer.Bind();
+    texture.Bind(0);
     glDrawElements(GL_TRIANGLES, indexCount , GL_UNSIGNED_INT, 0);
 }
 
@@ -207,6 +209,15 @@ GraphicsBufferHandle GLBackend::CreateGraphicsBuffer(
     GLGraphicsBuffer glGraphicsBuffer(indexData, vertexData, vertexLayout);
     const auto handle = glGraphicsBuffer.GetHandle();
     m_graphicsBuffers.emplace(handle, std::move(glGraphicsBuffer));
+
+    return handle;
+}
+
+TextureHandle GLBackend::CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data)
+{
+    GLTexture glTexture(textureDescriptor, data);
+    const auto handle = glTexture.GetHandle();
+    m_textures.emplace(handle, std::move(glTexture));
 
     return handle;
 }

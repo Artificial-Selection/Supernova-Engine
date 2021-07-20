@@ -47,6 +47,7 @@ find_package(glm    REQUIRED)
 find_package(EnTT   REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(assimp REQUIRED)
+find_package(stb    REQUIRED)
 
 
 set(MAIN_SRC_DIR ${PROJECT_SOURCE_DIR}/source)
@@ -54,10 +55,16 @@ set(MAIN_SRC_DIR ${PROJECT_SOURCE_DIR}/source)
 # --------------------------- Assets ----------------------------
 set(Assets_SRC_DIR ${MAIN_SRC_DIR}/Assets)
 set(Assets_SRC
+    ${Assets_SRC_DIR}/AssetDatabase.hpp
+    ${Assets_SRC_DIR}/AssetDatabase.cpp
+    ${Assets_SRC_DIR}/Material.hpp
+    ${Assets_SRC_DIR}/Material.cpp
     ${Assets_SRC_DIR}/Mesh.hpp
     ${Assets_SRC_DIR}/Mesh.cpp
     ${Assets_SRC_DIR}/Model.hpp
     ${Assets_SRC_DIR}/Model.cpp
+    ${Assets_SRC_DIR}/Texture.hpp
+    ${Assets_SRC_DIR}/Texture.cpp
 )
 
 # ---------------------------- Core -----------------------------
@@ -89,10 +96,12 @@ set(OpenGL_SRC_DIR ${Renderer_SRC_DIR}/OpenGL)
 set(OpenGL_SRC
     ${OpenGL_SRC_DIR}/GLBackend.hpp
     ${OpenGL_SRC_DIR}/GLBackend.cpp
-    ${OpenGL_SRC_DIR}/GLShader.hpp
-    ${OpenGL_SRC_DIR}/GLShader.cpp
     ${OpenGL_SRC_DIR}/GLGraphicsBuffer.hpp
     ${OpenGL_SRC_DIR}/GLGraphicsBuffer.cpp
+    ${OpenGL_SRC_DIR}/GLShader.hpp
+    ${OpenGL_SRC_DIR}/GLShader.cpp
+    ${OpenGL_SRC_DIR}/GLTexture.hpp
+    ${OpenGL_SRC_DIR}/GLTexture.cpp
 )
 
 set(Renderer_SRC
@@ -140,6 +149,7 @@ target_link_libraries(SuperNova PRIVATE
     EnTT::EnTT
     spdlog::spdlog
     assimp::assimp
+    stb::stb
 )
 target_include_directories(SuperNova PRIVATE
     ${MAIN_SRC_DIR}

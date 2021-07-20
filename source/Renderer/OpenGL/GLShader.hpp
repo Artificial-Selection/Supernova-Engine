@@ -27,6 +27,7 @@ public:
 
     void Bind() const;
 
+    void SetInt1(const std::string& name, i32 value) const;
     void SetMatrix4(const std::string& name, const glm::mat4& value) const;
 
 private:

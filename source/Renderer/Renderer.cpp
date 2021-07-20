@@ -57,9 +57,9 @@ void Renderer::Clear(BufferBit bufferBitMask)
 }
 
 
-void Renderer::DrawGraphicsBuffer(GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount)
+void Renderer::DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount)
 {
-    s_RendererBackend->DrawGraphicsBuffer(handle, indexCount, vertexCount);
+    s_RendererBackend->DrawGraphicsBuffer(handle, textureHandle, indexCount, vertexCount);
 }
 
 void Renderer::DrawArrays(i32 count)
@@ -80,6 +80,11 @@ GraphicsBufferHandle Renderer::CreateGraphicsBuffer(
 )
 {
     return s_RendererBackend->CreateGraphicsBuffer(indexData, vertexData, vertexLayout);
+}
+
+TextureHandle Renderer::CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data)
+{
+    return s_RendererBackend->CreateTexture(textureDescriptor, data);
 }
 
 }

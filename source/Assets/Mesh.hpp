@@ -3,9 +3,6 @@
 #include <Core/Core.hpp>
 #include <Renderer/RenderTypes.hpp>
 
-#include <glm/ext/vector_float2.hpp>
-#include <glm/ext/vector_float3.hpp>
-
 #include <memory>
 #include <vector>
 

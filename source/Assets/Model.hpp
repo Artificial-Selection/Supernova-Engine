@@ -1,6 +1,9 @@
 #pragma once
 
 #include <Assets/Mesh.hpp>
+#include <Assets/Material.hpp>
+
+#include <utility>
 
 
 namespace snv
@@ -12,7 +15,7 @@ namespace snv
 class Model
 {
 public:
-    Model() = default;
+    Model(std::vector<std::pair<Mesh, Material>>&& meshes);
 
     Model(Model&& other) noexcept;
     Model& operator=(Model&& other) noexcept;
@@ -20,12 +23,11 @@ public:
     Model(const Model& other) = delete;
     Model& operator=(const Model& other) = delete;
 
-    [[nodiscard]] const std::vector<Mesh>& GetMeshes() const { return m_meshes; }
-
-    static Model LoadAsset(const char* assetPath);
+    // TODO(v.matushkin): Unite Mesh and Material under MeshRenderer component
+    [[nodiscard]] const std::vector<std::pair<Mesh, Material>>& GetMeshes() const { return m_meshes; }
 
 private:
-    std::vector<Mesh> m_meshes;
+    std::vector<std::pair<Mesh, Material>> m_meshes;
 };
 
 } // namespace snv
