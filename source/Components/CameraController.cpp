@@ -10,27 +10,21 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 
 
-constexpr f32 k_PositionStep  = 1.0f;
-constexpr f32 k_PositionBoost = 10.0f;
-
-
 namespace snv
 {
 
 glm::vec3 GetInputTranslation(f32 movementSpeed, f32 movementBoost);
 
 
-CameraController::CameraController(f32 movementSpeed, f32 movementBoost)
-    : m_movementSpeed(movementSpeed)
+CameraController::CameraController(GameObject* gameObject, f32 movementSpeed, f32 movementBoost)
+    : BaseComponent(gameObject)
+    , m_cameraTransform(&(m_gameObject->GetComponent<Transform>()))
+    , m_movementSpeed(movementSpeed)
     , m_movementBoost(movementBoost)
 {
-    //Input::Keyboard::SetKeyEventListener(
-    //    [this](Input::KeyEvent keyEvent)
-    //    {
-    //        //LOG_INFO("CameraController::OnKeyEvent key: {} | action: {}", keyEvent.Key, keyEvent.Action);
-    //        OnKeyEvent(keyEvent);
-    //    }
-    //);
+    auto rotation = m_cameraTransform->GetRotationEuler();
+    m_pitch = rotation.x;
+    m_yaw = rotation.y;
 }
 
 
@@ -47,18 +41,6 @@ void CameraController::SetMovementBoost(f32 movementBoost)
 
 void CameraController::OnUpdate()
 {
-    auto& cameraTransform = m_gameObject->GetComponent<Transform>();
-
-    if (m_init == false)
-    {
-        auto rotation = cameraTransform.GetRotationEuler();
-        m_pitch = rotation.x;
-        m_yaw = rotation.y;
-
-        m_init = true;
-    }
-
-
     ProcessMouseInput();
 
     auto rotation = glm::angleAxis(m_pitch, glm::vec3(1, 0, 0));
@@ -67,8 +49,8 @@ void CameraController::OnUpdate()
 
     auto tranlation = GetInputTranslation(m_movementSpeed, m_movementBoost) * rotation;
 
-    cameraTransform.SetRotation(rotation);
-    cameraTransform.Translate(tranlation);
+    m_cameraTransform->SetRotation(rotation);
+    m_cameraTransform->Translate(tranlation);
 }
 
 
@@ -90,7 +72,7 @@ void CameraController::ProcessMouseInput()
             const auto deltaTime = Time::GetDelta();
 
             m_pitch += mouseDeltaY * deltaTime;
-            m_yaw += mouseDeltaX * deltaTime;
+            m_yaw   += mouseDeltaX * deltaTime;
 
             /*if (m_pitch > glm::radians(360.0f)) m_pitch -= glm::radians(360.0f);
             else if (m_pitch < 0) m_pitch += glm::radians(360.0f);

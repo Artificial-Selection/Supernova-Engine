@@ -7,10 +7,13 @@
 namespace snv
 {
 
+class Transform;
+
+
 class CameraController final : public BaseComponent
 {
 public:
-    CameraController(f32 movementSpeed, f32 movementBoost);
+    CameraController(GameObject* gameObject, f32 movementSpeed, f32 movementBoost);
 
     void SetMovementSpeed(f32 movementSpeed);
     void SetMovementBoost(f32 movementBoost);
@@ -21,7 +24,7 @@ private:
     void ProcessMouseInput();
 
 private:
-    bool m_init = false;
+    Transform* m_cameraTransform;
 
     f64 m_mousePositionX = 0;
     f64 m_mousePositionY = 0;

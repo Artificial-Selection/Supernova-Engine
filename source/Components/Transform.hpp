@@ -15,7 +15,7 @@ namespace snv
 class Transform final : public BaseComponent
 {
 public:
-    Transform() noexcept;
+    Transform(GameObject* gameObject) noexcept;
 
     [[nodiscard]] const glm::mat4x4& GetMatrix() const;
     [[nodiscard]] const glm::vec3& GetPosition() const { return m_position; }
@@ -42,6 +42,9 @@ public:
     // TODO(v.matushkin): Most likely this Rotate methods doesn't work and I need to use glm::angleAxis
     void Rotate(const glm::vec3& degrees);
     void Rotate(f32 xDegrees, f32 yDegrees, f32 zDegrees);
+
+private:
+    
 
 private:
     glm::vec3 m_position;

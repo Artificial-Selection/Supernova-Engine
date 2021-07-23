@@ -6,8 +6,9 @@
 namespace snv
 {
 
-Transform::Transform() noexcept
-    : m_position(0.0f)
+Transform::Transform(GameObject* gameObject) noexcept
+    : BaseComponent(gameObject)
+    , m_position(0.0f)
     , m_scale(1.0f)
     , m_rotation(glm::identity<glm::quat>())
     , m_transform(glm::identity<glm::mat4>())

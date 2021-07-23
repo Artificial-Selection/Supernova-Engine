@@ -6,12 +6,13 @@
 namespace snv
 {
 
-Camera::Camera() noexcept
-    : Camera(90.0f, 16.0f / 9.0f, 0.1f, 1000.0f)
+Camera::Camera(GameObject* gameObject) noexcept
+    : Camera(gameObject, 90.0f, 16.0f / 9.0f, 0.1f, 1000.0f)
 {}
 
-Camera::Camera(f32 fieldOfView, f32 aspectRatio, f32 nearClipPlane, f32 farClipPlane) noexcept
-    : m_fieldOfView(glm::radians(fieldOfView))
+Camera::Camera(GameObject* gameObject, f32 fieldOfView, f32 aspectRatio, f32 nearClipPlane, f32 farClipPlane) noexcept
+    : BaseComponent(gameObject)
+    , m_fieldOfView(glm::radians(fieldOfView))
     , m_aspectRatio(aspectRatio)
     , m_nearClipPlane(nearClipPlane)
     , m_farClipPlane(farClipPlane)
