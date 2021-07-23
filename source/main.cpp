@@ -29,6 +29,9 @@
 constexpr ui32 k_WindowWidth  = 1100;
 constexpr ui32 k_WindowHeight = 800;
 
+constexpr f32 k_MovementSpeed = 2.0f;
+constexpr f32 k_MovementBoost = 5.0f;
+
 const char* k_SponzaObjPath = "../../assets/models/Sponza/sponza.obj";
 
 const char* k_VertexSourcePath   = "../../assets/shaders/triangle_vs.glsl";
@@ -112,7 +115,7 @@ int main()
 
     snv::GameObject cameraGameObject;
     const auto& camera = cameraGameObject.AddComponent<snv::Camera>(90.0f, f32(k_WindowWidth) / k_WindowHeight, 0.1f, 100.0f);
-    auto& cameraController = cameraGameObject.AddComponent<snv::CameraController>();
+    auto& cameraController = cameraGameObject.AddComponent<snv::CameraController>(k_MovementSpeed, k_MovementBoost);
     const auto& projectionMatrix = camera.GetProjectionMatrix();
     auto& cameraTransform = cameraGameObject.GetComponent<snv::Transform>();
 

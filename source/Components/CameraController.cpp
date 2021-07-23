@@ -17,11 +17,12 @@ constexpr f32 k_PositionBoost = 10.0f;
 namespace snv
 {
 
-glm::vec3 GetInputTranslation();
+glm::vec3 GetInputTranslation(f32 movementSpeed, f32 movementBoost);
 
 
-
-CameraController::CameraController()
+CameraController::CameraController(f32 movementSpeed, f32 movementBoost)
+    : m_movementSpeed(movementSpeed)
+    , m_movementBoost(movementBoost)
 {
     //Input::Keyboard::SetKeyEventListener(
     //    [this](Input::KeyEvent keyEvent)
@@ -30,6 +31,17 @@ CameraController::CameraController()
     //        OnKeyEvent(keyEvent);
     //    }
     //);
+}
+
+
+void CameraController::SetMovementSpeed(f32 movementSpeed)
+{
+    m_movementSpeed = movementSpeed;
+}
+
+void CameraController::SetMovementBoost(f32 movementBoost)
+{
+    m_movementBoost = movementBoost;
 }
 
 
@@ -53,7 +65,7 @@ void CameraController::OnUpdate()
     rotation *= glm::angleAxis(m_yaw, glm::vec3(0, 1, 0));
     //rotation = glm::normalize(rotation);
 
-    auto tranlation = GetInputTranslation() * rotation;
+    auto tranlation = GetInputTranslation(m_movementSpeed, m_movementBoost) * rotation;
 
     cameraTransform.SetRotation(rotation);
     cameraTransform.Translate(tranlation);
@@ -68,7 +80,7 @@ void CameraController::ProcessMouseInput()
 
     if (Input::Mouse::IsButtonPressed(Input::MouseButton::Right))
     {
-        snv::Input::Cursor::SetCursorMode(snv::Input::CursorMode::Locked);
+        Input::Cursor::SetCursorMode(Input::CursorMode::Locked);
 
         if (currentMouseX != m_mousePositionX || currentMouseY != m_mousePositionY)
         {
@@ -88,7 +100,7 @@ void CameraController::ProcessMouseInput()
     }
     else
     {
-        snv::Input::Cursor::SetCursorMode(snv::Input::CursorMode::Normal);
+        Input::Cursor::SetCursorMode(Input::CursorMode::Normal);
     }
 
     m_mousePositionX = currentMouseX;
@@ -96,38 +108,38 @@ void CameraController::ProcessMouseInput()
 }
 
 
-glm::vec3 GetInputTranslation()
+glm::vec3 GetInputTranslation(f32 movementSpeed, f32 movementBoost)
 {
     glm::vec3 direction(0.0f);
 
     if (Input::Keyboard::IsKeyPressed(Input::KeyboardKey::W))
     {
-        direction.z += k_PositionStep;
+        direction.z += movementSpeed;
     }
     if (Input::Keyboard::IsKeyPressed(Input::KeyboardKey::S))
     {
-        direction.z -= k_PositionStep;
+        direction.z -= movementSpeed;
     }
     if (Input::Keyboard::IsKeyPressed(Input::KeyboardKey::A))
     {
-        direction.x += k_PositionStep;
+        direction.x += movementSpeed;
     }
     if (Input::Keyboard::IsKeyPressed(Input::KeyboardKey::D))
     {
-        direction.x -= k_PositionStep;
+        direction.x -= movementSpeed;
     }
     if (Input::Keyboard::IsKeyPressed(Input::KeyboardKey::Q))
     {
-        direction.y += k_PositionStep;
+        direction.y += movementSpeed;
     }
     if (Input::Keyboard::IsKeyPressed(Input::KeyboardKey::E))
     {
-        direction.y -= k_PositionStep;
+        direction.y -= movementSpeed;
     }
 
     if (Input::Keyboard::IsKeyPressed(Input::KeyboardKey::LeftShift))
     {
-        direction *= k_PositionBoost;
+        direction *= movementBoost;
     }
 
     direction *= static_cast<f32>(Time::GetDelta());

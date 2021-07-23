@@ -10,7 +10,10 @@ namespace snv
 class CameraController final : public BaseComponent
 {
 public:
-    CameraController();
+    CameraController(f32 movementSpeed, f32 movementBoost);
+
+    void SetMovementSpeed(f32 movementSpeed);
+    void SetMovementBoost(f32 movementBoost);
 
     void OnUpdate();
 
@@ -25,6 +28,9 @@ private:
 
     f32 m_yaw;
     f32 m_pitch;
+
+    f32 m_movementSpeed;
+    f32 m_movementBoost;
 };
 
 } // namespace snv
