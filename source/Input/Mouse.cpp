@@ -4,9 +4,6 @@
 namespace snv::Input
 {
 
-InputAction Mouse::m_buttons[8];
-
-
 InputAction Mouse::GetButton(MouseButton key)
 {
     return m_buttons[static_cast<i32>(key)];
@@ -28,6 +25,11 @@ bool Mouse::IsButtonReleased(MouseButton key)
 void Mouse::ButtonCallback(i32 button, i32 action, i32 mods)
 {
     m_buttons[button] = static_cast<InputAction>(action);
+}
+
+void Mouse::PositionCallback(f64 xpos, f64 ypos)
+{
+    m_mousePosition = glm::dvec2(xpos, ypos);
 }
 
 } // namespace snv::Input

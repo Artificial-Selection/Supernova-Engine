@@ -51,6 +51,7 @@ Window::Window(i32 width, i32 height, const char* title)
     //  after the focus loss event has been processed, i.e. after the window focus callback has been called.
     glfwSetKeyCallback(m_window, Window::GLFWKeyCallback);
     glfwSetMouseButtonCallback(m_window, Window::GLFWMouseButtonCallback);
+    glfwSetCursorPosCallback(m_window, Window::GLFWMousePositionCallback);
 }
 
 Window::~Window()
@@ -73,6 +74,11 @@ void Window::SetKeyCallback(KeyCallback keyCallback)
 void Window::SetMouseButtonCallback(MouseButtonCallback mouseButtonCallback)
 {
     m_mouseButtonCallback = mouseButtonCallback;
+}
+
+void Window::SetMousePositionCallback(MousePositionCallback mousePositionCallback)
+{
+    m_mousePositionCallback = mousePositionCallback;
 }
 
 
@@ -127,6 +133,15 @@ void Window::GLFWMouseButtonCallback(GLFWwindow* glfwWindow, i32 button, i32 act
 
     SNV_ASSERT(window->m_mouseButtonCallback != nullptr, "MouseButtonCallback was not set");
     window->m_mouseButtonCallback(button, action, mods);
+}
+
+void Window::GLFWMousePositionCallback(GLFWwindow* glfwWindow, f64 xpos, f64 ypos)
+{
+    LOG_INFO("[Window::GLFWCursorPositionCallback] xpos: {} | ypos: {}", xpos, ypos);
+
+    const auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
+    SNV_ASSERT(window->m_mousePositionCallback != nullptr, "MousePositionCallback was not set");
+    window->m_mousePositionCallback(xpos, ypos);
 }
 
 } // namespace snv

@@ -17,6 +17,8 @@
 #include <Input/Keyboard.hpp>
 #include <Input/Mouse.hpp>
 
+#include <Utils/Time.hpp>
+
 #include <chrono>
 #include <memory>
 #include <string_view>
@@ -123,10 +125,12 @@ int main()
 {
     //Log::Init( spdlog::level::trace );
     LOG_TRACE("SuperNova-Engine Init");
+    snv::Time::Init();
 
     snv::Window window(k_WindowWidth, k_WindowHeight, "SuperNova-Engine");
     window.SetKeyCallback(snv::Input::Keyboard::KeyCallback);
     window.SetMouseButtonCallback(snv::Input::Mouse::ButtonCallback);
+    window.SetMousePositionCallback(snv::Input::Mouse::PositionCallback);
 
     snv::Renderer::Init();
     snv::Renderer::SetViewport(0, 0, k_WindowWidth, k_WindowHeight);
@@ -168,7 +172,7 @@ int main()
         //LOG_INFO("current lag is {}", elapsed);
         startTime = currentTime;
 
-        ProcessInput(window, cameraTransform, modelTransform);
+        snv::Time::Update();
         Update(elapsed);
 
         modelShader.SetMatrix4("_ObjectToWorld", modelTransform.GetMatrix());
