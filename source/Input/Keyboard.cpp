@@ -4,10 +4,6 @@
 namespace snv::Input
 {
 
-InputAction Keyboard::m_keys[349];
-Keyboard::KeyEventCallback Keyboard::m_keyEventListener;
-
-
 InputAction Keyboard::GetKey(KeyboardKey key)
 {
     return m_keys[static_cast<i32>(key)];
@@ -31,7 +27,6 @@ void Keyboard::KeyCallback(i32 key, i32 scancode, i32 action, i32 mods)
     const auto keyboardKey = static_cast<KeyboardKey>(key);
     const auto inputAction = static_cast<InputAction>(action);
     m_keys[key] = inputAction;
-    m_keyEventListener({ keyboardKey , inputAction });
 }
 
 } // namespace snv::Input
