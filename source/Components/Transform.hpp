@@ -4,6 +4,7 @@
 #include <Components/Component.hpp>
 
 #include <glm/ext/vector_float3.hpp>
+#include <glm/ext/quaternion_common.hpp>
 #include <glm/ext/quaternion_float.hpp>
 #include <glm/ext/matrix_float4x4.hpp>
 
@@ -38,6 +39,7 @@ public:
     void Scale(f32 x, f32 y, f32 z);
     void Scale(f32 scale);
     void Rotate(const glm::quat& rotation);
+    // TODO(v.matushkin): Most likely this Rotate methods doesn't work and I need to use glm::angleAxis
     void Rotate(const glm::vec3& degrees);
     void Rotate(f32 xDegrees, f32 yDegrees, f32 zDegrees);
 

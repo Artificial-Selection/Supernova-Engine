@@ -1,7 +1,6 @@
 #include <Components/Transform.hpp>
 
 #include <glm/gtx/quaternion.hpp>
-#include <glm/gtx/transform.hpp>
 
 
 namespace snv
@@ -20,10 +19,9 @@ const glm::mat4x4& Transform::GetMatrix() const
 {
     if (m_dirty)
     {
-        auto T = glm::translate(m_position);
         auto R = glm::toMat4(m_rotation);
-        auto S = glm::scale(m_scale);
-        m_transform = T * R * S;
+        auto T = glm::translate(R, m_position);
+        m_transform = glm::scale(T, m_scale);
         m_dirty = false;
     }
 
