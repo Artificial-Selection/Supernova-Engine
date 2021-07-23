@@ -11,6 +11,12 @@ class GLFWwindow;
 namespace snv
 {
 
+namespace Input
+{
+    enum class CursorMode : ui8;
+}
+
+
 class Window
 {
 public:
@@ -19,18 +25,21 @@ public:
     using MousePositionCallback = std::function<void(f64 xpos, f64 ypos)>;
 
 public:
-    Window(i32 width, i32 height, const char* title);
-    ~Window();
+    static void Init(i32 width, i32 height, const char* title);
+    static void Shutdown();
 
-    [[nodiscard]] bool IsShouldBeClosed() const;
+    [[nodiscard]] static bool IsShouldBeClosed() ;
     // TODO(v.matushkin): Need to be consistent with Get*/Set* methods definitions, always define in .cpp or .hpp ?
-    void SetKeyCallback(KeyCallback keyCallback);
-    void SetMouseButtonCallback(MouseButtonCallback mouseButtonCallback);
-    void SetMousePositionCallback(MousePositionCallback mousePositionCallback);
+    static void SetKeyCallback(KeyCallback keyCallback);
+    static void SetMouseButtonCallback(MouseButtonCallback mouseButtonCallback);
+    static void SetMousePositionCallback(MousePositionCallback mousePositionCallback);
 
-    void Close() const;
-    void PollEvents() const;
-    void SwapBuffers() const;
+    // TODO(v.matushkin): only accessible by snv::Input::Cursor?
+    static void SetCursorMode(Input::CursorMode cursorMode);
+
+    static void Close();
+    static void PollEvents();
+    static void SwapBuffers();
 
 private:
     static void GLFWKeyCallback(GLFWwindow* glfwWindow, i32 key, i32 scancode, i32 action, i32 mods);
@@ -38,11 +47,11 @@ private:
     static void GLFWMousePositionCallback(GLFWwindow* glfwWindow, f64 xpos, f64 ypos);
 
 private:
-    GLFWwindow*           m_window;
+    static inline GLFWwindow*           m_window;
 
-    KeyCallback           m_keyCallback;
-    MouseButtonCallback   m_mouseButtonCallback;
-    MousePositionCallback m_mousePositionCallback;
+    static inline KeyCallback           m_keyCallback;
+    static inline MouseButtonCallback   m_mouseButtonCallback;
+    static inline MousePositionCallback m_mousePositionCallback;
 };
 
 } // namespace snv
