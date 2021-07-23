@@ -88,6 +88,7 @@ int main()
     snv::Window::SetKeyCallback(snv::Input::Keyboard::KeyCallback);
     snv::Window::SetMouseButtonCallback(snv::Input::Mouse::ButtonCallback);
     snv::Window::SetMousePositionCallback(snv::Input::Mouse::PositionCallback);
+    snv::Window::SetMouseWheelCallback(snv::Input::Mouse::WheelCallback);
 
     snv::Renderer::Init();
     snv::Renderer::SetViewport(0, 0, k_WindowWidth, k_WindowHeight);

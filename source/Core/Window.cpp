@@ -58,6 +58,7 @@ void Window::Init(i32 width, i32 height, const char* title)
     glfwSetKeyCallback(m_window, Window::GLFWKeyCallback);
     glfwSetMouseButtonCallback(m_window, Window::GLFWMouseButtonCallback);
     glfwSetCursorPosCallback(m_window, Window::GLFWMousePositionCallback);
+    glfwSetScrollCallback(m_window, Window::GLFWMouseWheelCallback);
 }
 
 void Window::Shutdown()
@@ -86,6 +87,12 @@ void Window::SetMousePositionCallback(MousePositionCallback mousePositionCallbac
 {
     m_mousePositionCallback = mousePositionCallback;
 }
+
+void Window::SetMouseWheelCallback(MouseWheelCallback mouseWheelCallback)
+{
+    m_mouseWheelCallback = mouseWheelCallback;
+}
+
 
 void Window::SetCursorMode(Input::CursorMode cursorMode)
 {
@@ -149,6 +156,14 @@ void Window::GLFWMousePositionCallback(GLFWwindow* glfwWindow, f64 xpos, f64 ypo
 
     SNV_ASSERT(m_mousePositionCallback != nullptr, "MousePositionCallback was not set");
     m_mousePositionCallback(xpos, ypos);
+}
+
+void Window::GLFWMouseWheelCallback(GLFWwindow* glfwWindow, f64 xoffset, f64 yoffset)
+{
+    //LOG_INFO("[Window::GLFWMouseWheelCallback] xoffset: {} | yoffset: {}", xoffset, yoffset);
+
+    SNV_ASSERT(m_mouseWheelCallback != nullptr, "MouseWheelCallback was not set");
+    m_mouseWheelCallback(yoffset);
 }
 
 } // namespace snv

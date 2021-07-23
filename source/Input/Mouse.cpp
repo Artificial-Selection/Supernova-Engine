@@ -32,4 +32,9 @@ void Mouse::PositionCallback(f64 xpos, f64 ypos)
     m_mousePosition = glm::dvec2(xpos, ypos);
 }
 
+void Mouse::WheelCallback(f64 yoffset)
+{
+    m_mouseWheelOffsetY = yoffset;
+}
+
 } // namespace snv::Input
