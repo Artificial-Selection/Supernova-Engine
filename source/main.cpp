@@ -47,7 +47,7 @@ std::unique_ptr<char[]> LoadShaderFromFile(std::string_view shaderPath)
 }
 
 
-void ProcessInput(const snv::Window& window, snv::Transform& cameraTransform, snv::Transform& modelTransform)
+void ProcessInput()
 {
     snv::Window::PollEvents();
 
@@ -55,26 +55,11 @@ void ProcessInput(const snv::Window& window, snv::Transform& cameraTransform, sn
     {
         snv::Window::Close();
     }
+}
 
-    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Z))
-    {
-        cameraTransform.Translate(0.0f, step, 0.0f);
-    }
-    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::X))
-    {
-        cameraTransform.Translate(0.0f, -step, 0.0f);
-    }
-
-    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::Q)
-        || snv::Input::Mouse::IsButtonPressed(snv::Input::MouseButton::Left))
-    {
-        modelTransform.Rotate(0.0f, -1.0f, 0.0f);
-    }
-    if (snv::Input::Keyboard::IsKeyPressed(snv::Input::KeyboardKey::E)
-        || snv::Input::Mouse::IsButtonPressed(snv::Input::MouseButton::Right))
-    {
-        modelTransform.Rotate(0.0f, 1.0f, 0.0f);
-    }
+void Update(snv::CameraController& cameraController)
+{
+    cameraController.OnUpdate();
 }
 
 void Render(const snv::ModelPtr model, const snv::GLShader& shader)
@@ -126,13 +111,15 @@ int main()
 
     snv::GameObject cameraGameObject;
     const auto& camera = cameraGameObject.AddComponent<snv::Camera>(90.0f, f32(k_WindowWidth) / k_WindowHeight, 0.1f, 100.0f);
+    auto& cameraController = cameraGameObject.AddComponent<snv::CameraController>();
     const auto& projectionMatrix = camera.GetProjectionMatrix();
     auto& cameraTransform = cameraGameObject.GetComponent<snv::Transform>();
 
     while (snv::Window::IsShouldBeClosed() == false)
     {
         snv::Time::Update();
-        Update(elapsed);
+        ProcessInput();
+        Update(cameraController);
 
         modelShader.SetMatrix4("_ObjectToWorld", sponzaTransform.GetMatrix());
         modelShader.SetMatrix4("_MatrixP", projectionMatrix);

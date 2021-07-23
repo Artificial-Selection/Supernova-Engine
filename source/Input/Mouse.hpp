@@ -16,6 +16,7 @@ enum class MouseButton
     Middle = 2
 };
 
+
 // TODO(v.matushkin): Handle Mouse position/scroll change, cursor leave/enter
 class Mouse
 {
