@@ -22,7 +22,7 @@ public:
     static void KeyCallback(i32 key, i32 scancode, i32 action, i32 mods);
 
 private:
-    static InputAction m_keys[349];
+    static inline InputAction m_keys[349];
 };
 
 }

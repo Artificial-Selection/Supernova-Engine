@@ -15,7 +15,7 @@ public:
     template<Component T, typename... Args>
     T& AddComponent(Args&&... args)
     {
-        return ComponentFactory::Instance().AddComponent<T>(m_entity, std::forward<Args>(args)...);
+        return ComponentFactory::Instance().AddComponent<T>(m_entity, this, std::forward<Args>(args)...);
     }
 
     template<Component T>

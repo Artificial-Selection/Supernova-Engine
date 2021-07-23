@@ -82,6 +82,8 @@ set(Core_SRC
 set(Input_SRC_DIR ${MAIN_SRC_DIR}/Input)
 set(Input_SRC
     ${Input_SRC_DIR}/Input.hpp
+    ${Input_SRC_DIR}/Cursor.hpp
+    ${Input_SRC_DIR}/Cursor.cpp
     ${Input_SRC_DIR}/KeyboardKey.hpp
     ${Input_SRC_DIR}/Keyboard.hpp
     ${Input_SRC_DIR}/Keyboard.cpp
@@ -120,6 +122,8 @@ set(Components_SRC
     ${Components_SRC_DIR}/ComponentFactory.cpp
     ${Components_SRC_DIR}/Camera.hpp
     ${Components_SRC_DIR}/Camera.cpp
+    ${Components_SRC_DIR}/CameraController.hpp
+    ${Components_SRC_DIR}/CameraController.cpp
     ${Components_SRC_DIR}/Transform.hpp
     ${Components_SRC_DIR}/Transform.cpp
 )
@@ -129,6 +133,13 @@ set(Entity_SRC_DIR ${MAIN_SRC_DIR}/Entity)
 set(Entity_SRC
     ${Entity_SRC_DIR}/GameObject.hpp
     ${Entity_SRC_DIR}/GameObject.cpp
+)
+
+# ----------------------------- Utils -----------------------------
+set(Utils_SRC_DIR ${MAIN_SRC_DIR}/Utils)
+set(Utils_SRC
+    ${Utils_SRC_DIR}/Time.hpp
+    ${Utils_SRC_DIR}/Time.cpp
 )
 
 
@@ -141,6 +152,7 @@ add_executable(SuperNova
     ${Entity_SRC}
     ${Assets_SRC}
     ${Input_SRC}
+    ${Utils_SRC}
 )
 target_link_libraries(SuperNova PRIVATE
     glad::glad

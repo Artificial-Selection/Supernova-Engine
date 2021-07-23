@@ -1,5 +1,6 @@
 #include <Core/Window.hpp>
 #include <Core/Assert.hpp>
+#include <Input/Cursor.hpp>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -8,6 +9,13 @@
 // NOTE(v.matushkin): I'm initializing glad here only because its header needs to be included
 //  before glfw and because I'm not sure where I should do it, if not here(GLBackend ?)
 //  Leave this shit to the future me
+
+
+constexpr i32 glfw_CursorMode[] = {
+    GLFW_CURSOR_NORMAL,  // Cursor::Normal
+    GLFW_CURSOR_HIDDEN,  // Cursor::Hidden
+    GLFW_CURSOR_DISABLED // Cursor::Locked
+};
 
 
 #ifdef SNV_ENABLE_DEBUG
@@ -21,7 +29,7 @@ void GlfwErrorCallback(i32 what_is_this, const char* error)
 namespace snv
 {
 
-Window::Window(i32 width, i32 height, const char* title)
+void Window::Init(i32 width, i32 height, const char* title)
 {
 #ifdef SNV_ENABLE_DEBUG
     glfwSetErrorCallback(GlfwErrorCallback);
@@ -43,23 +51,23 @@ Window::Window(i32 width, i32 height, const char* title)
     const auto glad_dont_know_what = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     SNV_ASSERT(glad_dont_know_what != 0, "Failed to initialize GLAD");
 
-    glfwSetWindowUserPointer(m_window, this);
-
     // NOTE(v.matushkin): Do I need to set callbacks here or only when Set*Callback methods are called?
     // When a window loses input focus, it will generate synthetic key release events for all pressed keys.
     //  You can tell these events from user-generated events by the fact that the synthetic ones are generated
     //  after the focus loss event has been processed, i.e. after the window focus callback has been called.
     glfwSetKeyCallback(m_window, Window::GLFWKeyCallback);
     glfwSetMouseButtonCallback(m_window, Window::GLFWMouseButtonCallback);
+    glfwSetCursorPosCallback(m_window, Window::GLFWMousePositionCallback);
+    glfwSetScrollCallback(m_window, Window::GLFWMouseWheelCallback);
 }
 
-Window::~Window()
+void Window::Shutdown()
 {
     glfwTerminate();
 }
 
 
-bool Window::IsShouldBeClosed() const
+bool Window::IsShouldBeClosed()
 {
     return glfwWindowShouldClose(m_window) != 0;
 }
@@ -75,19 +83,36 @@ void Window::SetMouseButtonCallback(MouseButtonCallback mouseButtonCallback)
     m_mouseButtonCallback = mouseButtonCallback;
 }
 
+void Window::SetMousePositionCallback(MousePositionCallback mousePositionCallback)
+{
+    m_mousePositionCallback = mousePositionCallback;
+}
 
-void Window::Close() const
+void Window::SetMouseWheelCallback(MouseWheelCallback mouseWheelCallback)
+{
+    m_mouseWheelCallback = mouseWheelCallback;
+}
+
+
+void Window::SetCursorMode(Input::CursorMode cursorMode)
+{
+    const i32 glfwCursorMode = glfw_CursorMode[static_cast<ui8>(cursorMode)];
+    glfwSetInputMode(m_window, GLFW_CURSOR, glfwCursorMode);
+}
+
+
+void Window::Close()
 {
     // NOTE(v.matushkin): Check IsOpen() ?
     glfwSetWindowShouldClose(m_window, GLFW_TRUE);
 }
 
-void Window::PollEvents() const
+void Window::PollEvents()
 {
     glfwPollEvents();
 }
 
-void Window::SwapBuffers() const
+void Window::SwapBuffers()
 {
     glfwSwapBuffers(m_window);
 }
@@ -97,36 +122,48 @@ void Window::GLFWKeyCallback(GLFWwindow* glfwWindow, i32 key, i32 scancode, i32 
 {
     SNV_ASSERT(key != GLFW_KEY_UNKNOWN, "GLFW_KEY_UNKNOWN is not handled");
 
-    const char* actionString;
+    /*const char* actionString;
     if (action == GLFW_REPEAT)
         actionString = "REPEAT";
     else if (action == GLFW_PRESS)
         actionString = "PRESS";
     else
         actionString = "RELEASE";
-    LOG_INFO("[Window::GLFWKeyCallback] Key: {} | Action: {}", key, actionString);
+    LOG_INFO("[Window::GLFWKeyCallback] Key: {} | Action: {}", key, actionString);*/
 
-    const auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
-
-    SNV_ASSERT(window->m_keyCallback != nullptr, "KeyCallback was not set");
-    window->m_keyCallback(key, scancode, action, mods);
+    SNV_ASSERT(m_keyCallback != nullptr, "KeyCallback was not set");
+    m_keyCallback(key, scancode, action, mods);
 }
 
 void Window::GLFWMouseButtonCallback(GLFWwindow* glfwWindow, i32 button, i32 action, i32 mods)
 {
-    const char* actionString;
+    /*const char* actionString;
     if (action == GLFW_REPEAT)
         actionString = "REPEAT";
     else if (action == GLFW_PRESS)
         actionString = "PRESS";
     else
         actionString = "RELEASE";
-    LOG_INFO("[Window::GLFWMouseButtonCallback] Button: {} | Action: {}", button, actionString);
+    LOG_INFO("[Window::GLFWMouseButtonCallback] Button: {} | Action: {}", button, actionString);*/
 
-    const auto window = static_cast<Window*>(glfwGetWindowUserPointer(glfwWindow));
+    SNV_ASSERT(m_mouseButtonCallback != nullptr, "MouseButtonCallback was not set");
+    m_mouseButtonCallback(button, action, mods);
+}
 
-    SNV_ASSERT(window->m_mouseButtonCallback != nullptr, "MouseButtonCallback was not set");
-    window->m_mouseButtonCallback(button, action, mods);
+void Window::GLFWMousePositionCallback(GLFWwindow* glfwWindow, f64 xpos, f64 ypos)
+{
+    //LOG_INFO("[Window::GLFWCursorPositionCallback] xpos: {} | ypos: {}", xpos, ypos);
+
+    SNV_ASSERT(m_mousePositionCallback != nullptr, "MousePositionCallback was not set");
+    m_mousePositionCallback(xpos, ypos);
+}
+
+void Window::GLFWMouseWheelCallback(GLFWwindow* glfwWindow, f64 xoffset, f64 yoffset)
+{
+    //LOG_INFO("[Window::GLFWMouseWheelCallback] xoffset: {} | yoffset: {}", xoffset, yoffset);
+
+    SNV_ASSERT(m_mouseWheelCallback != nullptr, "MouseWheelCallback was not set");
+    m_mouseWheelCallback(yoffset);
 }
 
 } // namespace snv

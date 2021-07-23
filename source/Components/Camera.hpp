@@ -15,8 +15,8 @@ namespace snv
 class Camera final : public BaseComponent
 {
 public:
-    Camera() noexcept;
-    Camera(f32 fieldOfView, f32 aspectRatio, f32 nearClipPlane, f32 farClipPlane) noexcept;
+    Camera(GameObject* gameObject) noexcept;
+    Camera(GameObject* gameObject, f32 fieldOfView, f32 aspectRatio, f32 nearClipPlane, f32 farClipPlane) noexcept;
 
     [[nodiscard]] const glm::mat4x4& GetProjectionMatrix() const;
     [[nodiscard]] f32 GetFieldOfView()   const { return m_fieldOfView; }

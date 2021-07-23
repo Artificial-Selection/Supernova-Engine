@@ -1,14 +1,14 @@
 #include <Components/Transform.hpp>
 
 #include <glm/gtx/quaternion.hpp>
-#include <glm/gtx/transform.hpp>
 
 
 namespace snv
 {
 
-Transform::Transform() noexcept
-    : m_position(0.0f)
+Transform::Transform(GameObject* gameObject) noexcept
+    : BaseComponent(gameObject)
+    , m_position(0.0f)
     , m_scale(1.0f)
     , m_rotation(glm::identity<glm::quat>())
     , m_transform(glm::identity<glm::mat4>())
@@ -20,10 +20,9 @@ const glm::mat4x4& Transform::GetMatrix() const
 {
     if (m_dirty)
     {
-        auto T = glm::translate(m_position);
         auto R = glm::toMat4(m_rotation);
-        auto S = glm::scale(m_scale);
-        m_transform = T * R * S;
+        auto T = glm::translate(R, m_position);
+        m_transform = glm::scale(T, m_scale);
         m_dirty = false;
     }
 

@@ -12,15 +12,18 @@
 namespace snv
 {
 
+class GameObject;
+
+
 class ComponentFactory : public Singleton<ComponentFactory>
 {
 public:
     entt::entity CreateEntity();
 
     template<typename T, typename... Args>
-    T& AddComponent(const entt::entity entity, Args&&... args)
+    T& AddComponent(const entt::entity entity, GameObject* gameObject, Args&&... args)
     {
-        return m_registry.emplace<T>(entity, std::forward<Args>(args)...);
+        return m_registry.emplace<T>(entity, gameObject, std::forward<Args>(args)...);
     }
 
     template<class T>
