@@ -10,9 +10,11 @@ namespace snv
 
 class Model;
 class Texture;
+class Shader;
 
 using ModelPtr   = std::shared_ptr<Model>;
 using TexturePtr = std::shared_ptr<Texture>;
+using ShaderPtr  = std::shared_ptr<Shader>;
 
 
 // TODO(v.matushkin): For now this class is a joke
@@ -28,12 +30,14 @@ public:
     [[nodiscard]] static std::shared_ptr<T> LoadAsset(const std::string& assetPath);
 
 private:
-    [[nodiscard]] static Model   LoadModel(const char* assetPath);
+    [[nodiscard]] static Model   LoadModel(const char* modelPath);
     [[nodiscard]] static Texture LoadTexture(const char* texturePath);
+    [[nodiscard]] static Shader  LoadShader(const std::string& shaderPath);
 
 private:
-    static Models   m_models;
-    static Textures m_textures;
+    static inline Models    m_models;
+    static inline Textures  m_textures;
+    static inline ShaderPtr m_theOneAndOnlyForNow;
 };
 
 } // namespace snv

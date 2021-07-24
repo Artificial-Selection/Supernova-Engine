@@ -8,11 +8,15 @@
 #include <Entity/GameObject.hpp>
 #include <Components/Camera.hpp>
 #include <Components/CameraController.hpp>
+#include <Components/MeshRenderer.hpp>
 #include <Components/Transform.hpp>
 
 #include <Assets/AssetDatabase.hpp>
+#include <Assets/Material.hpp>
+#include <Assets/Mesh.hpp>
 #include <Assets/Model.hpp>
 #include <Assets/Texture.hpp>
+#include <Assets/Shader.hpp>
 
 #include <Input/Keyboard.hpp>
 #include <Input/Mouse.hpp>
@@ -20,10 +24,6 @@
 #include <Utils/Time.hpp>
 
 #include <chrono>
-#include <memory>
-#include <string_view>
-#include <fstream>
-#include <filesystem>
 
 
 constexpr ui32 k_WindowWidth  = 1100;
@@ -33,21 +33,7 @@ constexpr f32 k_MovementSpeed = 2.0f;
 constexpr f32 k_MovementBoost = 5.0f;
 
 const char* k_SponzaObjPath = "../../assets/models/Sponza/sponza.obj";
-
-const char* k_VertexSourcePath   = "../../assets/shaders/triangle_vs.glsl";
-const char* k_FragmentSourcePath = "../../assets/shaders/triangle_fs.glsl";
-
-
-std::unique_ptr<char[]> LoadShaderFromFile(std::string_view shaderPath)
-{
-    const auto size = std::filesystem::file_size(shaderPath);
-    auto shaderSource = std::make_unique<char[]>(size + 1);
-
-    std::ifstream shaderFile(shaderPath, std::ios::binary | std::ios::in);
-    shaderFile.read(shaderSource.get(), size);
-
-    return shaderSource;
-}
+const char* k_ShaderPath    = "../../assets/shaders/triangle";
 
 
 void ProcessInput()
@@ -65,16 +51,29 @@ void Update(snv::CameraController& cameraController)
     cameraController.OnUpdate();
 }
 
-void Render(const snv::ModelPtr model, const snv::GLShader& shader)
+void Render(const snv::ModelPtr model, const glm::mat4x4& modelM, const glm::mat4x4& viewM, const glm::mat4x4& projectionM)
 {
+    const auto& gameObjects = model->GetGameObjects();
+    const auto shaderHandle = gameObjects[0].GetComponent<snv::MeshRenderer>().GetMaterial()->GetShader()->GetHandle();
+
     // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
     snv::Renderer::Clear(static_cast<snv::BufferBit>(snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil));
 
-    for (const auto& [mesh, material] : model->GetMeshes())
+    snv::Renderer::StartFrame(shaderHandle, modelM, viewM, projectionM);
+
+    for (const auto& gameObject : gameObjects)
     {
-        const auto textureHandle = material.GetBaseColorMap()->GetTextureHandle();
-        shader.SetInt1("_DiffuseTexture", 0); // Can set only once?
-        snv::Renderer::DrawGraphicsBuffer(mesh.GetHandle(), textureHandle, mesh.GetIndexCount(), mesh.GetVertexCount());
+        const auto& meshRenderer = gameObject.GetComponent<snv::MeshRenderer>();
+
+        const auto material = meshRenderer.GetMaterial();
+        const auto textureHandle = material->GetBaseColorMap()->GetTextureHandle();
+
+        const auto mesh = meshRenderer.GetMesh();
+        const auto meshHandle = mesh->GetHandle();
+        const auto indexCount = mesh->GetIndexCount();
+        const auto vertexCount = mesh->GetVertexCount();
+
+        snv::Renderer::DrawGraphicsBuffer(textureHandle, meshHandle, indexCount, vertexCount);
     }
 
     snv::Window::SwapBuffers();
@@ -99,10 +98,7 @@ int main()
     snv::Renderer::EnableDepthTest();
     snv::Renderer::SetDepthFunction(snv::DepthFunction::Less);
 
-    const auto vertexSource = LoadShaderFromFile(k_VertexSourcePath);
-    const auto fragmentSource = LoadShaderFromFile(k_FragmentSourcePath);
-    snv::GLShader modelShader(vertexSource.get(), fragmentSource.get());
-    modelShader.Bind();
+    (void)snv::AssetDatabase::LoadAsset<snv::Shader>(k_ShaderPath);
 
     const auto sponzaLoadStart = std::chrono::high_resolution_clock::now();
     const auto sponzaModel = snv::AssetDatabase::LoadAsset<snv::Model>(k_SponzaObjPath);
@@ -125,11 +121,7 @@ int main()
         ProcessInput();
         Update(cameraController);
 
-        modelShader.SetMatrix4("_ObjectToWorld", sponzaTransform.GetMatrix());
-        modelShader.SetMatrix4("_MatrixP", projectionMatrix);
-        modelShader.SetMatrix4("_MatrixV", cameraTransform.GetMatrix());
-
-        Render(sponzaModel, modelShader);
+        Render(sponzaModel, sponzaTransform.GetMatrix(), cameraTransform.GetMatrix(), projectionMatrix);
     }
 
     LOG_TRACE("SuperNova-Engine Shutdown");

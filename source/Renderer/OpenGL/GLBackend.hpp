@@ -4,6 +4,7 @@
 #include <Renderer/IRendererBackend.hpp>
 #include <Renderer/OpenGL/GLGraphicsBuffer.hpp>
 #include <Renderer/OpenGL/GLTexture.hpp>
+#include <Renderer/OpenGL/GLShader.hpp>
 
 #include <unordered_map>
 
@@ -30,7 +31,12 @@ public:
 
     void Clear(BufferBit bufferBitMask) override;
 
-    void DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount) override;
+    void StartFrame(
+        ShaderHandle shaderHandle, const glm::mat4x4& modelM, const glm::mat4x4& viewM, const glm::mat4x4& projectionM
+    ) override;
+    void DrawGraphicsBuffer(
+        TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
+    ) override;
     void DrawArrays(i32 count) override;
     void DrawElements(i32 count) override;
 
@@ -40,10 +46,12 @@ public:
         const std::vector<VertexAttributeDescriptor>& vertexLayout
     ) override;
     TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data) override;
+    ShaderHandle CreateShader(const char* vertexSource, const char* fragmentSource) override;
 
 private:
     std::unordered_map<GraphicsBufferHandle, GLGraphicsBuffer> m_graphicsBuffers;
     std::unordered_map<TextureHandle,        GLTexture>        m_textures;
+    std::unordered_map<ShaderHandle,         GLShader>         m_shaders;
 };
 
 } // namespace snv

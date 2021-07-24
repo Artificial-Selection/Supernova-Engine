@@ -179,12 +179,28 @@ void GLBackend::Clear(BufferBit bufferBitMask)
 }
 
 
-void GLBackend::DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount)
+void GLBackend::StartFrame(
+    ShaderHandle shaderHandle, const glm::mat4x4& modelM, const glm::mat4x4& viewM, const glm::mat4x4& projectionM
+)
 {
+    const auto& shader = m_shaders[shaderHandle];
+    shader.SetInt1("_DiffuseTexture", 0);
+    shader.SetMatrix4("_ObjectToWorld", modelM);
+    shader.SetMatrix4("_MatrixP", projectionM);
+    shader.SetMatrix4("_MatrixV", viewM);
+    shader.Bind();
+}
+
+void GLBackend::DrawGraphicsBuffer(
+    TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
+)
+{
+    const auto& texture = m_textures[textureHandle];
     const auto& graphicsBuffer = m_graphicsBuffers[handle];
-    const auto& texture        = m_textures[textureHandle];
-    graphicsBuffer.Bind();
+
     texture.Bind(0);
+    graphicsBuffer.Bind();
+
     glDrawElements(GL_TRIANGLES, indexCount , GL_UNSIGNED_INT, 0);
 }
 
@@ -218,6 +234,15 @@ TextureHandle GLBackend::CreateTexture(const TextureDescriptor& textureDescripto
     GLTexture glTexture(textureDescriptor, data);
     const auto handle = glTexture.GetHandle();
     m_textures.emplace(handle, std::move(glTexture));
+
+    return handle;
+}
+
+ShaderHandle GLBackend::CreateShader(const char* vertexSource, const char* fragmentSource)
+{
+    GLShader glShader(vertexSource, fragmentSource);
+    const auto handle = glShader.GetHandle();
+    m_shaders.emplace(handle, std::move(glShader));
 
     return handle;
 }

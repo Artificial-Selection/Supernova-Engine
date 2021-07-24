@@ -1,8 +1,11 @@
 #pragma once
 
 #include <Core/Core.hpp>
+#include <Renderer/RenderTypes.hpp>
 
 #include <glm/ext/matrix_float4x4.hpp>
+
+#include <string>
 
 
 namespace snv
@@ -14,9 +17,13 @@ enum class GLShaderType
     Fragment = 0x8B30
 };
 
+
 class GLShader
 {
 public:
+    // NOTE(v.matushkin): Can I make this move only without default constructor?
+    // TODO(v.matushkin): Define destructor
+    GLShader() noexcept;
     GLShader(const char* vertexSource, const char* fragmentSource);
 
     GLShader(GLShader&& other) noexcept;
@@ -24,6 +31,8 @@ public:
 
     GLShader(const GLShader& other) = delete;
     GLShader& operator=(const GLShader& other) = delete;
+
+    [[nodiscard]] ShaderHandle GetHandle() const { return static_cast<ShaderHandle>(m_shaderProgramID); }
 
     void Bind() const;
 

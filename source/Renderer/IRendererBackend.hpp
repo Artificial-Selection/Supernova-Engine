@@ -3,6 +3,8 @@
 #include <Core/Core.hpp>
 #include <Renderer/RenderTypes.hpp>
 
+#include <glm/ext/matrix_float4x4.hpp>
+
 #include <vector>
 #include <span>
 
@@ -25,7 +27,14 @@ public:
 
     virtual void Clear(BufferBit bufferBitMask) = 0;
 
-    virtual void DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount) = 0; // NOTE(v.matushkin): Questionable method
+    // TODO(v.matushkin): Remove, temporary method
+    virtual void StartFrame(
+        ShaderHandle shaderHandle, const glm::mat4x4& modelM, const glm::mat4x4& viewM, const glm::mat4x4& projectionM
+    ) = 0;
+    // NOTE(v.matushkin): Questionable method
+    virtual void DrawGraphicsBuffer(
+        TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
+    ) = 0;
     virtual void DrawArrays(i32 count) = 0;
     virtual void DrawElements(i32 count) = 0;
 
@@ -35,6 +44,7 @@ public:
         const std::vector<VertexAttributeDescriptor>& vertexLayout
     ) = 0;
     virtual TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data) = 0;
+    virtual ShaderHandle CreateShader(const char* vertexSource, const char* fragmentSource) = 0;
 };
 
 } // namespace snv

@@ -19,7 +19,7 @@ public:
     }
 
     template<Component T>
-    T& GetComponent()
+    T& GetComponent() const
     {
         return ComponentFactory::Instance().GetComponent<T>(m_entity);
     }

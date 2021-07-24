@@ -21,9 +21,9 @@ public:
     GLTexture(const GLTexture& other) = delete;
     GLTexture& operator=(const GLTexture& other) = delete;
 
-    void Bind(ui32 textureUnit) const;
-
     [[nodiscard]] TextureHandle GetHandle() const { return static_cast<TextureHandle>(m_textureID); }
+
+    void Bind(ui32 textureUnit) const;
 
 private:
     ui32 m_textureID;

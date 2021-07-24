@@ -6,9 +6,6 @@
 namespace snv
 {
 
-IRendererBackend* Renderer::s_RendererBackend;
-
-
 void Renderer::Init()
 {
     s_RendererBackend = new GLBackend();
@@ -57,9 +54,18 @@ void Renderer::Clear(BufferBit bufferBitMask)
 }
 
 
-void Renderer::DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount)
+void Renderer::StartFrame(
+    ShaderHandle shaderHandle, const glm::mat4x4& modelM, const glm::mat4x4& viewM, const glm::mat4x4& projectionM
+)
 {
-    s_RendererBackend->DrawGraphicsBuffer(handle, textureHandle, indexCount, vertexCount);
+    s_RendererBackend->StartFrame(shaderHandle, modelM, viewM, projectionM);
+}
+
+void Renderer::DrawGraphicsBuffer(
+    TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
+)
+{
+    s_RendererBackend->DrawGraphicsBuffer(textureHandle, handle, indexCount, vertexCount);
 }
 
 void Renderer::DrawArrays(i32 count)
@@ -85,6 +91,11 @@ GraphicsBufferHandle Renderer::CreateGraphicsBuffer(
 TextureHandle Renderer::CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data)
 {
     return s_RendererBackend->CreateTexture(textureDescriptor, data);
+}
+
+ShaderHandle Renderer::CreateShader(const char* vertexSource, const char* fragmentSource)
+{
+    return s_RendererBackend->CreateShader(vertexSource, fragmentSource);
 }
 
 }

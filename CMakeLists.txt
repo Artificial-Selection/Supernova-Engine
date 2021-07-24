@@ -63,8 +63,26 @@ set(Assets_SRC
     ${Assets_SRC_DIR}/Mesh.cpp
     ${Assets_SRC_DIR}/Model.hpp
     ${Assets_SRC_DIR}/Model.cpp
+    ${Assets_SRC_DIR}/Shader.hpp
+    ${Assets_SRC_DIR}/Shader.cpp
     ${Assets_SRC_DIR}/Texture.hpp
     ${Assets_SRC_DIR}/Texture.cpp
+)
+
+# -------------------------- Components ---------------------------
+set(Components_SRC_DIR ${MAIN_SRC_DIR}/Components)
+set(Components_SRC
+    ${Components_SRC_DIR}/Component.hpp
+    ${Components_SRC_DIR}/ComponentFactory.hpp
+    ${Components_SRC_DIR}/ComponentFactory.cpp
+    ${Components_SRC_DIR}/Camera.hpp
+    ${Components_SRC_DIR}/Camera.cpp
+    ${Components_SRC_DIR}/CameraController.hpp
+    ${Components_SRC_DIR}/CameraController.cpp
+    ${Components_SRC_DIR}/MeshRenderer.hpp
+    ${Components_SRC_DIR}/MeshRenderer.cpp
+    ${Components_SRC_DIR}/Transform.hpp
+    ${Components_SRC_DIR}/Transform.cpp
 )
 
 # ---------------------------- Core -----------------------------
@@ -112,20 +130,6 @@ set(Renderer_SRC
     ${Renderer_SRC_DIR}/IRendererBackend.hpp
     ${Renderer_SRC_DIR}/Renderer.hpp
     ${Renderer_SRC_DIR}/Renderer.cpp
-)
-
-# -------------------------- Components ---------------------------
-set(Components_SRC_DIR ${MAIN_SRC_DIR}/Components)
-set(Components_SRC
-    ${Components_SRC_DIR}/Component.hpp
-    ${Components_SRC_DIR}/ComponentFactory.hpp
-    ${Components_SRC_DIR}/ComponentFactory.cpp
-    ${Components_SRC_DIR}/Camera.hpp
-    ${Components_SRC_DIR}/Camera.cpp
-    ${Components_SRC_DIR}/CameraController.hpp
-    ${Components_SRC_DIR}/CameraController.cpp
-    ${Components_SRC_DIR}/Transform.hpp
-    ${Components_SRC_DIR}/Transform.cpp
 )
 
 # ---------------------------- Entity -----------------------------

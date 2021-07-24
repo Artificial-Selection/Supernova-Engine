@@ -51,7 +51,7 @@ GLTexture::GLTexture(const TextureDescriptor& textureDescriptor, const ui8* data
 
     const auto width  = textureDescriptor.Width;
     const auto height = textureDescriptor.Height;
-    const auto[glInternalFormat, glFormat, glType] = gl_formatTable[static_cast<ui8>(textureDescriptor.GraphicsFormat)];
+    const auto [glInternalFormat, glFormat, glType] = gl_formatTable[static_cast<ui8>(textureDescriptor.GraphicsFormat)];
     glTextureStorage2D(m_textureID, 1, glInternalFormat, width, height);
     glTextureSubImage2D(m_textureID, 0, 0, 0, width, height, glFormat, glType, data);
 }
