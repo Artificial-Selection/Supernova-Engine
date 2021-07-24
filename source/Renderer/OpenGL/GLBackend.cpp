@@ -179,15 +179,15 @@ void GLBackend::Clear(BufferBit bufferBitMask)
 }
 
 
-void GLBackend::StartFrame(
-    ShaderHandle shaderHandle, const glm::mat4x4& modelM, const glm::mat4x4& viewM, const glm::mat4x4& projectionM
-)
+void GLBackend::StartFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
-    const auto& shader = m_shaders[shaderHandle];
+    // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
+    //const auto& shader = m_shaders[shaderHandle];
+    const auto& shader = m_shaders.begin()->second;
     shader.SetInt1("_DiffuseTexture", 0);
-    shader.SetMatrix4("_ObjectToWorld", modelM);
-    shader.SetMatrix4("_MatrixP", projectionM);
-    shader.SetMatrix4("_MatrixV", viewM);
+    shader.SetMatrix4("_ObjectToWorld", localToWorld);
+    shader.SetMatrix4("_MatrixV", cameraView);
+    shader.SetMatrix4("_MatrixP", cameraProjection);
     shader.Bind();
 }
 

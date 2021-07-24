@@ -30,14 +30,11 @@ public:
 
     static void Clear(BufferBit bufferBitMask);
 
-    static void StartFrame(
-        ShaderHandle shaderHandle, const glm::mat4x4& modelM, const glm::mat4x4& viewM, const glm::mat4x4& projectionM
-    );
+    static void RenderFrame(const glm::mat4x4& localToWorld);
+
     static void DrawGraphicsBuffer(
         TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
     );
-    static void DrawArrays(i32 count);
-    static void DrawElements(i32 count);
 
     static GraphicsBufferHandle CreateGraphicsBuffer(
         std::span<const std::byte> indexData,

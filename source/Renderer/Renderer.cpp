@@ -2,6 +2,17 @@
 #include <Renderer/IRendererBackend.hpp>
 #include <Renderer/OpenGL/GLBackend.hpp>
 
+#include <Core/Assert.hpp>
+
+#include <Assets/Material.hpp>
+#include <Assets/Mesh.hpp>
+#include <Assets/Texture.hpp>
+
+#include <Components/ComponentFactory.hpp>
+#include <Components/Camera.hpp>
+#include <Components/MeshRenderer.hpp>
+#include <Components/Transform.hpp>
+
 
 namespace snv
 {
@@ -54,28 +65,44 @@ void Renderer::Clear(BufferBit bufferBitMask)
 }
 
 
-void Renderer::StartFrame(
-    ShaderHandle shaderHandle, const glm::mat4x4& modelM, const glm::mat4x4& viewM, const glm::mat4x4& projectionM
-)
+// TODO(v.matushkin): Each mesh should use its own Transform, but since I dont have Tranform hierarchy
+//   use global localToWorld
+void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
 {
-    s_RendererBackend->StartFrame(shaderHandle, modelM, viewM, projectionM);
+    const auto cameraView = ComponentFactory::GetView<const Camera>();
+    SNV_ASSERT(cameraView.size() == 1, "The scene must have at least and only 1 camera");
+
+    for (auto [entity, camera] : cameraView.each())
+    {
+        // NOTE(v.matushkin): Can I get component through view?
+        const auto& cameraTranformForReal = ComponentFactory::GetComponent<Transform>(entity);
+        //const auto& cameraTransform = cameraView.get<Transform>(entity);
+        
+        s_RendererBackend->StartFrame(localToWorld, cameraTranformForReal.GetMatrix(), camera.GetProjectionMatrix());
+    }
+
+    const auto meshRendererView = ComponentFactory::GetView<const MeshRenderer>();
+
+    for (auto [entity, meshRenderer] : meshRendererView.each())
+    {
+        const auto material      = meshRenderer.GetMaterial();
+        const auto textureHandle = material->GetBaseColorMap()->GetTextureHandle();
+
+        const auto mesh        = meshRenderer.GetMesh();
+        const auto meshHandle  = mesh->GetHandle();
+        const auto indexCount  = mesh->GetIndexCount();
+        const auto vertexCount = mesh->GetVertexCount();
+
+        snv::Renderer::DrawGraphicsBuffer(textureHandle, meshHandle, indexCount, vertexCount);
+    }
 }
+
 
 void Renderer::DrawGraphicsBuffer(
     TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
 )
 {
     s_RendererBackend->DrawGraphicsBuffer(textureHandle, handle, indexCount, vertexCount);
-}
-
-void Renderer::DrawArrays(i32 count)
-{
-    s_RendererBackend->DrawArrays(count);
-}
-
-void Renderer::DrawElements(i32 count)
-{
-    s_RendererBackend->DrawElements(count);
 }
 
 
@@ -98,4 +125,4 @@ ShaderHandle Renderer::CreateShader(const char* vertexSource, const char* fragme
     return s_RendererBackend->CreateShader(vertexSource, fragmentSource);
 }
 
-}
+} // namespace snv

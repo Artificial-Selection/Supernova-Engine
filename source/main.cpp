@@ -2,8 +2,6 @@
 #include <Core/Window.hpp>
 
 #include <Renderer/Renderer.hpp>
-#include <Renderer/OpenGL/GLShader.hpp>
-#include <Renderer/OpenGL/GLTexture.hpp>
 
 #include <Entity/GameObject.hpp>
 #include <Components/Camera.hpp>
@@ -12,10 +10,7 @@
 #include <Components/Transform.hpp>
 
 #include <Assets/AssetDatabase.hpp>
-#include <Assets/Material.hpp>
-#include <Assets/Mesh.hpp>
 #include <Assets/Model.hpp>
-#include <Assets/Texture.hpp>
 #include <Assets/Shader.hpp>
 
 #include <Input/Keyboard.hpp>
@@ -51,30 +46,12 @@ void Update(snv::CameraController& cameraController)
     cameraController.OnUpdate();
 }
 
-void Render(const snv::ModelPtr model, const glm::mat4x4& modelM, const glm::mat4x4& viewM, const glm::mat4x4& projectionM)
+void Render(const glm::mat4x4& modelM)
 {
-    const auto& gameObjects = model->GetGameObjects();
-    const auto shaderHandle = gameObjects[0].GetComponent<snv::MeshRenderer>().GetMaterial()->GetShader()->GetHandle();
-
     // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
     snv::Renderer::Clear(static_cast<snv::BufferBit>(snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil));
 
-    snv::Renderer::StartFrame(shaderHandle, modelM, viewM, projectionM);
-
-    for (const auto& gameObject : gameObjects)
-    {
-        const auto& meshRenderer = gameObject.GetComponent<snv::MeshRenderer>();
-
-        const auto material = meshRenderer.GetMaterial();
-        const auto textureHandle = material->GetBaseColorMap()->GetTextureHandle();
-
-        const auto mesh = meshRenderer.GetMesh();
-        const auto meshHandle = mesh->GetHandle();
-        const auto indexCount = mesh->GetIndexCount();
-        const auto vertexCount = mesh->GetVertexCount();
-
-        snv::Renderer::DrawGraphicsBuffer(textureHandle, meshHandle, indexCount, vertexCount);
-    }
+    snv::Renderer::RenderFrame(modelM);
 
     snv::Window::SwapBuffers();
 }
@@ -110,10 +87,8 @@ int main()
     sponzaTransform.SetScale(0.005f);
 
     snv::GameObject cameraGameObject;
-    const auto& camera = cameraGameObject.AddComponent<snv::Camera>(90.0f, f32(k_WindowWidth) / k_WindowHeight, 0.1f, 100.0f);
+    cameraGameObject.AddComponent<snv::Camera>(90.0f, f32(k_WindowWidth) / k_WindowHeight, 0.1f, 100.0f);
     auto& cameraController = cameraGameObject.AddComponent<snv::CameraController>(k_MovementSpeed, k_MovementBoost);
-    const auto& projectionMatrix = camera.GetProjectionMatrix();
-    auto& cameraTransform = cameraGameObject.GetComponent<snv::Transform>();
 
     while (snv::Window::IsShouldBeClosed() == false)
     {
@@ -121,7 +96,7 @@ int main()
         ProcessInput();
         Update(cameraController);
 
-        Render(sponzaModel, sponzaTransform.GetMatrix(), cameraTransform.GetMatrix(), projectionMatrix);
+        Render(sponzaTransform.GetMatrix());
     }
 
     LOG_TRACE("SuperNova-Engine Shutdown");
