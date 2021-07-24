@@ -2,6 +2,8 @@
 
 #include <Renderer/RenderTypes.hpp>
 
+#include <glm/ext/matrix_float4x4.hpp>
+
 #include <vector>
 #include <span>
 
@@ -28,9 +30,11 @@ public:
 
     static void Clear(BufferBit bufferBitMask);
 
-    static void DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount);
-    static void DrawArrays(i32 count);
-    static void DrawElements(i32 count);
+    static void RenderFrame(const glm::mat4x4& localToWorld);
+
+    static void DrawGraphicsBuffer(
+        TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
+    );
 
     static GraphicsBufferHandle CreateGraphicsBuffer(
         std::span<const std::byte> indexData,
@@ -38,9 +42,10 @@ public:
         const std::vector<VertexAttributeDescriptor>& vertexLayout
     );
     static TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data);
+    static ShaderHandle CreateShader(const char* vertexSource, const char* fragmentSource);
 
 private:
-    static IRendererBackend* s_RendererBackend;
+    static inline IRendererBackend* s_RendererBackend;
 };
 
 } // namespace snv::Rendering

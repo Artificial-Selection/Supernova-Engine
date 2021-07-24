@@ -1,9 +1,8 @@
 #pragma once
 
-#include <Assets/Mesh.hpp>
-#include <Assets/Material.hpp>
+#include <Entity/GameObject.hpp>
 
-#include <utility>
+#include <vector>
 
 
 namespace snv
@@ -15,7 +14,7 @@ namespace snv
 class Model
 {
 public:
-    Model(std::vector<std::pair<Mesh, Material>>&& meshes);
+    Model(std::vector<GameObject>&& gameObjects);
 
     Model(Model&& other) noexcept;
     Model& operator=(Model&& other) noexcept;
@@ -23,11 +22,10 @@ public:
     Model(const Model& other) = delete;
     Model& operator=(const Model& other) = delete;
 
-    // TODO(v.matushkin): Unite Mesh and Material under MeshRenderer component
-    [[nodiscard]] const std::vector<std::pair<Mesh, Material>>& GetMeshes() const { return m_meshes; }
+    [[nodiscard]] const std::vector<GameObject>& GetGameObjects() const { return m_gameObjects; }
 
 private:
-    std::vector<std::pair<Mesh, Material>> m_meshes;
+    std::vector<GameObject> m_gameObjects;
 };
 
 } // namespace snv

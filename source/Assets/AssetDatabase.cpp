@@ -1,7 +1,12 @@
 #include <Assets/AssetDatabase.hpp>
 #include <Core/Assert.hpp>
 #include <Assets/Model.hpp>
+#include <Assets/Mesh.hpp>
+#include <Assets/Material.hpp>
 #include <Assets/Texture.hpp>
+#include <Assets/Shader.hpp>
+#include <Entity/GameObject.hpp>
+#include <Components/MeshRenderer.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -9,12 +14,15 @@
 
 // NOTE(v.matushkin): Put stb in a normal conan package? not this fucking trash that I get rn
 #ifdef SNV_ENABLE_DEBUG
-    #define STBI_FAILURE_USERMSG 
+    #define STBI_FAILURE_USERMSG
 #else
     #define STBI_NO_FAILURE_STRINGS
 #endif
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+#include <filesystem>
+#include <fstream>
 
 
 namespace AssimpConstants
@@ -60,11 +68,7 @@ aiString GetAssimpMaterialTexturePath(const aiMaterial* material, aiTextureType 
 namespace snv
 {
 
-AssetDatabase::Models   AssetDatabase::m_models;
-AssetDatabase::Textures AssetDatabase::m_textures;
-
-
-std::vector<Material> GetAssimpMaterials(const aiScene* scene);
+std::vector<std::shared_ptr<Material>> GetAssimpMaterials(const aiScene* scene, ShaderPtr shader);
 
 
 // TODO(v.matushkin): Heterogeneous lookup for string_view assetPath?
@@ -94,13 +98,24 @@ TexturePtr AssetDatabase::LoadAsset(const std::string& assetPath)
     return assetIt->second;
 }
 
+template<>
+ShaderPtr AssetDatabase::LoadAsset(const std::string& assetPath)
+{
+    if (m_theOneAndOnlyForNow == nullptr)
+    {
+        m_theOneAndOnlyForNow = std::make_shared<Shader>(LoadShader(assetPath));
+    }
 
-Model AssetDatabase::LoadModel(const char* assetPath)
+    return m_theOneAndOnlyForNow;
+}
+
+
+Model AssetDatabase::LoadModel(const char* modelPath)
 {
     Assimp::Importer assimpImporter;
     // TODO(v.matushkin): Learn more about aiPostProcessSteps
     const aiScene* scene = assimpImporter.ReadFile(
-        assetPath,
+        modelPath,
         aiPostProcessSteps::aiProcess_Triangulate
         | aiPostProcessSteps::aiProcess_GenNormals
         // | aiPostProcessSteps::aiProcess_FlipUVs Instead of stbi_set_flip_vertically_on_load(true); ?
@@ -112,25 +127,25 @@ Model AssetDatabase::LoadModel(const char* assetPath)
             "Got an error while loading Mesh"
             "\t\nPath: {0}"
             "\t\nAssimp error message: {1}",
-            assetPath, assimpImporter.GetErrorString()
+            modelPath, assimpImporter.GetErrorString()
         );
         SNV_ASSERT(false, "REMOVE THIS SOMEHOW");
     }
 
-    const auto materials = GetAssimpMaterials(scene);
+    const auto materials = GetAssimpMaterials(scene, m_theOneAndOnlyForNow);
 
-    std::vector<std::pair<Mesh, Material>> meshes;
+    std::vector<GameObject> modelGameObjects;
 
     for (ui32 i = 0; i < scene->mNumMeshes; ++i)
     {
-        const auto mesh = scene->mMeshes[i];
+        const auto assimpMesh = scene->mMeshes[i];
 
-        SNV_ASSERT(mesh->HasFaces(), "LOL");
-        SNV_ASSERT(mesh->HasPositions(), "LOL");
-        SNV_ASSERT(mesh->HasNormals(), "LOL");
+        SNV_ASSERT(assimpMesh->HasFaces(), "LOL");
+        SNV_ASSERT(assimpMesh->HasPositions(), "LOL");
+        SNV_ASSERT(assimpMesh->HasNormals(), "LOL");
 
-        const auto numVertices = mesh->mNumVertices;
-        const auto numFaces    = mesh->mNumFaces;
+        const auto numVertices = assimpMesh->mNumVertices;
+        const auto numFaces    = assimpMesh->mNumFaces;
         // TODO(v.matushkin): Makes assumption that we have 3 indices per face, which should be fine with aiProcess_Triangulate
         //  but seems like there is some shit with lines and points
         const auto indexBufferSize = numFaces * 3;
@@ -140,7 +155,7 @@ Model AssetDatabase::LoadModel(const char* assetPath)
         i32 indexCount = 0;
         for (ui32 i = 0; i < numFaces; ++i)
         {
-            const auto& face = mesh->mFaces[i];
+            const auto& face = assimpMesh->mFaces[i];
             for (ui32 j = 0; j < face.mNumIndices; ++j)
             {
                 indexDataPtr[indexCount++] = face.mIndices[j];
@@ -177,7 +192,7 @@ Model AssetDatabase::LoadModel(const char* assetPath)
         // Vertex TexCoord0 Layout
         // TODO(v.matushkin): Texture coords copying should be reworked
         //   There is no need for Float32 uv(as far as I know)
-        if (mesh->HasTextureCoords(0))
+        if (assimpMesh->HasTextureCoords(0))
         {
             VertexAttributeDescriptor texCoord0Attribute{
                 .Attribute = VertexAttribute::TexCoord0,
@@ -197,31 +212,32 @@ Model AssetDatabase::LoadModel(const char* assetPath)
         // Get Vertex Positions
         {
             const auto bytesToCopy = numVertices * AssimpConstants::PositionSize;
-            std::memcpy(vertexDataPtr, mesh->mVertices, bytesToCopy);
+            std::memcpy(vertexDataPtr, assimpMesh->mVertices, bytesToCopy);
             vertexDataPtr += bytesToCopy;
         }
         // Get Vertex Normals
         {
             const auto bytesToCopy = numVertices * AssimpConstants::NormalSize;
-            std::memcpy(vertexDataPtr, mesh->mNormals, bytesToCopy);
+            std::memcpy(vertexDataPtr, assimpMesh->mNormals, bytesToCopy);
             vertexDataPtr += bytesToCopy;
         }
         // Get Vertex TexCoord0
-        if (mesh->HasTextureCoords(0))
+        if (assimpMesh->HasTextureCoords(0))
         {
             const auto bytesToCopy = numVertices * AssimpConstants::TexCoord0Size;
-            std::memcpy(vertexDataPtr, mesh->mTextureCoords[0], bytesToCopy);
+            std::memcpy(vertexDataPtr, assimpMesh->mTextureCoords[0], bytesToCopy);
             vertexDataPtr += bytesToCopy;
         }
 
-        meshes.emplace_back(
-            std::piecewise_construct,
-            std::forward_as_tuple(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout),
-            std::forward_as_tuple(materials[mesh->mMaterialIndex])
-        );
+        auto mesh = std::make_shared<Mesh>(indexCount, std::move(indexData), numVertices, std::move(vertexData), vertexLayout);
+
+        GameObject gameObject;
+        gameObject.AddComponent<MeshRenderer>(materials[assimpMesh->mMaterialIndex], mesh);
+
+        modelGameObjects.emplace_back(gameObject);
     }
 
-    return Model(std::move(meshes));
+    return Model(std::move(modelGameObjects));
 }
 
 Texture AssetDatabase::LoadTexture(const char* texturePath)
@@ -261,26 +277,49 @@ Texture AssetDatabase::LoadTexture(const char* texturePath)
     return Texture(textureDescriptor, std::move(textureData));
 }
 
+// TODO(v.matushkin): Improve this shit with passes/loading
+Shader AssetDatabase::LoadShader(const std::string& shaderPath)
+{
+    // Get Vertex Shader
+    const auto vertexPath = shaderPath + "_vs.glsl";
+    const auto vertexSize = std::filesystem::file_size(vertexPath);
+    auto vertexSource = std::make_unique<char[]>(vertexSize + 1);
 
-std::vector<Material> GetAssimpMaterials(const aiScene* scene)
+    std::ifstream vertexFile(vertexPath, std::ios::binary | std::ios::in);
+    vertexFile.read(vertexSource.get(), vertexSize);
+
+    // Get Fragment Shader
+    const auto fragmentPath = shaderPath + "_fs.glsl";
+    const auto fragmentSize = std::filesystem::file_size(fragmentPath);
+    auto fragmentSource = std::make_unique<char[]>(fragmentSize + 1);
+
+    std::ifstream fragmentFile(fragmentPath, std::ios::binary | std::ios::in);
+    fragmentFile.read(fragmentSource.get(), fragmentSize);
+
+    return Shader(vertexSource.get(), fragmentSource.get());
+}
+
+
+std::vector<std::shared_ptr<Material>> GetAssimpMaterials(const aiScene* scene, ShaderPtr shader)
 {
     SNV_ASSERT(scene->HasMaterials(), "LOL");
-    
-    std::vector<Material> materials;
+
+    std::vector<std::shared_ptr<Material>> materials;
     const auto numMaterials = scene->mNumMaterials;
 
     for (ui32 i = 0; i < numMaterials; ++i)
     {
         const auto assimpMaterial = scene->mMaterials[i];
         const auto assimpMaterialName = assimpMaterial->GetName().C_Str();
-        Material material(assimpMaterialName);
+        auto material = std::make_shared<Material>(shader);
+        material->SetName(assimpMaterialName);
 
         // Get Material BaseColorMap
         const auto diffuseTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_DIFFUSE);
         if (diffuseTexturesCount > 0)
         {
             const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_DIFFUSE);
-            material.SetBaseColorMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
+            material->SetBaseColorMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
 
             if (diffuseTexturesCount != 1)
             {
@@ -290,14 +329,14 @@ std::vector<Material> GetAssimpMaterials(const aiScene* scene)
         else
         {
             LOG_WARN("Material: {}, has 0 baseColor textures, using default Black texture", assimpMaterialName);
-            material.SetBaseColorMap(Texture::GetBlackTexture());
+            material->SetBaseColorMap(Texture::GetBlackTexture());
         }
         // Get Material NormalMap
         const auto normalTexturesCount = assimpMaterial->GetTextureCount(aiTextureType::aiTextureType_NORMALS);
         if (normalTexturesCount > 0)
         {
             const auto texturePath = GetAssimpMaterialTexturePath(assimpMaterial, aiTextureType::aiTextureType_NORMALS);
-            material.SetNormalMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
+            material->SetNormalMap(AssetDatabase::LoadAsset<Texture>(texturePath.C_Str()));
 
             if (normalTexturesCount != 1)
             {
@@ -307,10 +346,10 @@ std::vector<Material> GetAssimpMaterials(const aiScene* scene)
         else
         {
             LOG_WARN("Material: {}, has 0 normal textures, using default Normal texture", assimpMaterialName);
-            material.SetNormalMap(Texture::GetNormalTexture());
+            material->SetNormalMap(Texture::GetNormalTexture());
         }
 
-        materials.push_back(material);
+        materials.emplace_back(material);
     }
 
     return materials;

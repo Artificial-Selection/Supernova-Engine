@@ -179,12 +179,28 @@ void GLBackend::Clear(BufferBit bufferBitMask)
 }
 
 
-void GLBackend::DrawGraphicsBuffer(GraphicsBufferHandle handle, TextureHandle textureHandle, i32 indexCount, i32 vertexCount)
+void GLBackend::StartFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
+    // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
+    //const auto& shader = m_shaders[shaderHandle];
+    const auto& shader = m_shaders.begin()->second;
+    shader.SetInt1("_DiffuseTexture", 0);
+    shader.SetMatrix4("_ObjectToWorld", localToWorld);
+    shader.SetMatrix4("_MatrixV", cameraView);
+    shader.SetMatrix4("_MatrixP", cameraProjection);
+    shader.Bind();
+}
+
+void GLBackend::DrawGraphicsBuffer(
+    TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
+)
+{
+    const auto& texture = m_textures[textureHandle];
     const auto& graphicsBuffer = m_graphicsBuffers[handle];
-    const auto& texture        = m_textures[textureHandle];
-    graphicsBuffer.Bind();
+
     texture.Bind(0);
+    graphicsBuffer.Bind();
+
     glDrawElements(GL_TRIANGLES, indexCount , GL_UNSIGNED_INT, 0);
 }
 
@@ -218,6 +234,15 @@ TextureHandle GLBackend::CreateTexture(const TextureDescriptor& textureDescripto
     GLTexture glTexture(textureDescriptor, data);
     const auto handle = glTexture.GetHandle();
     m_textures.emplace(handle, std::move(glTexture));
+
+    return handle;
+}
+
+ShaderHandle GLBackend::CreateShader(const char* vertexSource, const char* fragmentSource)
+{
+    GLShader glShader(vertexSource, fragmentSource);
+    const auto handle = glShader.GetHandle();
+    m_shaders.emplace(handle, std::move(glShader));
 
     return handle;
 }

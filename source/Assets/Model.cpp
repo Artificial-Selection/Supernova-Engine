@@ -4,17 +4,17 @@
 namespace snv
 {
 
-Model::Model(std::vector<std::pair<Mesh, Material>>&& meshes)
-    : m_meshes(std::move(meshes))
+Model::Model(std::vector<GameObject>&& gameObjects)
+    : m_gameObjects(std::move(gameObjects))
 {}
 
 Model::Model(Model&& other) noexcept
-    : m_meshes(std::move(other.m_meshes))
+    : m_gameObjects(std::move(other.m_gameObjects))
 {}
 
 Model& Model::operator=(Model&& other) noexcept
 {
-    m_meshes = std::move(other.m_meshes);
+    m_gameObjects = std::move(other.m_gameObjects);
 
     return *this;
 }

@@ -15,13 +15,13 @@ public:
     template<Component T, typename... Args>
     T& AddComponent(Args&&... args)
     {
-        return ComponentFactory::Instance().AddComponent<T>(m_entity, this, std::forward<Args>(args)...);
+        return ComponentFactory::AddComponent<T>(m_entity, this, std::forward<Args>(args)...);
     }
 
     template<Component T>
-    T& GetComponent()
+    T& GetComponent() const
     {
-        return ComponentFactory::Instance().GetComponent<T>(m_entity);
+        return ComponentFactory::GetComponent<T>(m_entity);
     }
 
 private:

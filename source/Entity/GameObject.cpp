@@ -6,9 +6,9 @@ namespace snv
 {
 
 GameObject::GameObject()
-    : m_entity(ComponentFactory::Instance().CreateEntity())
+    : m_entity(ComponentFactory::CreateEntity())
 {
-    ComponentFactory::Instance().AddComponent<Transform>(m_entity, this);
+    ComponentFactory::AddComponent<Transform>(m_entity, this);
 }
 
 } // namespace snv

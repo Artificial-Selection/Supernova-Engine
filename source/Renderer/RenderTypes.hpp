@@ -41,6 +41,7 @@ constexpr ui32 k_InvalidHandle = -1;
 
 enum class GraphicsBufferHandle : ui32 { InvalidHandle = k_InvalidHandle };
 enum class TextureHandle        : ui32 { InvalidHandle = k_InvalidHandle };
+enum class ShaderHandle         : ui32 { InvalidHandle = k_InvalidHandle };
 
 
 enum class VertexAttribute

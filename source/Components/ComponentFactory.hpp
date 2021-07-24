@@ -3,8 +3,11 @@
 //
 
 #pragma once
-#include <Core/Utils/Singleton.hpp>
-#include <entt/entt.hpp>
+
+#include <Components/Component.hpp>
+
+#include <entt/entity/registry.hpp>
+#include <entt/entity/view.hpp>
 
 #include <utility>
 
@@ -15,31 +18,32 @@ namespace snv
 class GameObject;
 
 
-class ComponentFactory : public Singleton<ComponentFactory>
+class ComponentFactory
 {
 public:
-    entt::entity CreateEntity();
+    static entt::entity CreateEntity();
 
-    template<typename T, typename... Args>
-    T& AddComponent(const entt::entity entity, GameObject* gameObject, Args&&... args)
+    template<Component T, typename... Args>
+    static T& AddComponent(const entt::entity entity, GameObject* gameObject, Args&&... args)
     {
         return m_registry.emplace<T>(entity, gameObject, std::forward<Args>(args)...);
     }
 
-    template<class T>
-    T& GetComponent(const entt::entity entity)
+    template<Component T>
+    static T& GetComponent(const entt::entity entity)
     {
         return m_registry.get<T>(entity);
     }
 
-    template<typename... T, typename... Exclude>
-    entt::basic_view<entt::exclude_t<Exclude...>, T...> GetViewByComponents(entt::exclude_t<Exclude...> = {})
+    // NOTE(v.matushkin): I'm pretty sure Exclude will not work, since yuo need to pass it to m_registry.view() ?
+    template<Component... T, class... Exclude>
+    static entt::basic_view<entt::entity, entt::exclude_t<Exclude...>, T...> GetView(entt::exclude_t<Exclude...> = {})
     {
         return m_registry.view<T..., Exclude...>();
     }
 
 private:
-    entt::registry m_registry;
+    static inline entt::registry m_registry;
 };
 
 } // namespace snv

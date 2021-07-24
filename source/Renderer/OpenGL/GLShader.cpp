@@ -15,6 +15,10 @@ static_assert((GLenum)GLShaderType::Vertex   == GL_VERTEX_SHADER);
 static_assert((GLenum)GLShaderType::Fragment == GL_FRAGMENT_SHADER);
 
 
+GLShader::GLShader() noexcept
+    : m_shaderProgramID(k_InvalidHandle)
+{}
+
 GLShader::GLShader(const char* vertexSource, const char* fragmentSource)
 {
     const auto vertexShaderID = CreateShader(vertexSource, GLShaderType::Vertex);
@@ -32,12 +36,12 @@ GLShader::GLShader(const char* vertexSource, const char* fragmentSource)
 }
 
 GLShader::GLShader(GLShader&& other) noexcept
-    : m_shaderProgramID(std::exchange(other.m_shaderProgramID, -1))
+    : m_shaderProgramID(std::exchange(other.m_shaderProgramID, k_InvalidHandle))
 {}
 
 GLShader& GLShader::operator=(GLShader&& other) noexcept
 {
-    m_shaderProgramID = std::exchange(other.m_shaderProgramID, -1);
+    m_shaderProgramID = std::exchange(other.m_shaderProgramID, k_InvalidHandle);
 
     return *this;
 }
