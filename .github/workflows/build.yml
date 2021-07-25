@@ -8,15 +8,14 @@ on:
 
 jobs:
   build:
-    name: "${{ matrix.config.name }} ${{ matrix.config.build_type }}"
-    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.name }} ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - os: windows-latest
-            build_type: [Debug, Release]
-            name: Windows (msvc)
+        os: windows-latest
+        build_type: [Debug, Release]
+        name: Windows (msvc)
 
     steps:
       - name: Get source code
@@ -47,7 +46,7 @@ jobs:
         run: ./conan-init.ps1
 
       - name: Configure CMake
-        run: cmake . --preset Release
+        run: cmake . --preset ${{ matrix.build_type }}
 
       - name: Build
-        run: cmake --build --preset Release
+        run: cmake --build --preset ${{ matrix.build_type }}
