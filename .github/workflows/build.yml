@@ -8,14 +8,15 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.name }}
+    name: "${{ matrix.config.name }} ${{ matrix.config.build_type }}"
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
       matrix:
         config:
           - os: windows-latest
-            name: Windows MSVC
+            build_type: [Debug, Release]
+            name: Windows (msvc)
 
     steps:
       - name: Get source code
@@ -32,13 +33,18 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.9.5'
+          python-version: '3.9.6'
           architecture: 'x64'
 
       - name: Install conan
         run: |
           pip install wheel setuptools
           pip install conan
+
+      - name: Run conan-init.ps1
+
+        shell: powershell
+        run: ./conan-init.ps1
 
       - name: Configure CMake
         run: cmake . --preset Release
