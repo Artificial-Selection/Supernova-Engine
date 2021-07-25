@@ -8,14 +8,15 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.name }} ${{ matrix.build_type }}
-    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.config.name }} ${{ matrix.config.build_type }}
+    runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: windows-latest
-        build_type: [Debug, Release]
-        name: Windows (msvc)
+        config:
+          - os: windows-latest
+            build_type: [Debug, Release]
+            name: Windows (msvc)
 
     steps:
       - name: Get source code
