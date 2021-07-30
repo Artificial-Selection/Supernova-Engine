@@ -7,34 +7,48 @@
     },
     "configurePresets": [
         {
-            "name": "Debug",
-            "displayName": "x64 Debug build",
-            "description": "x64 Debug build using Ninja generator",
+            "name": "msvc_Debug",
+            "displayName": "msvc Debug",
+            "description": "msvc Debug",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_COMPILER": "cl"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "enableMicrosoftCodeAnalysis": true
+                }
             }
         },
         {
-            "name": "Release",
-            "displayName": "x64 Release build",
-            "description": "x64 Release build using Ninja generator",
+            "name": "msvc_Release",
+            "displayName": "msvc Release",
+            "description": "msvc Release",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_CXX_COMPILER": "cl"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "enableMicrosoftCodeAnalysis": true
+                }
             }
         }
     ],
     "buildPresets": [
         {
-            "name": "Debug",
-            "configurePreset": "Debug"
+            "name": "msvc_Debug",
+            "displayName": "msvc Debug",
+            "configurePreset": "msvc_Debug"
         },
         {
-            "name": "Release",
-            "configurePreset": "Release"
+            "name": "msvc_Release",
+            "displayName": "msvc Release",
+            "configurePreset": "msvc_Release"
         }
     ]
 }

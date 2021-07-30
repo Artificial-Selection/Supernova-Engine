@@ -1,0 +1,267 @@
+Language: Cpp
+Standard: c++20
+
+AccessModifierOffset: -4
+
+AlignAfterOpenBracket: AlwaysBreak
+
+AlignConsecutiveAssignments:  Consecutive
+AlignConsecutiveBitFields:    Consecutive
+AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveMacros:       Consecutive
+
+AlignOperands: AlignAfterOperator
+
+AlignTrailingComments: true
+
+# NOTE: Dont know
+# AllowAllArgumentsOnNextLine:
+
+# NOTE: Dont know
+# AllowAllConstructorInitializersOnNextLine:
+
+# NOTE: Dont know
+# AllowAllParametersOfDeclarationOnNextLine
+
+AllowShortBlocksOnASingleLine:       Never
+AllowShortCaseLabelsOnASingleLine:   false
+AllowShortEnumsOnASingleLine:        false
+AllowShortFunctionsOnASingleLine:    InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine:      All
+AllowShortLoopsOnASingleLine:        false
+
+# NOTE: Not sure
+AlwaysBreakAfterReturnType: None
+
+# NOTE: Dont know
+# AlwaysBreakBeforeMultilineStrings
+
+AlwaysBreakTemplateDeclarations: Yes
+
+# NOTE: ?
+# AttributeMacros
+
+# NOTE: Disable?
+# BinPackArguments
+
+# NOTE: Disable?
+# BinPackParameters
+
+BitFieldColonSpacing: Both
+
+BraceWrapping:
+  AfterCaseLabel:        true
+  AfterClass:            false   # NOTE: Not sure
+  AfterControlStatement: Always
+  AfterEnum:             true
+  AfterFunction:         true
+  AfterNamespace:        true
+  # AfterObjCDeclaration
+  AfterStruct:           true
+  AfterUnion:            true
+  AfterExternBlock:      true
+  BeforeCatch:           true
+  BeforeElse:            true
+  BeforeLambdaBody:      false
+  BeforeWhile:           false
+  # IndentBraces:                # NOTE: The fuck is this?
+  SplitEmptyFunction:    false
+  SplitEmptyRecord:      false
+  SplitEmptyNamespace:   false   # NOTE: Why empty namespace?
+
+# BreakAfterJavaFieldAnnotations
+
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces:          Custom  # NOTE: Everything set in BraceWrapping?
+
+# NOTE: Dont know
+# BreakBeforeConceptDeclarations
+
+BreakBeforeTernaryOperators: true
+
+BreakConstructorInitializers: BeforeComma
+
+# NOTE: Dont know
+# BreakInheritanceList
+
+# NOTE: Dont know
+# BreakStringLiterals
+
+# NOTE: Not sure
+ColumnLimit: 130
+
+# NOTE?
+# CommentPragmas
+
+# NOTE: Doesnt matter, because of nested namespaces?
+# CompactNamespaces
+
+# NOTE: Should be on every line?
+# ConstructorInitializerAllOnOneLineOrOnePerLine
+
+# NOTE: No need?
+# ConstructorInitializerIndentWidth
+
+# NOTE: Dont know
+# ContinuationIndentWidth
+
+# NOTE: Dont know
+# Cpp11BracedListStyle
+
+# NOTE: ?
+# DeriveLineEnding 
+
+# NOTE: ?
+# DerivePointerAlignment
+
+# NOTE: NO
+# DisableFormat
+
+# NOTE: clang 13?
+# EmptyLineAfterAccessModifier: Never
+
+EmptyLineBeforeAccessModifier: Always
+
+# NOTE: ?
+# ExperimentalAutoDetectBinPacking
+
+FixNamespaceComments: true
+
+# NOTE: ?
+# ForEachMacros
+
+# NOTE: ?
+# IfMacros
+
+# TODO: This one is important
+IncludeBlocks: Regroup
+
+# TODO: Define this
+# IncludeCategories
+
+# NOTE: ?
+# IncludeIsMainRegex
+
+# NOTE: ?
+# IncludeIsMainSourceRegex
+
+# NOTE: How does this work with AccessModifierOffset?
+# IndentAccessModifiers
+
+IndentCaseBlocks: false
+
+# NOTE: Not sure
+# IndentCaseLabels: false
+
+# NOTE: AfterExternBlock?
+# IndentExternBlock: AfterExternBlock
+
+IndentGotoLabels: false
+
+IndentPPDirectives: BeforeHash
+
+# NOTE: Dont know
+# IndentRequires
+
+IndentWidth: 4
+
+IndentWrappedFunctionNames: false
+
+# NOTE: ?
+# InsertTrailingCommas
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+# NOTE: clang 13?
+# NOTE: Who da fuck is "KJ style guide"
+# LambdaBodyIndentationKind: Signature
+
+# NOTE: ?
+# MacroBlockBegin
+# MacroBlockEnd
+
+MaxEmptyLinesToKeep: 2
+
+NamespaceIndentation: None
+
+# NOTE: ?
+# NamespaceMacros
+
+# NOTE: clang 13?
+# PPIndentWidth: -1
+
+# NOTE: The fuck is Penalty?
+# Penalty*
+
+PointerAlignment: Left
+
+# NOTE: ?
+# RawStringFormats
+
+# NOTE: clang 13?
+# ReferenceAlignment: Left
+
+# NOTE: Not sure
+ReflowComments: true
+
+# NOTE: clang 13?
+# ShortNamespaceLines: 1
+
+# TODO:
+# SortIncludes
+
+SortUsingDeclarations: true
+
+# NOTE: Not sure
+SpaceAfterCStyleCast:      true
+SpaceAfterLogicalNot:      false
+SpaceAfterTemplateKeyword: false
+
+SpaceAroundPointerQualifiers: Default
+
+SpaceBeforeAssignmentOperators:    true
+SpaceBeforeCaseColon:              false
+
+# NOTE: Not sure
+SpaceBeforeCpp11BracedList:        false
+
+SpaceBeforeCtorInitializerColon:   true
+SpaceBeforeInheritanceColon:       true
+SpaceBeforeParens:                 ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets:         false
+
+SpaceInEmptyBlock:       false
+SpaceInEmptyParentheses: false
+
+# NOTE: ?
+# SpacesBeforeTrailingComments
+
+# NOTE: clang 13?
+# SpacesInAngles: Never
+SpacesInAngles: false
+
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement:  false
+
+# NOTE: What the fuck
+# SpacesInLineCommentPrefix:
+
+SpacesInParentheses: false
+
+# NOTE: ?
+# StatementAttributeLikeMacros
+# StatementMacros
+
+TabWidth: 4
+
+# NOTE: ?
+# TypenameMacros
+
+UseCRLF: false
+
+UseTab: Never
+
+# NOTE: ?
+#WhitespaceSensitiveMacros

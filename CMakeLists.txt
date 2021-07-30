@@ -11,8 +11,13 @@ if(MSVC)
     set(BUILD_SHARED_LIBS TRUE)
 endif()
 
-# ------------------------- Conan setup -------------------------
+
 set(BUILD_DIR ${PROJECT_SOURCE_DIR}/build)
+
+
+# ------------------------- Conan setup -------------------------
+set(ENV{CONAN_USER_HOME} ${PROJECT_SOURCE_DIR})
+
 set(CONAN_DIR ${BUILD_DIR}/conan)
 set(CONAN_BUILD_INFO_FILE ${CONAN_DIR}/conanbuildinfo.txt)
 
@@ -41,12 +46,13 @@ else()
 endif()
 
 
+find_package(assimp REQUIRED)
+find_package(EnTT   REQUIRED)
 find_package(glad   REQUIRED)
 find_package(glfw3  REQUIRED)
 find_package(glm    REQUIRED)
-find_package(EnTT   REQUIRED)
+find_package(imgui  REQUIRED)
 find_package(spdlog REQUIRED)
-find_package(assimp REQUIRED)
 find_package(stb    REQUIRED)
 
 
@@ -72,13 +78,13 @@ set(Assets_SRC
 # -------------------------- Components ---------------------------
 set(Components_SRC_DIR ${MAIN_SRC_DIR}/Components)
 set(Components_SRC
-    ${Components_SRC_DIR}/Component.hpp
-    ${Components_SRC_DIR}/ComponentFactory.hpp
-    ${Components_SRC_DIR}/ComponentFactory.cpp
     ${Components_SRC_DIR}/Camera.hpp
     ${Components_SRC_DIR}/Camera.cpp
     ${Components_SRC_DIR}/CameraController.hpp
     ${Components_SRC_DIR}/CameraController.cpp
+    ${Components_SRC_DIR}/Component.hpp
+    ${Components_SRC_DIR}/ComponentFactory.hpp
+    ${Components_SRC_DIR}/ComponentFactory.cpp
     ${Components_SRC_DIR}/MeshRenderer.hpp
     ${Components_SRC_DIR}/MeshRenderer.cpp
     ${Components_SRC_DIR}/Transform.hpp
@@ -96,15 +102,22 @@ set(Core_SRC
     ${Core_SRC_DIR}/Window.cpp
 )
 
+# ---------------------------- Entity -----------------------------
+set(Entity_SRC_DIR ${MAIN_SRC_DIR}/Entity)
+set(Entity_SRC
+    ${Entity_SRC_DIR}/GameObject.hpp
+    ${Entity_SRC_DIR}/GameObject.cpp
+)
+
 # ---------------------------- Input ----------------------------
 set(Input_SRC_DIR ${MAIN_SRC_DIR}/Input)
 set(Input_SRC
-    ${Input_SRC_DIR}/Input.hpp
     ${Input_SRC_DIR}/Cursor.hpp
     ${Input_SRC_DIR}/Cursor.cpp
-    ${Input_SRC_DIR}/KeyboardKey.hpp
+    ${Input_SRC_DIR}/Input.hpp
     ${Input_SRC_DIR}/Keyboard.hpp
     ${Input_SRC_DIR}/Keyboard.cpp
+    ${Input_SRC_DIR}/KeyboardKey.hpp
     ${Input_SRC_DIR}/Mouse.hpp
     ${Input_SRC_DIR}/Mouse.cpp
 )
@@ -126,17 +139,10 @@ set(OpenGL_SRC
 
 set(Renderer_SRC
     ${OpenGL_SRC}
-    ${Renderer_SRC_DIR}/RenderTypes.hpp
     ${Renderer_SRC_DIR}/IRendererBackend.hpp
     ${Renderer_SRC_DIR}/Renderer.hpp
     ${Renderer_SRC_DIR}/Renderer.cpp
-)
-
-# ---------------------------- Entity -----------------------------
-set(Entity_SRC_DIR ${MAIN_SRC_DIR}/Entity)
-set(Entity_SRC
-    ${Entity_SRC_DIR}/GameObject.hpp
-    ${Entity_SRC_DIR}/GameObject.cpp
+    ${Renderer_SRC_DIR}/RenderTypes.hpp
 )
 
 # ----------------------------- Utils -----------------------------
@@ -144,31 +150,30 @@ set(Utils_SRC_DIR ${MAIN_SRC_DIR}/Utils)
 set(Utils_SRC
     ${Utils_SRC_DIR}/Time.hpp
     ${Utils_SRC_DIR}/Time.cpp
+    # ${Utils_SRC_DIR}/Singleton.cpp
 )
 
 
 add_executable(SuperNova
     ${MAIN_SRC_DIR}/main.cpp
-    ${MAIN_SRC_DIR}/EngineDefinitions.h
-    ${Core_SRC}
-    ${Renderer_SRC}
-    ${Components_SRC}
-    ${Entity_SRC}
     ${Assets_SRC}
+    ${Components_SRC}
+    ${Core_SRC}
+    ${Entity_SRC}
     ${Input_SRC}
+    ${Renderer_SRC}
     ${Utils_SRC}
 )
 target_link_libraries(SuperNova PRIVATE
+    assimp::assimp
+    EnTT::EnTT
     glad::glad
     glfw::glfw
     glm::glm
-    EnTT::EnTT
+    imgui::imgui
     spdlog::spdlog
-    assimp::assimp
     stb::stb
 )
 target_include_directories(SuperNova PRIVATE
     ${MAIN_SRC_DIR}
 )
-
-#TARGET_LINK_LIBRARIES(EventSystem ObservableField)

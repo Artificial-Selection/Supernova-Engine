@@ -49,7 +49,8 @@ void Update(snv::CameraController& cameraController)
 void Render(const glm::mat4x4& modelM)
 {
     // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
-    snv::Renderer::Clear(static_cast<snv::BufferBit>(snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil));
+    const auto cleaFlags = snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil;
+    snv::Renderer::Clear(static_cast<snv::BufferBit>(cleaFlags));
 
     snv::Renderer::RenderFrame(modelM);
 
@@ -59,7 +60,7 @@ void Render(const glm::mat4x4& modelM)
 
 int main()
 {
-    //Log::Init( spdlog::level::trace );
+    // Log::Init( spdlog::level::trace );
     LOG_TRACE("SuperNova-Engine Init");
     snv::Time::Init();
 
@@ -75,11 +76,11 @@ int main()
     snv::Renderer::EnableDepthTest();
     snv::Renderer::SetDepthFunction(snv::DepthFunction::Less);
 
-    (void)snv::AssetDatabase::LoadAsset<snv::Shader>(k_ShaderPath);
+    (void) snv::AssetDatabase::LoadAsset<snv::Shader>(k_ShaderPath);
 
     const auto sponzaLoadStart = std::chrono::high_resolution_clock::now();
-    const auto sponzaModel = snv::AssetDatabase::LoadAsset<snv::Model>(k_SponzaObjPath);
-    const auto sponzaLoadTime = std::chrono::high_resolution_clock::now() - sponzaLoadStart;
+    const auto sponzaModel     = snv::AssetDatabase::LoadAsset<snv::Model>(k_SponzaObjPath);
+    const auto sponzaLoadTime  = std::chrono::high_resolution_clock::now() - sponzaLoadStart;
     LOG_INFO("Sponza loading time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(sponzaLoadTime).count());
 
     snv::GameObject sponzaGameObject;

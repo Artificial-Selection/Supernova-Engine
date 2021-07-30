@@ -8,19 +8,12 @@ class SuperNovaEngine(ConanFile):
     generators = "cmake_find_package_multi"
 
     requires = [
-        'glad/0.1.34',
+        'assimp/5.0.1',
+        'entt/3.8.0',
+        'glad/0.1.34@snv/stable',
         'glfw/3.3.4',
         'glm/0.9.9.8',
-        'entt/3.7.1',
-        'spdlog/1.8.5',
-        'assimp/5.0.1',
+        'imgui/18311@snv/docking',
+        'spdlog/1.9.0',
         'stb/20200203'
     ]
-
-    default_options = (
-        'glad:shared=False',
-        'glad:no_loader=False',
-        'glad:spec=gl',
-        'glad:gl_profile=core',
-        'glad:gl_version=4.6'
-    )
