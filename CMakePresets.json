@@ -7,7 +7,7 @@
     },
     "configurePresets": [
         {
-            "name": "msvc Debug",
+            "name": "msvc_Debug",
             "displayName": "msvc Debug",
             "description": "msvc Debug",
             "generator": "Ninja",
@@ -23,7 +23,7 @@
             }
         },
         {
-            "name": "msvc Release",
+            "name": "msvc_Release",
             "displayName": "msvc Release",
             "description": "msvc Release",
             "generator": "Ninja",
@@ -41,12 +41,14 @@
     ],
     "buildPresets": [
         {
-            "name": "msvc Debug",
-            "configurePreset": "msvc Debug"
+            "name": "msvc_Debug",
+            "displayName": "msvc Debug",
+            "configurePreset": "msvc_Debug"
         },
         {
-            "name": "msvc Release",
-            "configurePreset": "msvc Release"
+            "name": "msvc_Release",
+            "displayName": "msvc Release",
+            "configurePreset": "msvc_Release"
         }
     ]
 }
