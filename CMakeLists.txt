@@ -6,6 +6,21 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(SNV_PLATFORM_WINDOWS 1)
+    add_compile_definitions(
+        SNV_PLATFORM_WINDOWS
+        WIN32_LEAN_AND_MEAN     # To strip windows.h include. May be there is more macros?
+    )
+# elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+#     add_compile_definitions(SNV_PLATFORM_MAC)
+# elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+#     add_compile_definitions(SNV_PLATFORM_LINUX)
+else()
+    message(FATAL_ERROR "Unsupported OS")
+endif()
+
+
 if(MSVC)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
     set(BUILD_SHARED_LIBS TRUE)

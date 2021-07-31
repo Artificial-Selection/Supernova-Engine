@@ -6,6 +6,10 @@
 
 
 class GLFWwindow;
+#ifdef SNV_PLATFORM_WINDOWS
+    struct HWND__;
+    typedef HWND__* HWND;
+#endif // SNV_PLATFORM_WINDOWS
 
 
 namespace snv
@@ -28,6 +32,10 @@ public:
 public:
     static void Init(i32 width, i32 height, const char* title);
     static void Shutdown();
+
+#ifdef SNV_PLATFORM_WINDOWS
+    [[nodiscard]] static HWND GetWin32Window();
+#endif
 
     [[nodiscard]] static bool IsShouldBeClosed() ;
     // TODO(v.matushkin): Need to be consistent with Get*/Set* methods definitions, always define in .cpp or .hpp ?

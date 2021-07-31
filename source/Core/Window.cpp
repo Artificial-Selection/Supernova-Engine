@@ -5,6 +5,11 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#ifdef SNV_PLATFORM_WINDOWS
+    #define GLFW_EXPOSE_NATIVE_WIN32
+    #include <GLFW/glfw3native.h>
+    #undef GLFW_EXPOSE_NATIVE_WIN32
+#endif
 
 // NOTE(v.matushkin): I'm initializing glad here only because its header needs to be included
 //  before glfw and because I'm not sure where I should do it, if not here(GLBackend ?)
@@ -65,6 +70,14 @@ void Window::Shutdown()
 {
     glfwTerminate();
 }
+
+
+#ifdef SNV_PLATFORM_WINDOWS
+HWND Window::GetWin32Window()
+{
+    return glfwGetWin32Window(m_window);
+}
+#endif // SNV_PLATFORM_WINDOWS
 
 
 bool Window::IsShouldBeClosed()
