@@ -57,7 +57,7 @@ if(EXISTS ${CONAN_BUILD_INFO_FILE})
     set(CMAKE_MODULE_PATH ${CONAN_DIR} ${CMAKE_MODULE_PATH})
     set(CMAKE_PREFIX_PATH ${CONAN_DIR} ${CMAKE_PREFIX_PATH})
 else()
-    message(ERROR "The file ${CONAN_BUILD_INFO_FILE} doesn't exist, you're fucked, comrade")
+    message(FATAL_ERROR "The file ${CONAN_BUILD_INFO_FILE} doesn't exist, you're fucked, comrade")
 endif()
 
 
@@ -140,6 +140,12 @@ set(Input_SRC
 # -------------------------- Renderer ---------------------------
 set(Renderer_SRC_DIR ${MAIN_SRC_DIR}/Renderer)
 
+set(DirectX11_SRC_DIR ${Renderer_SRC_DIR}/DirectX11)
+set(DirectX11_SRC
+    ${DirectX11_SRC_DIR}/DX11Backend.hpp
+    ${DirectX11_SRC_DIR}/DX11Backend.cpp
+)
+
 set(OpenGL_SRC_DIR ${Renderer_SRC_DIR}/OpenGL)
 set(OpenGL_SRC
     ${OpenGL_SRC_DIR}/GLBackend.hpp
@@ -159,6 +165,11 @@ set(Renderer_SRC
     ${Renderer_SRC_DIR}/Renderer.cpp
     ${Renderer_SRC_DIR}/RenderTypes.hpp
 )
+
+if(SNV_PLATFORM_WINDOWS)
+    set(Renderer_SRC ${DirectX11_SRC} ${Renderer_SRC})
+    set(DirectX11_LIBS d3d11)
+endif()
 
 # ----------------------------- Utils -----------------------------
 set(Utils_SRC_DIR ${MAIN_SRC_DIR}/Utils)
@@ -188,6 +199,7 @@ target_link_libraries(SuperNova PRIVATE
     imgui::imgui
     spdlog::spdlog
     stb::stb
+    ${DirectX11_LIBS}
 )
 target_include_directories(SuperNova PRIVATE
     ${MAIN_SRC_DIR}

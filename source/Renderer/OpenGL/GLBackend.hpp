@@ -31,7 +31,8 @@ public:
 
     void Clear(BufferBit bufferBitMask) override;
 
-    void StartFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
+    void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
+    void EndFrame() override;
     void DrawGraphicsBuffer(
         TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
     ) override;

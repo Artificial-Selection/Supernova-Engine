@@ -17,7 +17,7 @@ class IRendererBackend;
 class Renderer
 {
 public:
-    static void Init();
+    static void Init(GraphicsApi graphicsApi);
     static void Shutdown();
 
     static void EnableBlend();
@@ -48,4 +48,4 @@ private:
     static inline IRendererBackend* s_RendererBackend;
 };
 
-} // namespace snv::Rendering
+} // namespace snv

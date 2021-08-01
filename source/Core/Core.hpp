@@ -23,4 +23,5 @@ using f64 = double;
 #ifdef SNV_ENABLE_DEBUG
     #define SNV_LOGGING_ENABLED
     #define SNV_ASSERTS_ENABLED
+    #define SNV_GPU_API_DEBUG_ENABLED
 #endif // SNV_ENABLE_DEBUG

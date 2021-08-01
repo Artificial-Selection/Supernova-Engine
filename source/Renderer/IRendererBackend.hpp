@@ -28,7 +28,8 @@ public:
     virtual void Clear(BufferBit bufferBitMask) = 0;
 
     // TODO(v.matushkin): Remove, temporary method
-    virtual void StartFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) = 0;
+    virtual void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) = 0;
+    virtual void EndFrame() = 0;
     // NOTE(v.matushkin): Questionable method
     virtual void DrawGraphicsBuffer(
         TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount

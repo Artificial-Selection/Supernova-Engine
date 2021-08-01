@@ -6,6 +6,15 @@
 namespace snv
 {
 
+enum class GraphicsApi : ui8
+{
+    OpenGL,
+#ifdef SNV_PLATFORM_WINDOWS
+    DirectX11
+#endif
+};
+
+
 enum class BlendFactor : ui32
 {
     One              = 0,
@@ -34,7 +43,6 @@ enum BufferBit : ui32
     //Accum = 0x00000200,
     Stencil = 1 << 2
 };
-
 
 
 constexpr ui32 k_InvalidHandle = -1;

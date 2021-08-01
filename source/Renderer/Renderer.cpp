@@ -1,6 +1,9 @@
 #include <Renderer/Renderer.hpp>
 #include <Renderer/IRendererBackend.hpp>
 #include <Renderer/OpenGL/GLBackend.hpp>
+#ifdef SNV_PLATFORM_WINDOWS
+    #include <Renderer/Directx11/DX11Backend.hpp>
+#endif
 
 #include <Core/Assert.hpp>
 
@@ -17,9 +20,22 @@
 namespace snv
 {
 
-void Renderer::Init()
+void Renderer::Init(GraphicsApi graphicsApi)
 {
-    s_RendererBackend = new GLBackend();
+    switch (graphicsApi)
+    {
+    case snv::GraphicsApi::OpenGL:
+        s_RendererBackend = new GLBackend();
+        break;
+#ifdef SNV_PLATFORM_WINDOWS
+    case snv::GraphicsApi::DirectX11:
+        s_RendererBackend = new DX11Backend();
+        break;
+#endif
+    default:
+        SNV_ASSERT(false, "Will this ever happen?");
+        break;
+    }
 }
 
 void Renderer::Shutdown()
@@ -69,31 +85,38 @@ void Renderer::Clear(BufferBit bufferBitMask)
 //   use global localToWorld
 void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
 {
+    // NOTE(v.matushkin): Clear should be done in *Backend::StartFrame() ?
+    // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
+    const auto cleaFlags = snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil;
+    Clear(static_cast<snv::BufferBit>(cleaFlags));
+
+
     const auto cameraView = ComponentFactory::GetView<const Camera>();
     SNV_ASSERT(cameraView.size() == 1, "The scene must have at least and only 1 camera");
+    const auto meshRendererView = ComponentFactory::GetView<const MeshRenderer>();
 
-    for (auto [entity, camera] : cameraView.each())
+    for (const auto [entity, camera] : cameraView.each())
     {
         // NOTE(v.matushkin): Can I get component through view?
         const auto& cameraTranformForReal = ComponentFactory::GetComponent<Transform>(entity);
         //const auto& cameraTransform = cameraView.get<Transform>(entity);
-        
-        s_RendererBackend->StartFrame(localToWorld, cameraTranformForReal.GetMatrix(), camera.GetProjectionMatrix());
-    }
 
-    const auto meshRendererView = ComponentFactory::GetView<const MeshRenderer>();
+        s_RendererBackend->BeginFrame(localToWorld, cameraTranformForReal.GetMatrix(), camera.GetProjectionMatrix());
 
-    for (auto [entity, meshRenderer] : meshRendererView.each())
-    {
-        const auto material      = meshRenderer.GetMaterial();
-        const auto textureHandle = material->GetBaseColorMap()->GetTextureHandle();
+        for (const auto [entity, meshRenderer] : meshRendererView.each())
+        {
+            const auto material      = meshRenderer.GetMaterial();
+            const auto textureHandle = material->GetBaseColorMap()->GetTextureHandle();
 
-        const auto mesh        = meshRenderer.GetMesh();
-        const auto meshHandle  = mesh->GetHandle();
-        const auto indexCount  = mesh->GetIndexCount();
-        const auto vertexCount = mesh->GetVertexCount();
+            const auto mesh        = meshRenderer.GetMesh();
+            const auto meshHandle  = mesh->GetHandle();
+            const auto indexCount  = mesh->GetIndexCount();
+            const auto vertexCount = mesh->GetVertexCount();
 
-        snv::Renderer::DrawGraphicsBuffer(textureHandle, meshHandle, indexCount, vertexCount);
+            DrawGraphicsBuffer(textureHandle, meshHandle, indexCount, vertexCount);
+        }
+
+        s_RendererBackend->EndFrame();
     }
 }
 

@@ -1,5 +1,6 @@
 #include <Renderer/OpenGL/GLBackend.hpp>
 #include <Core/Log.hpp>
+#include <Core/Window.hpp>
 
 #include <glad/glad.h>
 
@@ -7,13 +8,13 @@
 namespace snv
 {
 
-constexpr ui32 g_BlendFactorToGL[] = {
+constexpr ui32 g_BlendFactorToGL[]{
     GL_ONE,                // BlendFactor::One
     GL_SRC_ALPHA,          // BlendFactor::SrcAlpha
     GL_ONE_MINUS_SRC_ALPHA // BlendFactor::OneMinusSrcAlpha
 };
 
-constexpr ui32 g_DepthFunctionToGL[] = {
+constexpr ui32 g_DepthFunctionToGL[]{
     GL_NEVER,    // DepthFunction::Never
     GL_LESS,     // DepthFunction::Less
     GL_EQUAL,    // DepthFunction::Equal
@@ -24,7 +25,7 @@ constexpr ui32 g_DepthFunctionToGL[] = {
     GL_ALWAYS    // DepthFunction::Always
 };
 
-constexpr ui32 g_BufferBitToGL[] = {
+constexpr ui32 g_BufferBitToGL[]{
     GL_COLOR_BUFFER_BIT,  // BufferBit::Color
     GL_DEPTH_BUFFER_BIT,  // BufferBit::Depth
     // GL_ACCUM_BUFFER_BIT,  // BufferBit::Accum
@@ -179,16 +180,22 @@ void GLBackend::Clear(BufferBit bufferBitMask)
 }
 
 
-void GLBackend::StartFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
+void GLBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
     // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
-    //const auto& shader = m_shaders[shaderHandle];
+    // const auto& shader = m_shaders[shaderHandle];
     const auto& shader = m_shaders.begin()->second;
     shader.SetInt1("_DiffuseTexture", 0);
     shader.SetMatrix4("_ObjectToWorld", localToWorld);
     shader.SetMatrix4("_MatrixV", cameraView);
     shader.SetMatrix4("_MatrixP", cameraProjection);
     shader.Bind();
+}
+
+void GLBackend::EndFrame()
+{
+    // TODO(v.matushkin): Workaround, GLBackend should manage its context, but it's not worthy rn
+    Window::SwapBuffers();
 }
 
 void GLBackend::DrawGraphicsBuffer(
@@ -212,7 +219,7 @@ void GLBackend::DrawArrays(i32 count)
 void GLBackend::DrawElements(i32 count)
 {
     LOG_ERROR("GLBackend::DrawElements() is not implemented");
-    //glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, )
+    // glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, )
 }
 
 

@@ -19,6 +19,7 @@ namespace Input
 {
     enum class CursorMode : ui8;
 }
+enum class GraphicsApi : ui8;
 
 
 class Window
@@ -30,7 +31,7 @@ public:
     using MouseWheelCallback    = std::function<void(f64 yoffset)>;
 
 public:
-    static void Init(i32 width, i32 height, const char* title);
+    static void Init(i32 width, i32 height, const char* title, GraphicsApi graphicsApi);
     static void Shutdown();
 
 #ifdef SNV_PLATFORM_WINDOWS
