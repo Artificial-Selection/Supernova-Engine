@@ -15,8 +15,8 @@ class Mesh
 public:
     Mesh(
         i32 indexCount, std::unique_ptr<ui32[]>&& indexData,
-        i32 vertexCount, std::unique_ptr<i8[]>&& vertexData,
-        const std::vector<VertexAttributeDescriptor>& vertexLayout
+        i32 vertexCount, std::unique_ptr<ui8[]>&& vertexData,
+        const std::vector<VertexAttributeDesc>& vertexLayout
     );
 
     Mesh(Mesh&& other) noexcept;
@@ -31,7 +31,7 @@ public:
 
 private:
     std::unique_ptr<ui32[]> m_indexData;
-    std::unique_ptr<i8[]>   m_vertexData;
+    std::unique_ptr<ui8[]>  m_vertexData;
 
     i32                     m_indexCount;
     i32                     m_vertexCount;

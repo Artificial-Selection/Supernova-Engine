@@ -167,30 +167,30 @@ Model AssetDatabase::LoadModel(const char* modelPath)
             }
         }
 
-        std::vector<VertexAttributeDescriptor> vertexLayout;
+        std::vector<VertexAttributeDesc> vertexLayout;
         ui32 vertexBufferSize = 0;
 
         // Vertex Positions Layout
         {
-            VertexAttributeDescriptor positionAttribute{
+            VertexAttributeDesc positionAttributeDesc{
                 .Attribute = VertexAttribute::Position,
                 .Format    = VertexAttributeFormat::Float32,
                 .Dimension = AssimpConstants::PositionDimension,
                 .Offset    = vertexBufferSize
             };
-            vertexLayout.push_back(positionAttribute);
+            vertexLayout.push_back(positionAttributeDesc);
 
             vertexBufferSize += numVertices * AssimpConstants::PositionSize;
         }
         // Vertex Normals Layout
         {
-            VertexAttributeDescriptor normalAttribute{
+            VertexAttributeDesc normalAttributeDesc{
                 .Attribute = VertexAttribute::Normal,
                 .Format    = VertexAttributeFormat::Float32,
                 .Dimension = AssimpConstants::NormalDimension,
                 .Offset    = vertexBufferSize
             };
-            vertexLayout.push_back(normalAttribute);
+            vertexLayout.push_back(normalAttributeDesc);
 
             vertexBufferSize += numVertices * AssimpConstants::NormalSize;
         }
@@ -199,19 +199,19 @@ Model AssetDatabase::LoadModel(const char* modelPath)
         //   There is no need for Float32 uv(as far as I know)
         if (assimpMesh->HasTextureCoords(0))
         {
-            VertexAttributeDescriptor texCoord0Attribute{
+            VertexAttributeDesc texCoord0AttributeDesc{
                 .Attribute = VertexAttribute::TexCoord0,
                 .Format    = VertexAttributeFormat::Float32,
                 .Dimension = AssimpConstants::TexCoord0Dimension,
                 .Offset    = vertexBufferSize
             };
-            vertexLayout.push_back(texCoord0Attribute);
+            vertexLayout.push_back(texCoord0AttributeDesc);
 
             vertexBufferSize += numVertices * AssimpConstants::TexCoord0Size;
         }
 
         // TODO: What type should I use?
-        auto vertexData = std::make_unique<i8[]>(vertexBufferSize);
+        auto vertexData = std::make_unique<ui8[]>(vertexBufferSize);
         auto vertexDataPtr = vertexData.get();
 
         // Get Vertex Positions
@@ -271,14 +271,14 @@ Texture AssetDatabase::LoadTexture(const std::string& texturePath)
    
     // TODO(v.matushkin): Load Sponza textures as R8G8B8A8_SRGB ?
     // NOTE(v.matushkin): TextureWrapMode::Repeat by default?
-    TextureDescriptor textureDescriptor = {
-        .Width          = width,
-        .Height         = height,
-        .GraphicsFormat = TextureGraphicsFormat::RGBA8,
-        .WrapMode       = TextureWrapMode::Repeat
+    TextureDesc textureDesc = {
+        .Width    = static_cast<ui32>(width),
+        .Height   = static_cast<ui32>(height),
+        .Format   = TextureFormat::RGBA8,
+        .WrapMode = TextureWrapMode::Repeat
     };
 
-    return Texture(textureDescriptor, std::move(textureData));
+    return Texture(textureDesc, std::move(textureData));
 }
 
 // TODO(v.matushkin): Improve this shit with passes/loading(don't know what did I mean by that)

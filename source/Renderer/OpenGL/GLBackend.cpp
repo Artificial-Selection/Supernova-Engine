@@ -8,13 +8,13 @@
 namespace snv
 {
 
-constexpr ui32 g_BlendFactorToGL[]{
+constexpr ui32 gl_BlendFactor[]{
     GL_ONE,                // BlendFactor::One
     GL_SRC_ALPHA,          // BlendFactor::SrcAlpha
     GL_ONE_MINUS_SRC_ALPHA // BlendFactor::OneMinusSrcAlpha
 };
 
-constexpr ui32 g_DepthFunctionToGL[]{
+constexpr ui32 gl_DepthFunction[]{
     GL_NEVER,    // DepthFunction::Never
     GL_LESS,     // DepthFunction::Less
     GL_EQUAL,    // DepthFunction::Equal
@@ -25,7 +25,7 @@ constexpr ui32 g_DepthFunctionToGL[]{
     GL_ALWAYS    // DepthFunction::Always
 };
 
-constexpr ui32 g_BufferBitToGL[]{
+constexpr ui32 gl_BufferBit[]{
     GL_COLOR_BUFFER_BIT,  // BufferBit::Color
     GL_DEPTH_BUFFER_BIT,  // BufferBit::Depth
     // GL_ACCUM_BUFFER_BIT,  // BufferBit::Accum
@@ -143,8 +143,8 @@ void GLBackend::EnableDepthTest()
 
 void GLBackend::SetBlendFunction(BlendFactor source, BlendFactor destination)
 {
-    const auto sourceFactor      = g_BlendFactorToGL[static_cast<ui32>(source)];
-    const auto destinationFactor = g_BlendFactorToGL[static_cast<ui32>(destination)];
+    const auto sourceFactor      = gl_BlendFactor[static_cast<ui32>(source)];
+    const auto destinationFactor = gl_BlendFactor[static_cast<ui32>(destination)];
     glBlendFunc(sourceFactor, destinationFactor);
 }
 
@@ -155,7 +155,7 @@ void GLBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
 
 void GLBackend::SetDepthFunction(DepthFunction depthFunction)
 {
-    const auto function = g_DepthFunctionToGL[static_cast<ui32>(depthFunction)];
+    const auto function = gl_DepthFunction[static_cast<ui32>(depthFunction)];
     glDepthFunc(function);
 }
 
@@ -172,15 +172,15 @@ void GLBackend::Clear(BufferBit bufferBitMask)
     ui32 mask = 0;
     if (bufferBitMask & BufferBit::Color)
     {
-        mask |= g_BufferBitToGL[0];
+        mask |= gl_BufferBit[0];
     }
     if (bufferBitMask & BufferBit::Depth)
     {
-        mask |= g_BufferBitToGL[1];
+        mask |= gl_BufferBit[1];
     }
     if (bufferBitMask & BufferBit::Stencil)
     {
-        mask |= g_BufferBitToGL[2];
+        mask |= gl_BufferBit[2];
     }
     glClear(mask);
 }
@@ -232,7 +232,7 @@ void GLBackend::DrawElements(i32 count)
 GraphicsBufferHandle GLBackend::CreateGraphicsBuffer(
     std::span<const std::byte> indexData,
     std::span<const std::byte> vertexData,
-    const std::vector<VertexAttributeDescriptor>& vertexLayout
+    const std::vector<VertexAttributeDesc>& vertexLayout
 )
 {
     GLGraphicsBuffer glGraphicsBuffer(indexData, vertexData, vertexLayout);
@@ -242,9 +242,9 @@ GraphicsBufferHandle GLBackend::CreateGraphicsBuffer(
     return handle;
 }
 
-TextureHandle GLBackend::CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data)
+TextureHandle GLBackend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
-    GLTexture glTexture(textureDescriptor, data);
+    GLTexture  glTexture(textureDesc, textureData);
     const auto handle = glTexture.GetHandle();
     m_textures.emplace(handle, std::move(glTexture));
 

@@ -17,21 +17,21 @@ enum class GraphicsApi : ui8
 
 enum class BlendFactor : ui32
 {
-    One              = 0,
-    SrcAlpha         = 1,
-    OneMinusSrcAlpha = 2
+    One,
+    SrcAlpha,
+    OneMinusSrcAlpha
 };
 
 enum class DepthFunction : ui32
 {
-    Never          = 0,
-    Less           = 1,
-    Equal          = 2,
-    LessOrEqual    = 3,
-    Greater        = 4,
-    NotEqual       = 5,
-    GreaterOrEqual = 6,
-    Always         = 7
+    Never,
+    Less,
+    Equal,
+    LessOrEqual,
+    Greater,
+    NotEqual,
+    GreaterOrEqual,
+    Always
 };
 
 // TODO(v.matushkin): Bring back enum class?
@@ -52,36 +52,35 @@ enum class TextureHandle        : ui32 { InvalidHandle = k_InvalidHandle };
 enum class ShaderHandle         : ui32 { InvalidHandle = k_InvalidHandle };
 
 
-enum class VertexAttribute
+enum class VertexAttribute : ui8
 {
-    Position  = 0,
-    Normal    = 1,
-    TexCoord0 = 2
+    Position,
+    Normal,
+    TexCoord0
 };
 
-enum class VertexAttributeFormat
+enum class VertexAttributeFormat : ui8
 {
-    Int8    = 0,
-    Int16   = 1,
-    Int32   = 2,
-    UInt8   = 3,
-    UInt16  = 4,
-    UInt32  = 5,
-    Float16 = 6,
-    Float32 = 7,
-    Float64 = 8
+    Int8,
+    Int16,
+    Int32,
+    UInt8,
+    UInt16,
+    UInt32,
+    Float16,
+    Float32,
+    Float64
 };
 
-struct VertexAttributeDescriptor
+struct VertexAttributeDesc
 {
     VertexAttribute       Attribute;
     VertexAttributeFormat Format;
-    ui32                  Dimension;
+    ui8                   Dimension;
     ui32                  Offset;
 };
 
-// TODO(v.matushkin): Rename to TextureFormat? wtf did I even called it like that
-enum class TextureGraphicsFormat : ui8
+enum class TextureFormat : ui8
 {
     R8,
     R16,
@@ -89,12 +88,12 @@ enum class TextureGraphicsFormat : ui8
     R32F,
     RG8,
     RG16,
-    RGB8,
-    RGB16,
+    // RGB8,
+    // RGB16,
     RGBA8,
     RGBA16F,
     DEPTH16,
-    DEPTH24,
+    // DEPTH24,
     DEPTH32, // TODO(v.matushkin): Should be called D24S8 or smth like that?
     DEPTH32F
 };
@@ -108,12 +107,12 @@ enum class TextureWrapMode : ui8
     Repeat
 };
 
-struct TextureDescriptor
+struct TextureDesc
 {
-    i32                   Width;
-    i32                   Height;
-    TextureGraphicsFormat GraphicsFormat; // TODO(v.matushkin): Rename to just Format?
-    TextureWrapMode       WrapMode;
+    ui32            Width;
+    ui32            Height;
+    TextureFormat   Format;
+    TextureWrapMode WrapMode;
 };
 
 } // namespace snv

@@ -42,9 +42,9 @@ public:
     static GraphicsBufferHandle CreateGraphicsBuffer(
         std::span<const std::byte> indexData,
         std::span<const std::byte> vertexData,
-        const std::vector<VertexAttributeDescriptor>& vertexLayout
+        const std::vector<VertexAttributeDesc>& vertexLayout
     );
-    static TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data);
+    static TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData);
     static ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource);
 
 private:

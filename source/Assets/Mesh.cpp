@@ -10,8 +10,8 @@ namespace snv
 
 Mesh::Mesh(
     i32 indexCount, std::unique_ptr<ui32[]>&& indexData,
-    i32 vertexCount, std::unique_ptr<i8[]>&& vertexData,
-    const std::vector<VertexAttributeDescriptor>& vertexLayout
+    i32 vertexCount, std::unique_ptr<ui8[]>&& vertexData,
+    const std::vector<VertexAttributeDesc>& vertexLayout
 )
     : m_indexData(std::move(indexData))
     , m_vertexData(std::move(vertexData))

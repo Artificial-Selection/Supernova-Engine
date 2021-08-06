@@ -134,15 +134,15 @@ void Renderer::DrawGraphicsBuffer(
 GraphicsBufferHandle Renderer::CreateGraphicsBuffer(
     std::span<const std::byte> indexData,
     std::span<const std::byte> vertexData,
-    const std::vector<VertexAttributeDescriptor>& vertexLayout
+    const std::vector<VertexAttributeDesc>& vertexLayout
 )
 {
     return s_rendererBackend->CreateGraphicsBuffer(indexData, vertexData, vertexLayout);
 }
 
-TextureHandle Renderer::CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data)
+TextureHandle Renderer::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
-    return s_rendererBackend->CreateTexture(textureDescriptor, data);
+    return s_rendererBackend->CreateTexture(textureDesc, textureData);
 }
 
 ShaderHandle Renderer::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)

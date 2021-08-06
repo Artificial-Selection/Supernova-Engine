@@ -40,9 +40,9 @@ public:
     virtual GraphicsBufferHandle CreateGraphicsBuffer(
         std::span<const std::byte> indexData,
         std::span<const std::byte> vertexData,
-        const std::vector<VertexAttributeDescriptor>& vertexLayout
+        const std::vector<VertexAttributeDesc>& vertexLayout
     ) = 0;
-    virtual TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data) = 0;
+    virtual TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData) = 0;
     virtual ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource) = 0;
 };
 

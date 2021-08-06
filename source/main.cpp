@@ -49,7 +49,7 @@ void Update(snv::CameraController& cameraController)
 }
 
 
-int main()
+i32 main()
 {
     // Log::Init( spdlog::level::trace );
     LOG_TRACE("SuperNova-Engine Init");

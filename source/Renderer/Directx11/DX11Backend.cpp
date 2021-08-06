@@ -27,17 +27,17 @@ constexpr DXGI_FORMAT dx11_TextureFormat[] = {
     DXGI_FORMAT_R32_FLOAT,
     DXGI_FORMAT_R8G8_UINT,
     DXGI_FORMAT_R16G16_UINT,
-    DXGI_FORMAT_R8G8B8A8_UNORM,     // RGB8
-    DXGI_FORMAT_R16G16B16A16_UINT,  // RGB16
+    // DXGI_FORMAT_R8G8B8A8_UNORM,     // RGB8
+    // DXGI_FORMAT_R16G16B16A16_UINT,  // RGB16
     DXGI_FORMAT_R8G8B8A8_UNORM,
     DXGI_FORMAT_R16G16B16A16_FLOAT,
     DXGI_FORMAT_D16_UNORM,
-    DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH24
+    // DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH24
     DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH32
     DXGI_FORMAT_D32_FLOAT
 };
 
-constexpr D3D11_TEXTURE_ADDRESS_MODE dx11_TextureAddressMode[] = {
+constexpr D3D11_TEXTURE_ADDRESS_MODE dx11_TextureWrapMode[] = {
     D3D11_TEXTURE_ADDRESS_CLAMP,
     D3D11_TEXTURE_ADDRESS_BORDER,
     D3D11_TEXTURE_ADDRESS_MIRROR_ONCE,
@@ -126,9 +126,9 @@ void DX11Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
 
     // Clear render targets
     m_deviceContext->ClearRenderTargetView(m_renderTargetView.Get(), m_clearColor);
-    const auto clearFlags = D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL;
+    const auto d3dClearFlags = D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL;
     // TODO(v.matushkin): Hardcoded depth/stencil clear values?
-    m_deviceContext->ClearDepthStencilView(m_depthStencilView.Get(), clearFlags, 1.0f, 0);
+    m_deviceContext->ClearDepthStencilView(m_depthStencilView.Get(), d3dClearFlags, 1.0f, 0);
 
     m_deviceContext->OMSetRenderTargets(1, m_renderTargetView.GetAddressOf(), m_depthStencilView.Get());
 
@@ -175,18 +175,20 @@ void DX11Backend::DrawElements(i32 count)
 
 
 GraphicsBufferHandle DX11Backend::CreateGraphicsBuffer(
-    std::span<const std::byte> indexData, std::span<const std::byte> vertexData,
-    const std::vector<VertexAttributeDescriptor>& vertexLayout)
+    std::span<const std::byte> indexData,
+    std::span<const std::byte> vertexData,
+    const std::vector<VertexAttributeDesc>& vertexLayout
+)
 {
     DX11GraphicsBuffer dx11GraphicsBuffer;
 
-    CD3D11_BUFFER_DESC indexBufferDesc(indexData.size_bytes(), D3D11_BIND_INDEX_BUFFER);
-    D3D11_SUBRESOURCE_DATA indexSubresourceData = {
+    CD3D11_BUFFER_DESC d3dIndexBufferDesc(indexData.size_bytes(), D3D11_BIND_INDEX_BUFFER);
+    D3D11_SUBRESOURCE_DATA d3dIndexSubresourceData = {
         .pSysMem          = indexData.data(),
         .SysMemPitch      = 0,
         .SysMemSlicePitch = 0
     };
-    m_device->CreateBuffer(&indexBufferDesc, &indexSubresourceData, dx11GraphicsBuffer.Index.GetAddressOf());
+    m_device->CreateBuffer(&d3dIndexBufferDesc, &d3dIndexSubresourceData, dx11GraphicsBuffer.Index.GetAddressOf());
 
     ID3D11Buffer** d3dBuffers[] = {
         dx11GraphicsBuffer.Position.GetAddressOf(),
@@ -202,14 +204,14 @@ GraphicsBufferHandle DX11Backend::CreateGraphicsBuffer(
         const auto  nextOffset      = (i + 1) < vertexLayout.size() ? vertexLayout[i + 1].Offset : vertexData.size_bytes();
         const auto  attributeSize   = (nextOffset - currOffset);
 
-        CD3D11_BUFFER_DESC     attributeBufferDesc(attributeSize, D3D11_BIND_VERTEX_BUFFER);
-        D3D11_SUBRESOURCE_DATA attributeSubresourceData = {
+        CD3D11_BUFFER_DESC     d3dAttributeBufferDesc(attributeSize, D3D11_BIND_VERTEX_BUFFER);
+        D3D11_SUBRESOURCE_DATA d3dAttributeSubresourceData = {
             .pSysMem          = vertexData.data() + currOffset, // TODO(v.matushkin): Will this work?
             .SysMemPitch      = 0,
             .SysMemSlicePitch = 0
         };
         // TODO(v.matushkin): Create mupltiple buffers in one call?
-        m_device->CreateBuffer(&attributeBufferDesc, &attributeSubresourceData, d3dBuffers[i]);
+        m_device->CreateBuffer(&d3dAttributeBufferDesc, &d3dAttributeSubresourceData, d3dBuffers[i]);
     }
 
     static ui32 buffer_handle_workaround = 0;
@@ -220,52 +222,52 @@ GraphicsBufferHandle DX11Backend::CreateGraphicsBuffer(
     return graphicsBufferHandle;
 }
 
-TextureHandle DX11Backend::CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data)
+TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
-    const auto dx11TextureFormat      = dx11_TextureFormat[static_cast<ui8>(textureDescriptor.GraphicsFormat)];
-    const auto dx11TextureAddressMode = dx11_TextureAddressMode[static_cast<ui8>(textureDescriptor.WrapMode)];
+    const auto d3dTextureFormat      = dx11_TextureFormat[static_cast<ui8>(textureDesc.Format)];
+    const auto d3dTextureAddressMode = dx11_TextureWrapMode[static_cast<ui8>(textureDesc.WrapMode)];
 
     DX11Texture dx11Texture;
 
-    DXGI_SAMPLE_DESC      sampleDesc        = {.Count = 1, .Quality = 0};
-    D3D11_TEXTURE2D_DESC1 textureDesc       = {
-        .Width          = static_cast<ui32>(textureDescriptor.Width), // TODO(v.matushkin): Make Width/Height ui32?
-        .Height         = static_cast<ui32>(textureDescriptor.Height),
+    DXGI_SAMPLE_DESC      dxgiSampleDesc = {.Count = 1, .Quality = 0};
+    D3D11_TEXTURE2D_DESC1 d3dTextureDesc = {
+        .Width          = textureDesc.Width, // TODO(v.matushkin): Make Width/Height ui32?
+        .Height         = textureDesc.Height,
         .MipLevels      = 1, // TODO(v.matushkin): No way to use texture without mip, 0 =  generate a full set of subtextures?
         .ArraySize      = 1,
-        .Format         = dx11TextureFormat,
-        .SampleDesc     = sampleDesc,
+        .Format         = d3dTextureFormat,
+        .SampleDesc     = dxgiSampleDesc,
         .Usage          = D3D11_USAGE_DEFAULT,
         .BindFlags      = D3D11_BIND_SHADER_RESOURCE,
         .CPUAccessFlags = 0,
         .MiscFlags      = 0,                             // NOTE(v.matushkin): Whats this?
         .TextureLayout  = D3D11_TEXTURE_LAYOUT_UNDEFINED // Can use only UNDEFINED if CPUAccessFlags = 0
     };
-    D3D11_SUBRESOURCE_DATA subresourceData = {
-        .pSysMem          = data,
+    D3D11_SUBRESOURCE_DATA d3dSubresourceData = {
+        .pSysMem          = textureData,
         .SysMemPitch      = textureDesc.Width * 4, // TODO(v.matushkin): Remove hardcoded shit
         .SysMemSlicePitch = 0
     };
-    m_device->CreateTexture2D1(&textureDesc, &subresourceData, dx11Texture.Texture.GetAddressOf());
+    m_device->CreateTexture2D1(&d3dTextureDesc, &d3dSubresourceData, dx11Texture.Texture.GetAddressOf());
 
-    D3D11_TEX2D_SRV srvTex2D = {
+    D3D11_TEX2D_SRV d3dSrvTex2D = {
         .MostDetailedMip = 0,
         .MipLevels       = 1,
         //.PlaneSlice      = 0 // From D3D11_TEX2D_SRV1
     };
     // TODO(v.matushkin): Don't know how to use ID3D11ShaderResourceView1
     //  if m_deviceContext->PSSetShaderResources takes only ID3D11ShaderResourceView
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {
-        .Format        = dx11TextureFormat,
+    D3D11_SHADER_RESOURCE_VIEW_DESC d3dSrvDesc = {
+        .Format        = d3dTextureFormat,
         .ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D,
-        .Texture2D     = srvTex2D
+        .Texture2D     = d3dSrvTex2D
     };
-    m_device->CreateShaderResourceView(dx11Texture.Texture.Get(), &srvDesc, dx11Texture.SRV.GetAddressOf());
+    m_device->CreateShaderResourceView(dx11Texture.Texture.Get(), &d3dSrvDesc, dx11Texture.SRV.GetAddressOf());
     
-    D3D11_SAMPLER_DESC samplerDesc = {
+    D3D11_SAMPLER_DESC d3dSamplerDesc = {
         .Filter         = D3D11_FILTER_MIN_MAG_MIP_POINT,
-        .AddressU       = dx11TextureAddressMode,
-        .AddressV       = dx11TextureAddressMode,
+        .AddressU       = d3dTextureAddressMode,
+        .AddressV       = d3dTextureAddressMode,
         .AddressW       = D3D11_TEXTURE_ADDRESS_CLAMP, // NOTE(v.matushkin): How to handle this for 2D textures?
         .MipLODBias     = 0,
         .MaxAnisotropy  = 0, // NOTE(v.matushkin): Only used for ANISOTROPIC filter?
@@ -274,7 +276,7 @@ TextureHandle DX11Backend::CreateTexture(const TextureDescriptor& textureDescrip
         .MinLOD         = 0,
         .MaxLOD         = D3D11_FLOAT32_MAX
     };
-    m_device->CreateSamplerState(&samplerDesc, dx11Texture.Sampler.GetAddressOf());
+    m_device->CreateSamplerState(&d3dSamplerDesc, dx11Texture.Sampler.GetAddressOf());
 
     static ui32 texture_handle_workaround = 0;
     auto        textureHandle             = static_cast<TextureHandle>(texture_handle_workaround++);
@@ -287,8 +289,8 @@ TextureHandle DX11Backend::CreateTexture(const TextureDescriptor& textureDescrip
 ShaderHandle DX11Backend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
 {
     // TODO(v.matushkin): D3DCompile2 ?
-    ID3DBlob* vertexBlob;
-    ID3DBlob* vertexErrorBlob;
+    ID3DBlob* d3dVertexBlob;
+    ID3DBlob* d3dVertexErrorBlob;
     auto hr = D3DCompile(
         vertexSource.data(),
         vertexSource.size_bytes(),
@@ -299,21 +301,21 @@ ShaderHandle DX11Backend::CreateShader(std::span<const char> vertexSource, std::
         "vs_5_0",
         0, // TODO(v.matushkin): Use this, especially D3DCOMPILE_OPTIMIZATION_LEVEL* and may be D3DCOMPILE_PACK_MATRIX_ROW_MAJOR
         0,
-        &vertexBlob,
-        &vertexErrorBlob
+        &d3dVertexBlob,
+        &d3dVertexErrorBlob
     );
     if (FAILED(hr))
     {
         // TODO(v.matushkin): For D3DX11CompileFromFile, vertexErrorBlob == nullptr means shader file wasn't found,
         //  so with D3DCompile this cannot happen?
-        SNV_ASSERT(vertexErrorBlob != nullptr, "Could this ever happen?");
-        LOG_ERROR("Vertex shader compilation error:\n{}", (char*) vertexErrorBlob->GetBufferPointer());
+        SNV_ASSERT(d3dVertexErrorBlob != nullptr, "Could this ever happen?");
+        LOG_ERROR("Vertex shader compilation error:\n{}", (char*) d3dVertexErrorBlob->GetBufferPointer());
     }
-    const auto vertexBuffer     = vertexBlob->GetBufferPointer();
-    const auto vertexBufferSize = vertexBlob->GetBufferSize();
+    const auto vertexBuffer     = d3dVertexBlob->GetBufferPointer();
+    const auto vertexBufferSize = d3dVertexBlob->GetBufferSize();
 
-    ID3DBlob* fragmentBlob;
-    ID3DBlob* fragmentErrorBlob;
+    ID3DBlob* d3dFragmentBlob;
+    ID3DBlob* d3dFragmentErrorBlob;
     hr = D3DCompile(
         fragmentSource.data(),
         fragmentSource.size_bytes(),
@@ -324,16 +326,16 @@ ShaderHandle DX11Backend::CreateShader(std::span<const char> vertexSource, std::
         "ps_5_0",
         0, // TODO(v.matushkin): Use this, especially D3DCOMPILE_OPTIMIZATION_LEVEL* and may be D3DCOMPILE_PACK_MATRIX_ROW_MAJOR
         0,
-        &fragmentBlob,
-        &fragmentErrorBlob
+        &d3dFragmentBlob,
+        &d3dFragmentErrorBlob
     );
     if (FAILED(hr))
     {
-        SNV_ASSERT(fragmentErrorBlob != nullptr, "Could this ever happen?");
-        LOG_ERROR("Fragment shader compilation error:\n{}", (char*) fragmentErrorBlob->GetBufferPointer());
+        SNV_ASSERT(d3dFragmentErrorBlob != nullptr, "Could this ever happen?");
+        LOG_ERROR("Fragment shader compilation error:\n{}", (char*) d3dFragmentErrorBlob->GetBufferPointer());
     }
-    const auto fragmentBuffer     = fragmentBlob->GetBufferPointer();
-    const auto fragmentBufferSize = fragmentBlob->GetBufferSize();
+    const auto fragmentBuffer     = d3dFragmentBlob->GetBufferPointer();
+    const auto fragmentBufferSize = d3dFragmentBlob->GetBufferSize();
 
     DX11Shader dx11Shader;
 
@@ -358,18 +360,18 @@ ShaderHandle DX11Backend::CreateShader(std::span<const char> vertexSource, std::
 
 void DX11Backend::CreateDevice()
 {
-    D3D_FEATURE_LEVEL featureLevels[] = {D3D_FEATURE_LEVEL_11_1};
+    D3D_FEATURE_LEVEL d3dFeatureLevels[] = {D3D_FEATURE_LEVEL_11_1};
 
     // NOTE(v.matushkin): Do I even need this?
     //  This flag adds support for surfaces with a color-channel ordering different
     //  from the API default. It is required for compatibility with Direct2D.
-    ui32 deviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+    ui32 d3dDeviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #ifdef SNV_GPU_API_DEBUG_ENABLED
-    deviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+    d3dDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif // SNV_GPU_API_DEBUG_ENABLED
 
-    Microsoft::WRL::ComPtr<ID3D11Device>        device;
-    Microsoft::WRL::ComPtr<ID3D11DeviceContext> deviceContext;
+    Microsoft::WRL::ComPtr<ID3D11Device>        d3dDevice;
+    Microsoft::WRL::ComPtr<ID3D11DeviceContext> d3dDeviceContext;
 
     D3D_FEATURE_LEVEL useless_feature_level_variable;
 
@@ -377,23 +379,22 @@ void DX11Backend::CreateDevice()
         nullptr,                  // Specify nullptr to use the default adapter.
         D3D_DRIVER_TYPE_HARDWARE, // Create a device using the hardware graphics driver.
         0,                        // Should be 0 unless the driver is D3D_DRIVER_TYPE_SOFTWARE.
-        deviceFlags,
-        featureLevels,
-        ARRAYSIZE(featureLevels),
+        d3dDeviceFlags,
+        d3dFeatureLevels,
+        ARRAYSIZE(d3dFeatureLevels),
         D3D11_SDK_VERSION, // Always set this to D3D11_SDK_VERSION for Windows Store apps. Do I need to?
-        device.GetAddressOf(),
+        d3dDevice.GetAddressOf(),
         &useless_feature_level_variable,
-        deviceContext.GetAddressOf()
+        d3dDeviceContext.GetAddressOf()
     );
 
-    device.As(&m_device);
-    deviceContext.As(&m_deviceContext);
+    d3dDevice.As(&m_device);
+    d3dDeviceContext.As(&m_deviceContext);
 }
 
 void DX11Backend::CreateSwapChain()
 {
-    DXGI_MODE_DESC   dxgiModeDesc   = {.Format = DXGI_FORMAT_R8G8B8A8_UNORM};
-    DXGI_SAMPLE_DESC dxgiSampleDesc = {
+    DXGI_SAMPLE_DESC dxgiSwapChainSampleDesc = {
         .Count   = 1, // multisampling setting
         .Quality = 0  // vendor-specific flag
     };
@@ -411,7 +412,7 @@ void DX11Backend::CreateSwapChain()
         // .Height
         .Format      = DXGI_FORMAT_R8G8B8A8_UNORM,      // TODO(v.matushkin): Shouldn't be hardcoded
         .Stereo      = false,
-        .SampleDesc  = dxgiSampleDesc,
+        .SampleDesc  = dxgiSwapChainSampleDesc,
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
         .BufferCount = 2,
         .Scaling     = DXGI_SCALING_STRETCH,            // TODO(v.matushkin): Play with this
@@ -461,43 +462,43 @@ void DX11Backend::CreateSwapChain()
     m_renderTarget->GetDesc(&renderTargetDesc);
 
     // Create DepthStencil
-    DXGI_SAMPLE_DESC      depthStencilSampleDesc = {.Count = 1, .Quality = 0};
-    D3D11_TEXTURE2D_DESC1 depthStencilDesc       = {
+    DXGI_SAMPLE_DESC      dxgiDepthStencilSampleDesc = {.Count = 1, .Quality = 0};
+    D3D11_TEXTURE2D_DESC1 d3dDepthStencilDesc        = {
         .Width          = static_cast<ui32>(renderTargetDesc.Width),
         .Height         = static_cast<ui32>(renderTargetDesc.Height),
         .MipLevels      = 1,
         .ArraySize      = 1,
         .Format         = DXGI_FORMAT_D24_UNORM_S8_UINT,
-        .SampleDesc     = depthStencilSampleDesc,
+        .SampleDesc     = dxgiDepthStencilSampleDesc,
         .Usage          = D3D11_USAGE_DEFAULT,
         .BindFlags      = D3D11_BIND_DEPTH_STENCIL,
         .CPUAccessFlags = 0,
         .MiscFlags      = 0,                             // NOTE(v.matushkin): Whats this?
         .TextureLayout  = D3D11_TEXTURE_LAYOUT_UNDEFINED // Can use only UNDEFINED if CPUAccessFlags = 0
     };
-    m_device->CreateTexture2D1(&depthStencilDesc, nullptr, m_depthStencil.GetAddressOf());
+    m_device->CreateTexture2D1(&d3dDepthStencilDesc, nullptr, m_depthStencil.GetAddressOf());
 
-    D3D11_TEX2D_DSV               dsvTex2D             = {.MipSlice = 0};
-    D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc = {
+    D3D11_TEX2D_DSV               d3dDsvTex2D = {.MipSlice = 0};
+    D3D11_DEPTH_STENCIL_VIEW_DESC d3dDsvDesc  = {
         .Format        = DXGI_FORMAT_D24_UNORM_S8_UINT,
         .ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D,
         .Flags         = 0,
-        .Texture2D     = dsvTex2D
+        .Texture2D     = d3dDsvTex2D
     };
-    m_device->CreateDepthStencilView(m_depthStencil.Get(), &depthStencilViewDesc, m_depthStencilView.GetAddressOf());
+    m_device->CreateDepthStencilView(m_depthStencil.Get(), &d3dDsvDesc, m_depthStencilView.GetAddressOf());
 
     // Setup rasterizer
-    D3D11_VIEWPORT viewport = {
+    D3D11_VIEWPORT d3dViewport = {
         .Width    = static_cast<f32>(renderTargetDesc.Width),
         .Height   = static_cast<f32>(renderTargetDesc.Height),
         .MinDepth = 0,
         .MaxDepth = 1
     };
-    m_deviceContext->RSSetViewports(1, &viewport);
+    m_deviceContext->RSSetViewports(1, &d3dViewport);
 
     // NOTE(v.matuskin): Changed FrontCounterClockwise to true, everything else is default values
     //  FrontCounterClockwise is false by default, and in OpenGL it's true by default
-    D3D11_RASTERIZER_DESC2 rasterizerDesc = {
+    D3D11_RASTERIZER_DESC2 d3dRasterizerDesc = {
         .FillMode              = D3D11_FILL_SOLID,
         .CullMode              = D3D11_CULL_BACK,
         .FrontCounterClockwise = true,
@@ -511,9 +512,9 @@ void DX11Backend::CreateSwapChain()
         .ForcedSampleCount     = 0,
         .ConservativeRaster    = D3D11_CONSERVATIVE_RASTERIZATION_MODE_OFF
     };
-    ID3D11RasterizerState2* rasterizerState;
-    m_device->CreateRasterizerState2(&rasterizerDesc, &rasterizerState);
-    m_deviceContext->RSSetState(rasterizerState);
+    ID3D11RasterizerState2* d3dRasterizerState;
+    m_device->CreateRasterizerState2(&d3dRasterizerDesc, &d3dRasterizerState);
+    m_deviceContext->RSSetState(d3dRasterizerState);
 }
 
 } // namespace snv

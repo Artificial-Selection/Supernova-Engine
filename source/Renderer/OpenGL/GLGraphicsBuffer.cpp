@@ -11,7 +11,7 @@
 #define UINT_TO_VOID_PTR(ui) (void*)(ui64)(ui)
 
 
-constexpr ui32 g_VertexFormatToGL[] = {
+constexpr ui32 gl_VertexAttributeFormat[] = {
     GL_BYTE ,          // VertexAttributeFormat::Int8
     GL_SHORT,          // VertexAttributeFormat::Int16
     GL_INT,            // VertexAttributeFormat::Int32
@@ -36,7 +36,7 @@ GLGraphicsBuffer::GLGraphicsBuffer() noexcept
 GLGraphicsBuffer::GLGraphicsBuffer(
     std::span<const std::byte> indexData,
     std::span<const std::byte> vertexData,
-    const std::vector<VertexAttributeDescriptor>& vertexLayout
+    const std::vector<VertexAttributeDesc>& vertexLayout
 ) noexcept
 {
     glGenVertexArrays(1, &m_vao);
@@ -53,8 +53,8 @@ GLGraphicsBuffer::GLGraphicsBuffer(
 
     for (const auto& vertexAttribute : vertexLayout)
     {
-        const auto attribute = static_cast<ui32>(vertexAttribute.Attribute);
-        const auto format = g_VertexFormatToGL[static_cast<ui32>(vertexAttribute.Format)];
+        const auto attribute = static_cast<ui8>(vertexAttribute.Attribute);
+        const auto format    = gl_VertexAttributeFormat[static_cast<ui8>(vertexAttribute.Format)];
         
         glEnableVertexAttribArray(attribute);
         glVertexAttribPointer(attribute, vertexAttribute.Dimension, format, GL_FALSE, 0, UINT_TO_VOID_PTR(vertexAttribute.Offset));

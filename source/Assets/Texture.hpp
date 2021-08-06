@@ -11,7 +11,7 @@ namespace snv
 class Texture
 {
 public:
-    Texture(const TextureDescriptor& textureDescriptor, std::unique_ptr<ui8[]>&& textureData);
+    Texture(const TextureDesc& textureDesc, std::unique_ptr<ui8[]>&& textureData);
 
     Texture(Texture&& other) noexcept;
     Texture& operator=(Texture&& other) noexcept;

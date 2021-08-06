@@ -7,10 +7,10 @@
 namespace snv
 {
 
-Texture::Texture(const TextureDescriptor& textureDescriptor, std::unique_ptr<ui8[]>&& textureData)
+Texture::Texture(const TextureDesc& textureDesc, std::unique_ptr<ui8[]>&& textureData)
     : m_textureData(std::move(textureData))
 {
-    m_textureHandle = snv::Renderer::CreateTexture(textureDescriptor, m_textureData.get());
+    m_textureHandle = snv::Renderer::CreateTexture(textureDesc, m_textureData.get());
 }
 
 Texture::Texture(Texture&& other) noexcept
@@ -27,11 +27,11 @@ Texture& Texture::operator=(Texture&& other) noexcept
 }
 
 
-static constexpr TextureDescriptor defaultTextureDescriptor = {
-    .Width          = 4,
-    .Height         = 4,
-    .GraphicsFormat = TextureGraphicsFormat::RGBA8,
-    .WrapMode       = TextureWrapMode::Repeat
+static constexpr TextureDesc s_DefaultTextureDesc = {
+    .Width    = 4,
+    .Height   = 4,
+    .Format   = TextureFormat::RGBA8,
+    .WrapMode = TextureWrapMode::Repeat
 };
 
 // NOTE(v.matushkin): Not sure about this methods
@@ -49,7 +49,7 @@ std::shared_ptr<Texture> Texture::GetBlackTexture()
     auto blackTextureDataPtr = std::make_unique<ui8[]>(4 * 4 * 4);
     std::memcpy(blackTextureDataPtr.get(), blackTextureData, 4 * 4 * 4);
 
-    static auto blackTexture = std::make_shared<Texture>(defaultTextureDescriptor, std::move(blackTextureDataPtr));
+    static auto blackTexture = std::make_shared<Texture>(s_DefaultTextureDesc, std::move(blackTextureDataPtr));
 
     return blackTexture;
 }
@@ -65,7 +65,7 @@ std::shared_ptr<Texture> Texture::GetWhiteTexture()
     auto whiteTextureDataPtr = std::make_unique<ui8[]>(4 * 4 * 4);
     std::memcpy(whiteTextureDataPtr.get(), whiteTextureData, 4 * 4 * 4);
 
-    static auto whiteTexture = std::make_shared<Texture>(defaultTextureDescriptor, std::move(whiteTextureDataPtr));
+    static auto whiteTexture = std::make_shared<Texture>(s_DefaultTextureDesc, std::move(whiteTextureDataPtr));
 
     return whiteTexture;
 }
@@ -81,7 +81,7 @@ std::shared_ptr<Texture> Texture::GetNormalTexture()
     auto normalTextureDataPtr = std::make_unique<ui8[]>(4 * 4 * 4);
     std::memcpy(normalTextureDataPtr.get(), normalTextureData, 4 * 4 * 4);
 
-    static auto normalTexture = std::make_shared<Texture>(defaultTextureDescriptor, std::move(normalTextureDataPtr));
+    static auto normalTexture = std::make_shared<Texture>(s_DefaultTextureDesc, std::move(normalTextureDataPtr));
 
     return normalTexture;
 }

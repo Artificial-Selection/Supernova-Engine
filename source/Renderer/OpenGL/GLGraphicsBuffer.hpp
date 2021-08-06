@@ -20,7 +20,7 @@ public:
     GLGraphicsBuffer(
         std::span<const std::byte> indexData,
         std::span<const std::byte> vertexData,
-        const std::vector<VertexAttributeDescriptor>& vertexLayout
+        const std::vector<VertexAttributeDesc>& vertexLayout
     ) noexcept;
 
     GLGraphicsBuffer(GLGraphicsBuffer&& other) noexcept;
