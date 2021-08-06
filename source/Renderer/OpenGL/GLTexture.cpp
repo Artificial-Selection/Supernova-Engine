@@ -25,6 +25,7 @@ constexpr ui32 gl_formatTable[][3] = {
 constexpr i32 gl_wrapTable[] = {
     GL_CLAMP_TO_EDGE,
     GL_CLAMP_TO_BORDER,
+    GL_MIRROR_CLAMP_TO_EDGE,
     GL_MIRRORED_REPEAT,
     GL_REPEAT,
 };

@@ -3,8 +3,8 @@
 #include <Core/Core.hpp>
 #include <Renderer/IRendererBackend.hpp>
 #include <Renderer/OpenGL/GLGraphicsBuffer.hpp>
-#include <Renderer/OpenGL/GLTexture.hpp>
 #include <Renderer/OpenGL/GLShader.hpp>
+#include <Renderer/OpenGL/GLTexture.hpp>
 
 #include <unordered_map>
 
@@ -45,7 +45,7 @@ public:
         const std::vector<VertexAttributeDescriptor>& vertexLayout
     ) override;
     TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data) override;
-    ShaderHandle CreateShader(const char* vertexSource, const char* fragmentSource) override;
+    ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource) override;
 
 private:
     std::unordered_map<GraphicsBufferHandle, GLGraphicsBuffer> m_graphicsBuffers;

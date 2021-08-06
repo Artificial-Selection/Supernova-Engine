@@ -5,9 +5,8 @@
 namespace snv
 {
 
-Shader::Shader(const char* vertexSource, const char* fragmentSource)
-{
-    m_shaderHandle = snv::Renderer::CreateShader(vertexSource, fragmentSource);
-}
+Shader::Shader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
+    : m_shaderHandle(snv::Renderer::CreateShader(vertexSource, fragmentSource))
+{}
 
 } // namespace snv

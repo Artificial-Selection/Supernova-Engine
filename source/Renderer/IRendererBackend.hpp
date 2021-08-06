@@ -43,7 +43,7 @@ public:
         const std::vector<VertexAttributeDescriptor>& vertexLayout
     ) = 0;
     virtual TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data) = 0;
-    virtual ShaderHandle CreateShader(const char* vertexSource, const char* fragmentSource) = 0;
+    virtual ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource) = 0;
 };
 
 } // namespace snv

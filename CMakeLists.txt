@@ -168,7 +168,7 @@ set(Renderer_SRC
 
 if(SNV_PLATFORM_WINDOWS)
     set(Renderer_SRC ${DirectX11_SRC} ${Renderer_SRC})
-    set(DirectX11_LIBS d3d11)
+    set(DirectX11_LIBS d3d11 d3dcompiler)
 endif()
 
 # ----------------------------- Utils -----------------------------

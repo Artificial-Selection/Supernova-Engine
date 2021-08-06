@@ -1,12 +1,16 @@
 #include <Assets/AssetDatabase.hpp>
-#include <Core/Assert.hpp>
 #include <Assets/Model.hpp>
 #include <Assets/Mesh.hpp>
 #include <Assets/Material.hpp>
 #include <Assets/Texture.hpp>
 #include <Assets/Shader.hpp>
+
+#include <Core/Assert.hpp>
+
 #include <Entity/GameObject.hpp>
 #include <Components/MeshRenderer.hpp>
+
+#include <Renderer/Renderer.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -92,7 +96,7 @@ TexturePtr AssetDatabase::LoadAsset(const std::string& assetPath)
     auto assetIt = m_textures.find(assetPath);
     if (assetIt == m_textures.end())
     {
-        assetIt = m_textures.emplace(assetPath, std::make_shared<Texture>(LoadTexture(assetPath.c_str()))).first;
+        assetIt = m_textures.emplace(assetPath, std::make_shared<Texture>(LoadTexture(assetPath))).first;
     }
 
     return assetIt->second;
@@ -118,7 +122,8 @@ Model AssetDatabase::LoadModel(const char* modelPath)
         modelPath,
         aiPostProcessSteps::aiProcess_Triangulate
         | aiPostProcessSteps::aiProcess_GenNormals
-        // | aiPostProcessSteps::aiProcess_FlipUVs Instead of stbi_set_flip_vertically_on_load(true); ?
+        // | aiPostProcessSteps::aiProcess_FlipUVs          // Instead of stbi_set_flip_vertically_on_load(true); ?
+        // | aiPostProcessSteps::aiProcess_FlipWindingOrder // Default is counter clockwise
     );
 
     if (scene == nullptr)
@@ -240,63 +245,70 @@ Model AssetDatabase::LoadModel(const char* modelPath)
     return Model(std::move(modelGameObjects));
 }
 
-Texture AssetDatabase::LoadTexture(const char* texturePath)
+Texture AssetDatabase::LoadTexture(const std::string& texturePath)
 {
     stbi_set_flip_vertically_on_load(true); // TODO(v.matushkin): Set only once
 
     // TODO(v.matushkin): Asset class shouldn't handle path adjusting
-    std::string fullPath = "../../assets/models/Sponza/" + std::string(texturePath);
+    std::string fullPath = "../../assets/models/Sponza/" + texturePath;
 
     i32 width, height, numComponents;
-    ui8* stbImageData = stbi_load(fullPath.c_str(), &width, &height, &numComponents, 0);
-    if (stbImageData == nullptr)
-    {
-        SNV_ASSERT(false, stbi_failure_reason());
-    }
+    // TODO(v.matushkin): Check for errors
+    stbi_info(fullPath.c_str(), &width, &height, &numComponents);
     // TODO(v.matushkin): TextureGraphicsFormat selection need to be more robust
-    if (numComponents != 3 && numComponents != 4)
-    {
-        LOG_WARN("Texture path: {}, numComponents: {}", texturePath, numComponents);
-    }
+    // TODO(v.matushkin): Make SNV_ASSERT take formatting arguments, so here texturePath can be logged
+    SNV_ASSERT(numComponents == 3 || numComponents == 4, "Right now only Textures with 3 or 4 channels are supported");
+    const i32 desiredComponents = numComponents == 3 ? 4 : numComponents;
+
+    ui8* stbImageData = stbi_load(fullPath.c_str(), &width, &height, &numComponents, desiredComponents);
+    SNV_ASSERT(stbImageData != nullptr, stbi_failure_reason());
 
     // NOTE(v.matushkin): Not sure about this dances with memory
-    const auto textureSize = width * height * numComponents;
+    const auto textureSize = width * height * desiredComponents;
     auto textureData = std::make_unique<ui8[]>(textureSize);
     std::memcpy(textureData.get(), stbImageData, textureSize);
     stbi_image_free(stbImageData);
    
     // TODO(v.matushkin): Load Sponza textures as R8G8B8A8_SRGB ?
     // NOTE(v.matushkin): TextureWrapMode::Repeat by default?
-    TextureDescriptor textureDescriptor{
+    TextureDescriptor textureDescriptor = {
         .Width          = width,
         .Height         = height,
-        .GraphicsFormat = numComponents == 3 ? TextureGraphicsFormat::RGB8 : TextureGraphicsFormat::RGBA8,
+        .GraphicsFormat = TextureGraphicsFormat::RGBA8,
         .WrapMode       = TextureWrapMode::Repeat
     };
 
     return Texture(textureDescriptor, std::move(textureData));
 }
 
-// TODO(v.matushkin): Improve this shit with passes/loading
+// TODO(v.matushkin): Improve this shit with passes/loading(don't know what did I mean by that)
+//  Thats why there should be only one shader language I guess
+//  Or at least there should some static AppSettings class or something, so there is no need to access Renderer
 Shader AssetDatabase::LoadShader(const std::string& shaderPath)
 {
+    const std::string shaderExtension(Renderer::GetGraphicsApi() == GraphicsApi::OpenGL ? ".glsl" : ".hlsl");
+
     // Get Vertex Shader
-    const auto vertexPath = shaderPath + "_vs.glsl";
+    const std::string vertexPath(shaderPath + "_vs" + shaderExtension);
     const auto vertexSize = std::filesystem::file_size(vertexPath);
     auto vertexSource = std::make_unique<char[]>(vertexSize + 1);
-
-    std::ifstream vertexFile(vertexPath, std::ios::binary | std::ios::in);
-    vertexFile.read(vertexSource.get(), vertexSize);
-
+    {
+        std::ifstream vertexFile(vertexPath, std::ios::binary | std::ios::in);
+        vertexFile.read(vertexSource.get(), vertexSize);
+    }
     // Get Fragment Shader
-    const auto fragmentPath = shaderPath + "_fs.glsl";
+    const std::string fragmentPath(shaderPath + "_fs" + shaderExtension);
     const auto fragmentSize = std::filesystem::file_size(fragmentPath);
     auto fragmentSource = std::make_unique<char[]>(fragmentSize + 1);
+    {
+        std::ifstream fragmentFile(fragmentPath, std::ios::binary | std::ios::in);
+        fragmentFile.read(fragmentSource.get(), fragmentSize);
+    }
 
-    std::ifstream fragmentFile(fragmentPath, std::ios::binary | std::ios::in);
-    fragmentFile.read(fragmentSource.get(), fragmentSize);
-
-    return Shader(vertexSource.get(), fragmentSource.get());
+    return Shader(
+        std::span(vertexSource.get(), vertexSize),
+        std::span(fragmentSource.get(), fragmentSize)
+    );
 }
 
 

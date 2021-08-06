@@ -80,7 +80,7 @@ struct VertexAttributeDescriptor
     ui32                  Offset;
 };
 
-
+// TODO(v.matushkin): Rename to TextureFormat? wtf did I even called it like that
 enum class TextureGraphicsFormat : ui8
 {
     R8,
@@ -95,14 +95,15 @@ enum class TextureGraphicsFormat : ui8
     RGBA16F,
     DEPTH16,
     DEPTH24,
-    DEPTH32,
+    DEPTH32, // TODO(v.matushkin): Should be called D24S8 or smth like that?
     DEPTH32F
 };
-
+// TODO(v.matushkin): Make sure this works correctly in GPU API's
 enum class TextureWrapMode : ui8
 {
     ClampToEdge,
     ClampToBorder,
+    MirroredOnce,
     MirroredRepeat,
     Repeat
 };
@@ -111,7 +112,7 @@ struct TextureDescriptor
 {
     i32                   Width;
     i32                   Height;
-    TextureGraphicsFormat GraphicsFormat;
+    TextureGraphicsFormat GraphicsFormat; // TODO(v.matushkin): Rename to just Format?
     TextureWrapMode       WrapMode;
 };
 

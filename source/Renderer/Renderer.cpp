@@ -25,59 +25,61 @@ void Renderer::Init(GraphicsApi graphicsApi)
     switch (graphicsApi)
     {
     case snv::GraphicsApi::OpenGL:
-        s_RendererBackend = new GLBackend();
+        s_rendererBackend = new GLBackend();
         break;
 #ifdef SNV_PLATFORM_WINDOWS
     case snv::GraphicsApi::DirectX11:
-        s_RendererBackend = new DX11Backend();
+        s_rendererBackend = new DX11Backend();
         break;
 #endif
     default:
         SNV_ASSERT(false, "Will this ever happen?");
         break;
     }
+
+    s_graphicsApi = graphicsApi;
 }
 
 void Renderer::Shutdown()
 {
-    delete s_RendererBackend;
+    delete s_rendererBackend;
 }
 
 
 void Renderer::EnableBlend()
 {
-    s_RendererBackend->EnableBlend();
+    s_rendererBackend->EnableBlend();
 }
 
 void Renderer::EnableDepthTest()
 {
-    s_RendererBackend->EnableDepthTest();
+    s_rendererBackend->EnableDepthTest();
 }
 
 
 void Renderer::SetBlendFunction(BlendFactor source, BlendFactor destination)
 {
-    s_RendererBackend->SetBlendFunction(source, destination);
+    s_rendererBackend->SetBlendFunction(source, destination);
 }
 
 void Renderer::SetClearColor(f32 r, f32 g, f32 b, f32 a)
 {
-    s_RendererBackend->SetClearColor(r, g, b, a);
+    s_rendererBackend->SetClearColor(r, g, b, a);
 }
 
 void Renderer::SetDepthFunction(DepthFunction depthFunction)
 {
-    s_RendererBackend->SetDepthFunction(depthFunction);
+    s_rendererBackend->SetDepthFunction(depthFunction);
 }
 
 void Renderer::SetViewport(i32 x, i32 y, i32 width, i32 height)
 {
-    s_RendererBackend->SetViewport(x, y, width, height);
+    s_rendererBackend->SetViewport(x, y, width, height);
 }
 
 void Renderer::Clear(BufferBit bufferBitMask)
 {
-    s_RendererBackend->Clear(bufferBitMask);
+    s_rendererBackend->Clear(bufferBitMask);
 }
 
 
@@ -101,7 +103,7 @@ void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
         const auto& cameraTranformForReal = ComponentFactory::GetComponent<Transform>(entity);
         //const auto& cameraTransform = cameraView.get<Transform>(entity);
 
-        s_RendererBackend->BeginFrame(localToWorld, cameraTranformForReal.GetMatrix(), camera.GetProjectionMatrix());
+        s_rendererBackend->BeginFrame(localToWorld, cameraTranformForReal.GetMatrix(), camera.GetProjectionMatrix());
 
         for (const auto [entity, meshRenderer] : meshRendererView.each())
         {
@@ -116,7 +118,7 @@ void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
             DrawGraphicsBuffer(textureHandle, meshHandle, indexCount, vertexCount);
         }
 
-        s_RendererBackend->EndFrame();
+        s_rendererBackend->EndFrame();
     }
 }
 
@@ -125,7 +127,7 @@ void Renderer::DrawGraphicsBuffer(
     TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
 )
 {
-    s_RendererBackend->DrawGraphicsBuffer(textureHandle, handle, indexCount, vertexCount);
+    s_rendererBackend->DrawGraphicsBuffer(textureHandle, handle, indexCount, vertexCount);
 }
 
 
@@ -135,17 +137,17 @@ GraphicsBufferHandle Renderer::CreateGraphicsBuffer(
     const std::vector<VertexAttributeDescriptor>& vertexLayout
 )
 {
-    return s_RendererBackend->CreateGraphicsBuffer(indexData, vertexData, vertexLayout);
+    return s_rendererBackend->CreateGraphicsBuffer(indexData, vertexData, vertexLayout);
 }
 
 TextureHandle Renderer::CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data)
 {
-    return s_RendererBackend->CreateTexture(textureDescriptor, data);
+    return s_rendererBackend->CreateTexture(textureDescriptor, data);
 }
 
-ShaderHandle Renderer::CreateShader(const char* vertexSource, const char* fragmentSource)
+ShaderHandle Renderer::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
 {
-    return s_RendererBackend->CreateShader(vertexSource, fragmentSource);
+    return s_rendererBackend->CreateShader(vertexSource, fragmentSource);
 }
 
 } // namespace snv

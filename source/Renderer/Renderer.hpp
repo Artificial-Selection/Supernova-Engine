@@ -23,6 +23,9 @@ public:
     static void EnableBlend();
     static void EnableDepthTest();
 
+    // TODO(v.matushkin): I think this method shouldn't be In Renderer class, rn it's just a workaround
+    static GraphicsApi GetGraphicsApi() { return s_graphicsApi; }
+
     static void SetBlendFunction(BlendFactor source, BlendFactor destination);
     static void SetClearColor(f32 r, f32 g, f32 b, f32 a);
     static void SetDepthFunction(DepthFunction depthFunction);
@@ -42,10 +45,11 @@ public:
         const std::vector<VertexAttributeDescriptor>& vertexLayout
     );
     static TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data);
-    static ShaderHandle CreateShader(const char* vertexSource, const char* fragmentSource);
+    static ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource);
 
 private:
-    static inline IRendererBackend* s_RendererBackend;
+    static inline GraphicsApi       s_graphicsApi;
+    static inline IRendererBackend* s_rendererBackend;
 };
 
 } // namespace snv

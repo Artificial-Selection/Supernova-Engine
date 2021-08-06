@@ -121,6 +121,12 @@ GLBackend::GLBackend()
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
     }
 #endif // SNV_ENABLE_DEBUG
+
+    // TODO(v.matushkin) Pass this settings in some struct, instead of just hardcoding it
+    //  So different backends will give the same result
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 }
 
 
@@ -245,7 +251,7 @@ TextureHandle GLBackend::CreateTexture(const TextureDescriptor& textureDescripto
     return handle;
 }
 
-ShaderHandle GLBackend::CreateShader(const char* vertexSource, const char* fragmentSource)
+ShaderHandle GLBackend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
 {
     GLShader glShader(vertexSource, fragmentSource);
     const auto handle = glShader.GetHandle();
