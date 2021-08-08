@@ -8,13 +8,13 @@
 namespace snv
 {
 
-constexpr ui32 gl_BlendFactor[]{
+constexpr ui32 gl_BlendFactor[] = {
     GL_ONE,                // BlendFactor::One
     GL_SRC_ALPHA,          // BlendFactor::SrcAlpha
     GL_ONE_MINUS_SRC_ALPHA // BlendFactor::OneMinusSrcAlpha
 };
 
-constexpr ui32 gl_DepthFunction[]{
+constexpr ui32 gl_DepthFunction[] = {
     GL_NEVER,    // DepthFunction::Never
     GL_LESS,     // DepthFunction::Less
     GL_EQUAL,    // DepthFunction::Equal
@@ -25,7 +25,7 @@ constexpr ui32 gl_DepthFunction[]{
     GL_ALWAYS    // DepthFunction::Always
 };
 
-constexpr ui32 gl_BufferBit[]{
+constexpr ui32 gl_BufferBit[] = {
     GL_COLOR_BUFFER_BIT,  // BufferBit::Color
     GL_DEPTH_BUFFER_BIT,  // BufferBit::Depth
     // GL_ACCUM_BUFFER_BIT,  // BufferBit::Accum
@@ -204,17 +204,15 @@ void GLBackend::EndFrame()
     Window::SwapBuffers();
 }
 
-void GLBackend::DrawGraphicsBuffer(
-    TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
-)
+void GLBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
-    const auto& texture = m_textures[textureHandle];
-    const auto& graphicsBuffer = m_graphicsBuffers[handle];
+    const auto& texture        = m_textures[textureHandle];
+    const auto& graphicsBuffer = m_buffers[bufferHandle];
 
     texture.Bind(0);
     graphicsBuffer.Bind();
 
-    glDrawElements(GL_TRIANGLES, indexCount , GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
 }
 
 void GLBackend::DrawArrays(i32 count)
@@ -229,15 +227,15 @@ void GLBackend::DrawElements(i32 count)
 }
 
 
-GraphicsBufferHandle GLBackend::CreateGraphicsBuffer(
-    std::span<const std::byte> indexData,
-    std::span<const std::byte> vertexData,
+BufferHandle GLBackend::CreateBuffer(
+    std::span<const std::byte>              indexData,
+    std::span<const std::byte>              vertexData,
     const std::vector<VertexAttributeDesc>& vertexLayout
 )
 {
-    GLGraphicsBuffer glGraphicsBuffer(indexData, vertexData, vertexLayout);
-    const auto handle = glGraphicsBuffer.GetHandle();
-    m_graphicsBuffers.emplace(handle, std::move(glGraphicsBuffer));
+    GLBuffer   glBuffer(indexData, vertexData, vertexLayout);
+    const auto handle = glBuffer.GetHandle();
+    m_buffers.emplace(handle, std::move(glBuffer));
 
     return handle;
 }
@@ -253,7 +251,7 @@ TextureHandle GLBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
 
 ShaderHandle GLBackend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
 {
-    GLShader glShader(vertexSource, fragmentSource);
+    GLShader   glShader(vertexSource, fragmentSource);
     const auto handle = glShader.GetHandle();
     m_shaders.emplace(handle, std::move(glShader));
 

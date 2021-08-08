@@ -1,4 +1,4 @@
-#include <Renderer/OpenGL/GLGraphicsBuffer.hpp>
+#include <Renderer/OpenGL/GLBuffer.hpp>
 #include <Core/Log.hpp>
 
 #include <glad/glad.h>
@@ -27,15 +27,15 @@ constexpr ui32 gl_VertexAttributeFormat[] = {
 namespace snv
 {
 
-GLGraphicsBuffer::GLGraphicsBuffer() noexcept
+GLBuffer::GLBuffer() noexcept
     : m_vao(k_InvalidHandle)
     , m_vbo(-1)
     , m_ibo(-1)
 {}
 
-GLGraphicsBuffer::GLGraphicsBuffer(
-    std::span<const std::byte> indexData,
-    std::span<const std::byte> vertexData,
+GLBuffer::GLBuffer(
+    std::span<const std::byte>              indexData,
+    std::span<const std::byte>              vertexData,
     const std::vector<VertexAttributeDesc>& vertexLayout
 ) noexcept
 {
@@ -62,13 +62,13 @@ GLGraphicsBuffer::GLGraphicsBuffer(
 }
 
 
-GLGraphicsBuffer::GLGraphicsBuffer(GLGraphicsBuffer&& other) noexcept
+GLBuffer::GLBuffer(GLBuffer&& other) noexcept
     : m_vao(std::exchange(other.m_vao, -1))
     , m_vbo(std::exchange(other.m_vbo, -1))
     , m_ibo(std::exchange(other.m_ibo, -1))
 {}
 
-GLGraphicsBuffer& GLGraphicsBuffer::operator=(GLGraphicsBuffer&& other) noexcept
+GLBuffer& GLBuffer::operator=(GLBuffer&& other) noexcept
 {
     // NOTE(v.matushkin): Not sure if this is correct
     m_vao = std::exchange(other.m_vao, -1);
@@ -79,7 +79,7 @@ GLGraphicsBuffer& GLGraphicsBuffer::operator=(GLGraphicsBuffer&& other) noexcept
 }
 
 
-void GLGraphicsBuffer::Bind() const
+void GLBuffer::Bind() const
 {
     glBindVertexArray(m_vao);
 }

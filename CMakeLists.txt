@@ -150,8 +150,8 @@ set(OpenGL_SRC_DIR ${Renderer_SRC_DIR}/OpenGL)
 set(OpenGL_SRC
     ${OpenGL_SRC_DIR}/GLBackend.hpp
     ${OpenGL_SRC_DIR}/GLBackend.cpp
-    ${OpenGL_SRC_DIR}/GLGraphicsBuffer.hpp
-    ${OpenGL_SRC_DIR}/GLGraphicsBuffer.cpp
+    ${OpenGL_SRC_DIR}/GLBuffer.hpp
+    ${OpenGL_SRC_DIR}/GLBuffer.cpp
     ${OpenGL_SRC_DIR}/GLShader.hpp
     ${OpenGL_SRC_DIR}/GLShader.cpp
     ${OpenGL_SRC_DIR}/GLTexture.hpp

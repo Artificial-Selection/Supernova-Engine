@@ -17,7 +17,7 @@
 //  Leave this shit to the future me
 
 
-constexpr i32 glfw_CursorMode[]{
+constexpr i32 glfw_CursorMode[] = {
     GLFW_CURSOR_NORMAL,  // Cursor::Normal
     GLFW_CURSOR_HIDDEN,  // Cursor::Hidden
     GLFW_CURSOR_DISABLED // Cursor::Locked
@@ -68,7 +68,7 @@ void Window::Init(i32 width, i32 height, const char* title, GraphicsApi graphics
     {
         glfwMakeContextCurrent(m_window);
 
-        const auto glad_dont_know_what = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+        const auto glad_dont_know_what = gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
         SNV_ASSERT(glad_dont_know_what != 0, "Failed to initialize GLAD");
     }
 

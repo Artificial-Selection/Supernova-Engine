@@ -9,9 +9,8 @@ namespace snv
 
 Texture::Texture(const TextureDesc& textureDesc, std::unique_ptr<ui8[]>&& textureData)
     : m_textureData(std::move(textureData))
-{
-    m_textureHandle = snv::Renderer::CreateTexture(textureDesc, m_textureData.get());
-}
+    , m_textureHandle(snv::Renderer::CreateTexture(textureDesc, m_textureData.get()))
+{}
 
 Texture::Texture(Texture&& other) noexcept
     : m_textureData(std::exchange(other.m_textureData, nullptr))
@@ -31,7 +30,7 @@ static constexpr TextureDesc s_DefaultTextureDesc = {
     .Width    = 4,
     .Height   = 4,
     .Format   = TextureFormat::RGBA8,
-    .WrapMode = TextureWrapMode::Repeat
+    .WrapMode = TextureWrapMode::Repeat,
 };
 
 // NOTE(v.matushkin): Not sure about this methods

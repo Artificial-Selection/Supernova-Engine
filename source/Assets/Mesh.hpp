@@ -27,7 +27,7 @@ public:
 
     [[nodiscard]] i32 GetIndexCount()  const { return m_indexCount; }
     [[nodiscard]] i32 GetVertexCount() const { return m_vertexCount; }
-    [[nodiscard]] GraphicsBufferHandle GetHandle() const { return m_graphicsBufferHandle; }
+    [[nodiscard]] BufferHandle GetHandle() const { return m_bufferHandle; }
 
 private:
     std::unique_ptr<ui32[]> m_indexData;
@@ -36,7 +36,7 @@ private:
     i32                     m_indexCount;
     i32                     m_vertexCount;
 
-    GraphicsBufferHandle    m_graphicsBufferHandle;
+    BufferHandle            m_bufferHandle;
 };
 
 } // namespace snv

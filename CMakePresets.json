@@ -8,10 +8,14 @@
     "configurePresets": [
         {
             "name": "msvc_Debug",
-            "displayName": "msvc Debug",
-            "description": "msvc Debug",
+            "displayName": "windows-msvc-Debug",
+            "description": "Windows x64, MSVC, Debug",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_CXX_COMPILER": "cl"
@@ -24,10 +28,14 @@
         },
         {
             "name": "msvc_Release",
-            "displayName": "msvc Release",
-            "description": "msvc Release",
+            "displayName": "windows-msvc-Release",
+            "description": "Windows x64, MSVC, Release",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_CXX_COMPILER": "cl"
@@ -42,12 +50,12 @@
     "buildPresets": [
         {
             "name": "msvc_Debug",
-            "displayName": "msvc Debug",
+            "displayName": "windows-msvc-Debug",
             "configurePreset": "msvc_Debug"
         },
         {
             "name": "msvc_Release",
-            "displayName": "msvc Release",
+            "displayName": "windows-msvc-Release",
             "configurePreset": "msvc_Release"
         }
     ]

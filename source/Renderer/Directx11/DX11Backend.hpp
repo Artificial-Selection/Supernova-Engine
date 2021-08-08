@@ -27,7 +27,7 @@ namespace snv
 
 class DX11Backend final : public IRendererBackend
 {
-    struct DX11GraphicsBuffer
+    struct DX11Buffer
     {
         Microsoft::WRL::ComPtr<ID3D11Buffer> Index;
         Microsoft::WRL::ComPtr<ID3D11Buffer> Position;
@@ -76,12 +76,13 @@ public:
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
     void EndFrame() override;
-    void DrawGraphicsBuffer(TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount) override;
+    void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
     void DrawArrays(i32 count) override;
     void DrawElements(i32 count) override;
 
-    GraphicsBufferHandle CreateGraphicsBuffer(
-        std::span<const std::byte> indexData, std::span<const std::byte> vertexData,
+    BufferHandle CreateBuffer(
+        std::span<const std::byte>              indexData,
+        std::span<const std::byte>              vertexData,
         const std::vector<VertexAttributeDesc>& vertexLayout
     ) override;
     TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData) override;
@@ -113,9 +114,9 @@ private:
     PerFrame m_cbPerFrameData;
     PerDraw  m_cbPerDrawData;
 
-    std::unordered_map<GraphicsBufferHandle, DX11GraphicsBuffer> m_graphicsBuffers;
-    std::unordered_map<TextureHandle,        DX11Texture>        m_textures;
-    std::unordered_map<ShaderHandle,         DX11Shader>         m_shaders;
+    std::unordered_map<BufferHandle,  DX11Buffer>  m_buffers;
+    std::unordered_map<TextureHandle, DX11Texture> m_textures;
+    std::unordered_map<ShaderHandle,  DX11Shader>  m_shaders;
 };
 
 } // namespace snv

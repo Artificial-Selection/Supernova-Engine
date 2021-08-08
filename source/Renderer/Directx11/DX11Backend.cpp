@@ -149,9 +149,9 @@ void DX11Backend::EndFrame()
     m_swapChain->Present(1, 0);
 }
 
-void DX11Backend::DrawGraphicsBuffer(TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount)
+void DX11Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
-    const auto& graphicsBuffer = m_graphicsBuffers[handle];
+    const auto& graphicsBuffer = m_buffers[bufferHandle];
     const auto& texture        = m_textures[textureHandle];
 
     ID3D11Buffer* d3dBuffers[] = {graphicsBuffer.Position.Get(), graphicsBuffer.Normal.Get(), graphicsBuffer.TexCoord0.Get()};
@@ -174,26 +174,26 @@ void DX11Backend::DrawElements(i32 count)
 {}
 
 
-GraphicsBufferHandle DX11Backend::CreateGraphicsBuffer(
-    std::span<const std::byte> indexData,
-    std::span<const std::byte> vertexData,
+BufferHandle DX11Backend::CreateBuffer(
+    std::span<const std::byte>              indexData,
+    std::span<const std::byte>              vertexData,
     const std::vector<VertexAttributeDesc>& vertexLayout
 )
 {
-    DX11GraphicsBuffer dx11GraphicsBuffer;
+    DX11Buffer dx11Buffer;
 
-    CD3D11_BUFFER_DESC d3dIndexBufferDesc(indexData.size_bytes(), D3D11_BIND_INDEX_BUFFER);
+    CD3D11_BUFFER_DESC     d3dIndexBufferDesc(indexData.size_bytes(), D3D11_BIND_INDEX_BUFFER);
     D3D11_SUBRESOURCE_DATA d3dIndexSubresourceData = {
         .pSysMem          = indexData.data(),
         .SysMemPitch      = 0,
-        .SysMemSlicePitch = 0
+        .SysMemSlicePitch = 0,
     };
-    m_device->CreateBuffer(&d3dIndexBufferDesc, &d3dIndexSubresourceData, dx11GraphicsBuffer.Index.GetAddressOf());
+    m_device->CreateBuffer(&d3dIndexBufferDesc, &d3dIndexSubresourceData, dx11Buffer.Index.GetAddressOf());
 
     ID3D11Buffer** d3dBuffers[] = {
-        dx11GraphicsBuffer.Position.GetAddressOf(),
-        dx11GraphicsBuffer.Normal.GetAddressOf(),
-        dx11GraphicsBuffer.TexCoord0.GetAddressOf()
+        dx11Buffer.Position.GetAddressOf(),
+        dx11Buffer.Normal.GetAddressOf(),
+        dx11Buffer.TexCoord0.GetAddressOf(),
     };
 
     for (ui32 i = 0; i < vertexLayout.size(); ++i)
@@ -208,16 +208,16 @@ GraphicsBufferHandle DX11Backend::CreateGraphicsBuffer(
         D3D11_SUBRESOURCE_DATA d3dAttributeSubresourceData = {
             .pSysMem          = vertexData.data() + currOffset, // TODO(v.matushkin): Will this work?
             .SysMemPitch      = 0,
-            .SysMemSlicePitch = 0
+            .SysMemSlicePitch = 0,
         };
         // TODO(v.matushkin): Create mupltiple buffers in one call?
         m_device->CreateBuffer(&d3dAttributeBufferDesc, &d3dAttributeSubresourceData, d3dBuffers[i]);
     }
 
     static ui32 buffer_handle_workaround = 0;
-    auto        graphicsBufferHandle     = static_cast<GraphicsBufferHandle>(buffer_handle_workaround++);
+    auto        graphicsBufferHandle     = static_cast<BufferHandle>(buffer_handle_workaround++);
 
-    m_graphicsBuffers[graphicsBufferHandle] = dx11GraphicsBuffer;
+    m_buffers[graphicsBufferHandle] = dx11Buffer;
 
     return graphicsBufferHandle;
 }
@@ -246,24 +246,23 @@ TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const u
     D3D11_SUBRESOURCE_DATA d3dSubresourceData = {
         .pSysMem          = textureData,
         .SysMemPitch      = textureDesc.Width * 4, // TODO(v.matushkin): Remove hardcoded shit
-        .SysMemSlicePitch = 0
+        .SysMemSlicePitch = 0,
     };
     m_device->CreateTexture2D1(&d3dTextureDesc, &d3dSubresourceData, dx11Texture.Texture.GetAddressOf());
 
     D3D11_TEX2D_SRV d3dSrvTex2D = {
         .MostDetailedMip = 0,
         .MipLevels       = 1,
-        //.PlaneSlice      = 0 // From D3D11_TEX2D_SRV1
     };
     // TODO(v.matushkin): Don't know how to use ID3D11ShaderResourceView1
     //  if m_deviceContext->PSSetShaderResources takes only ID3D11ShaderResourceView
     D3D11_SHADER_RESOURCE_VIEW_DESC d3dSrvDesc = {
         .Format        = d3dTextureFormat,
         .ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D,
-        .Texture2D     = d3dSrvTex2D
+        .Texture2D     = d3dSrvTex2D,
     };
     m_device->CreateShaderResourceView(dx11Texture.Texture.Get(), &d3dSrvDesc, dx11Texture.SRV.GetAddressOf());
-    
+
     D3D11_SAMPLER_DESC d3dSamplerDesc = {
         .Filter         = D3D11_FILTER_MIN_MAG_MIP_POINT,
         .AddressU       = d3dTextureAddressMode,
@@ -274,7 +273,7 @@ TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const u
         .ComparisonFunc = D3D11_COMPARISON_NEVER,
         // .BorderColor      // NOTE(v.matushkin): Only used if D3D11_TEXTURE_ADDRESS_BORDER is specified in Address*
         .MinLOD         = 0,
-        .MaxLOD         = D3D11_FLOAT32_MAX
+        .MaxLOD         = D3D11_FLOAT32_MAX,
     };
     m_device->CreateSamplerState(&d3dSamplerDesc, dx11Texture.Sampler.GetAddressOf());
 
@@ -291,12 +290,12 @@ ShaderHandle DX11Backend::CreateShader(std::span<const char> vertexSource, std::
     // TODO(v.matushkin): D3DCompile2 ?
     ID3DBlob* d3dVertexBlob;
     ID3DBlob* d3dVertexErrorBlob;
-    auto hr = D3DCompile(
+    auto      hr = D3DCompile(
         vertexSource.data(),
         vertexSource.size_bytes(),
-        "Vertex Shader Name",       // NOTE(v.matushkin): Can be nullptr, don't know where/how it will be used
+        "Vertex Shader Name", // NOTE(v.matushkin): Can be nullptr, don't know where/how it will be used
         nullptr,
-        nullptr,                    // TODO(v.matushkin): I need to use this ID3DInclude
+        nullptr, // TODO(v.matushkin): I need to use this ID3DInclude
         "main",
         "vs_5_0",
         0, // TODO(v.matushkin): Use this, especially D3DCOMPILE_OPTIMIZATION_LEVEL* and may be D3DCOMPILE_PACK_MATRIX_ROW_MAJOR
@@ -439,8 +438,8 @@ void DX11Backend::CreateSwapChain()
         m_device.Get(),
         Window::GetWin32Window(),
         &dxgiSwapChainDesc,
-        nullptr,            // TODO(v.matushkin): Fullscreen swap chain?
-        nullptr,            // NOTE(v.matushkin): Useless?
+        nullptr, // TODO(v.matushkin): Fullscreen swap chain?
+        nullptr, // NOTE(v.matushkin): Useless?
         dxgiSwapChain.GetAddressOf()
     );
     dxgiSwapChain.As(&m_swapChain);
@@ -483,7 +482,7 @@ void DX11Backend::CreateSwapChain()
         .Format        = DXGI_FORMAT_D24_UNORM_S8_UINT,
         .ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D,
         .Flags         = 0,
-        .Texture2D     = d3dDsvTex2D
+        .Texture2D     = d3dDsvTex2D,
     };
     m_device->CreateDepthStencilView(m_depthStencil.Get(), &d3dDsvDesc, m_depthStencilView.GetAddressOf());
 
@@ -492,7 +491,7 @@ void DX11Backend::CreateSwapChain()
         .Width    = static_cast<f32>(renderTargetDesc.Width),
         .Height   = static_cast<f32>(renderTargetDesc.Height),
         .MinDepth = 0,
-        .MaxDepth = 1
+        .MaxDepth = 1,
     };
     m_deviceContext->RSSetViewports(1, &d3dViewport);
 
@@ -510,7 +509,7 @@ void DX11Backend::CreateSwapChain()
         .MultisampleEnable     = false,
         .AntialiasedLineEnable = false,
         .ForcedSampleCount     = 0,
-        .ConservativeRaster    = D3D11_CONSERVATIVE_RASTERIZATION_MODE_OFF
+        .ConservativeRaster    = D3D11_CONSERVATIVE_RASTERIZATION_MODE_OFF,
     };
     ID3D11RasterizerState2* d3dRasterizerState;
     m_device->CreateRasterizerState2(&d3dRasterizerDesc, &d3dRasterizerState);

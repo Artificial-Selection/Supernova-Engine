@@ -35,13 +35,9 @@ public:
 
     static void RenderFrame(const glm::mat4x4& localToWorld);
 
-    static void DrawGraphicsBuffer(
-        TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
-    );
-
-    static GraphicsBufferHandle CreateGraphicsBuffer(
-        std::span<const std::byte> indexData,
-        std::span<const std::byte> vertexData,
+    static BufferHandle CreateBuffer(
+        std::span<const std::byte>              indexData,
+        std::span<const std::byte>              vertexData,
         const std::vector<VertexAttributeDesc>& vertexLayout
     );
     static TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData);

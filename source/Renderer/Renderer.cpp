@@ -115,7 +115,7 @@ void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
             const auto indexCount  = mesh->GetIndexCount();
             const auto vertexCount = mesh->GetVertexCount();
 
-            DrawGraphicsBuffer(textureHandle, meshHandle, indexCount, vertexCount);
+            s_rendererBackend->DrawBuffer(textureHandle, meshHandle, indexCount, vertexCount);
         }
 
         s_rendererBackend->EndFrame();
@@ -123,21 +123,13 @@ void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
 }
 
 
-void Renderer::DrawGraphicsBuffer(
-    TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
-)
-{
-    s_rendererBackend->DrawGraphicsBuffer(textureHandle, handle, indexCount, vertexCount);
-}
-
-
-GraphicsBufferHandle Renderer::CreateGraphicsBuffer(
-    std::span<const std::byte> indexData,
-    std::span<const std::byte> vertexData,
+BufferHandle Renderer::CreateBuffer(
+    std::span<const std::byte>              indexData,
+    std::span<const std::byte>              vertexData,
     const std::vector<VertexAttributeDesc>& vertexLayout
 )
 {
-    return s_rendererBackend->CreateGraphicsBuffer(indexData, vertexData, vertexLayout);
+    return s_rendererBackend->CreateBuffer(indexData, vertexData, vertexLayout);
 }
 
 TextureHandle Renderer::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)

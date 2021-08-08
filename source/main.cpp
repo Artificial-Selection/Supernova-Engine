@@ -75,7 +75,7 @@ i32 main()
     LOG_INFO("Sponza loading time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(sponzaLoadTime).count());
 
     snv::GameObject sponzaGameObject;
-    auto& sponzaTransform = sponzaGameObject.GetComponent<snv::Transform>();
+    auto&           sponzaTransform = sponzaGameObject.GetComponent<snv::Transform>();
     sponzaTransform.SetScale(0.005f);
 
     snv::GameObject cameraGameObject;
