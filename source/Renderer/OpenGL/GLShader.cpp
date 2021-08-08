@@ -19,10 +19,10 @@ GLShader::GLShader() noexcept
     : m_shaderProgramID(k_InvalidHandle)
 {}
 
-GLShader::GLShader(const char* vertexSource, const char* fragmentSource)
+GLShader::GLShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
 {
-    const auto vertexShaderID = CreateShader(vertexSource, GLShaderType::Vertex);
-    const auto fragmentShaderID = CreateShader(fragmentSource, GLShaderType::Fragment);
+    const auto vertexShaderID   = CreateShader(vertexSource.data(), GLShaderType::Vertex);
+    const auto fragmentShaderID = CreateShader(fragmentSource.data(), GLShaderType::Fragment);
 
     CheckShaderCompilationStatus(vertexShaderID);
     CheckShaderCompilationStatus(fragmentShaderID);
@@ -88,7 +88,7 @@ ui32 GLShader::CreateShaderProgram(i32 vertexShaderID, i32 fragmentShaderID)
 
 
  void GLShader::CheckShaderCompilationStatus(ui32 shaderID)
- {
+{
 #ifdef SNV_ENABLE_DEBUG
 
     i32 isCompiled;
@@ -99,7 +99,7 @@ ui32 GLShader::CreateShaderProgram(i32 vertexShaderID, i32 fragmentShaderID)
         i32 logLength;
         glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &logLength);
 
-        auto errorLog = std::make_unique<char[]>( logLength );
+        auto errorLog = std::make_unique<char[]>(logLength);
         glGetShaderInfoLog(shaderID, logLength, nullptr, errorLog.get());
         LOG_ERROR("OpenGL Shader compilation error, Log:\n{)", errorLog.get());
     }
@@ -119,7 +119,7 @@ void GLShader::CheckShaderProgramLinkStatus(ui32 shaderProgramID)
         i32 logLength;
         glGetProgramiv(shaderProgramID, GL_INFO_LOG_LENGTH, &logLength);
 
-        auto errorLog = std::make_unique<char[]>( logLength );
+        auto errorLog = std::make_unique<char[]>(logLength);
         glGetProgramInfoLog(shaderProgramID, logLength, NULL, errorLog.get());
         LOG_ERROR("OpenGL ShaderProgram link error, Log:\n{)", errorLog.get());
     }

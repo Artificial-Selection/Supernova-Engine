@@ -1,5 +1,6 @@
 #include <Renderer/OpenGL/GLBackend.hpp>
 #include <Core/Log.hpp>
+#include <Core/Window.hpp>
 
 #include <glad/glad.h>
 
@@ -7,13 +8,13 @@
 namespace snv
 {
 
-constexpr ui32 g_BlendFactorToGL[] = {
+constexpr ui32 gl_BlendFactor[] = {
     GL_ONE,                // BlendFactor::One
     GL_SRC_ALPHA,          // BlendFactor::SrcAlpha
     GL_ONE_MINUS_SRC_ALPHA // BlendFactor::OneMinusSrcAlpha
 };
 
-constexpr ui32 g_DepthFunctionToGL[] = {
+constexpr ui32 gl_DepthFunction[] = {
     GL_NEVER,    // DepthFunction::Never
     GL_LESS,     // DepthFunction::Less
     GL_EQUAL,    // DepthFunction::Equal
@@ -24,7 +25,7 @@ constexpr ui32 g_DepthFunctionToGL[] = {
     GL_ALWAYS    // DepthFunction::Always
 };
 
-constexpr ui32 g_BufferBitToGL[] = {
+constexpr ui32 gl_BufferBit[] = {
     GL_COLOR_BUFFER_BIT,  // BufferBit::Color
     GL_DEPTH_BUFFER_BIT,  // BufferBit::Depth
     // GL_ACCUM_BUFFER_BIT,  // BufferBit::Accum
@@ -120,6 +121,12 @@ GLBackend::GLBackend()
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
     }
 #endif // SNV_ENABLE_DEBUG
+
+    // TODO(v.matushkin) Pass this settings in some struct, instead of just hardcoding it
+    //  So different backends will give the same result
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 }
 
 
@@ -136,8 +143,8 @@ void GLBackend::EnableDepthTest()
 
 void GLBackend::SetBlendFunction(BlendFactor source, BlendFactor destination)
 {
-    const auto sourceFactor      = g_BlendFactorToGL[static_cast<ui32>(source)];
-    const auto destinationFactor = g_BlendFactorToGL[static_cast<ui32>(destination)];
+    const auto sourceFactor      = gl_BlendFactor[static_cast<ui32>(source)];
+    const auto destinationFactor = gl_BlendFactor[static_cast<ui32>(destination)];
     glBlendFunc(sourceFactor, destinationFactor);
 }
 
@@ -148,7 +155,7 @@ void GLBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
 
 void GLBackend::SetDepthFunction(DepthFunction depthFunction)
 {
-    const auto function = g_DepthFunctionToGL[static_cast<ui32>(depthFunction)];
+    const auto function = gl_DepthFunction[static_cast<ui32>(depthFunction)];
     glDepthFunc(function);
 }
 
@@ -165,24 +172,24 @@ void GLBackend::Clear(BufferBit bufferBitMask)
     ui32 mask = 0;
     if (bufferBitMask & BufferBit::Color)
     {
-        mask |= g_BufferBitToGL[0];
+        mask |= gl_BufferBit[0];
     }
     if (bufferBitMask & BufferBit::Depth)
     {
-        mask |= g_BufferBitToGL[1];
+        mask |= gl_BufferBit[1];
     }
     if (bufferBitMask & BufferBit::Stencil)
     {
-        mask |= g_BufferBitToGL[2];
+        mask |= gl_BufferBit[2];
     }
     glClear(mask);
 }
 
 
-void GLBackend::StartFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
+void GLBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
     // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
-    //const auto& shader = m_shaders[shaderHandle];
+    // const auto& shader = m_shaders[shaderHandle];
     const auto& shader = m_shaders.begin()->second;
     shader.SetInt1("_DiffuseTexture", 0);
     shader.SetMatrix4("_ObjectToWorld", localToWorld);
@@ -191,17 +198,21 @@ void GLBackend::StartFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
     shader.Bind();
 }
 
-void GLBackend::DrawGraphicsBuffer(
-    TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
-)
+void GLBackend::EndFrame()
 {
-    const auto& texture = m_textures[textureHandle];
-    const auto& graphicsBuffer = m_graphicsBuffers[handle];
+    // TODO(v.matushkin): Workaround, GLBackend should manage its context, but it's not worthy rn
+    Window::SwapBuffers();
+}
+
+void GLBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
+{
+    const auto& texture        = m_textures[textureHandle];
+    const auto& graphicsBuffer = m_buffers[bufferHandle];
 
     texture.Bind(0);
     graphicsBuffer.Bind();
 
-    glDrawElements(GL_TRIANGLES, indexCount , GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
 }
 
 void GLBackend::DrawArrays(i32 count)
@@ -212,35 +223,35 @@ void GLBackend::DrawArrays(i32 count)
 void GLBackend::DrawElements(i32 count)
 {
     LOG_ERROR("GLBackend::DrawElements() is not implemented");
-    //glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, )
+    // glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, )
 }
 
 
-GraphicsBufferHandle GLBackend::CreateGraphicsBuffer(
-    std::span<const std::byte> indexData,
-    std::span<const std::byte> vertexData,
-    const std::vector<VertexAttributeDescriptor>& vertexLayout
+BufferHandle GLBackend::CreateBuffer(
+    std::span<const std::byte>              indexData,
+    std::span<const std::byte>              vertexData,
+    const std::vector<VertexAttributeDesc>& vertexLayout
 )
 {
-    GLGraphicsBuffer glGraphicsBuffer(indexData, vertexData, vertexLayout);
-    const auto handle = glGraphicsBuffer.GetHandle();
-    m_graphicsBuffers.emplace(handle, std::move(glGraphicsBuffer));
+    GLBuffer   glBuffer(indexData, vertexData, vertexLayout);
+    const auto handle = glBuffer.GetHandle();
+    m_buffers.emplace(handle, std::move(glBuffer));
 
     return handle;
 }
 
-TextureHandle GLBackend::CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data)
+TextureHandle GLBackend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
-    GLTexture glTexture(textureDescriptor, data);
+    GLTexture  glTexture(textureDesc, textureData);
     const auto handle = glTexture.GetHandle();
     m_textures.emplace(handle, std::move(glTexture));
 
     return handle;
 }
 
-ShaderHandle GLBackend::CreateShader(const char* vertexSource, const char* fragmentSource)
+ShaderHandle GLBackend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
 {
-    GLShader glShader(vertexSource, fragmentSource);
+    GLShader   glShader(vertexSource, fragmentSource);
     const auto handle = glShader.GetHandle();
     m_shaders.emplace(handle, std::move(glShader));
 

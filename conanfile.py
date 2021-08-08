@@ -17,3 +17,7 @@ class SuperNovaEngine(ConanFile):
         'spdlog/1.9.0',
         'stb/20200203'
     ]
+
+    #default_options = (
+    #    'spdlog:wchar_support= True'
+    #)

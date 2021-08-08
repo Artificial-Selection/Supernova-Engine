@@ -31,7 +31,7 @@ public:
 
 private:
     [[nodiscard]] static Model   LoadModel(const char* modelPath);
-    [[nodiscard]] static Texture LoadTexture(const char* texturePath);
+    [[nodiscard]] static Texture LoadTexture(const std::string& texturePath);
     [[nodiscard]] static Shader  LoadShader(const std::string& shaderPath);
 
 private:

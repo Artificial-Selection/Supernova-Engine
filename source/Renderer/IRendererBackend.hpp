@@ -28,21 +28,20 @@ public:
     virtual void Clear(BufferBit bufferBitMask) = 0;
 
     // TODO(v.matushkin): Remove, temporary method
-    virtual void StartFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) = 0;
+    virtual void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) = 0;
+    virtual void EndFrame() = 0;
     // NOTE(v.matushkin): Questionable method
-    virtual void DrawGraphicsBuffer(
-        TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
-    ) = 0;
+    virtual void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) = 0;
     virtual void DrawArrays(i32 count) = 0;
     virtual void DrawElements(i32 count) = 0;
 
-    virtual GraphicsBufferHandle CreateGraphicsBuffer(
-        std::span<const std::byte> indexData,
-        std::span<const std::byte> vertexData,
-        const std::vector<VertexAttributeDescriptor>& vertexLayout
+    virtual BufferHandle CreateBuffer(
+        std::span<const std::byte>              indexData,
+        std::span<const std::byte>              vertexData,
+        const std::vector<VertexAttributeDesc>& vertexLayout
     ) = 0;
-    virtual TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data) = 0;
-    virtual ShaderHandle CreateShader(const char* vertexSource, const char* fragmentSource) = 0;
+    virtual TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData) = 0;
+    virtual ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource) = 0;
 };
 
 } // namespace snv

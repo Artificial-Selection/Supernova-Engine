@@ -1,4 +1,4 @@
-#include <Renderer/OpenGL/GLGraphicsBuffer.hpp>
+#include <Renderer/OpenGL/GLBuffer.hpp>
 #include <Core/Log.hpp>
 
 #include <glad/glad.h>
@@ -11,7 +11,7 @@
 #define UINT_TO_VOID_PTR(ui) (void*)(ui64)(ui)
 
 
-constexpr ui32 g_VertexFormatToGL[] = {
+constexpr ui32 gl_VertexAttributeFormat[] = {
     GL_BYTE ,          // VertexAttributeFormat::Int8
     GL_SHORT,          // VertexAttributeFormat::Int16
     GL_INT,            // VertexAttributeFormat::Int32
@@ -27,16 +27,16 @@ constexpr ui32 g_VertexFormatToGL[] = {
 namespace snv
 {
 
-GLGraphicsBuffer::GLGraphicsBuffer() noexcept
+GLBuffer::GLBuffer() noexcept
     : m_vao(k_InvalidHandle)
     , m_vbo(-1)
     , m_ibo(-1)
 {}
 
-GLGraphicsBuffer::GLGraphicsBuffer(
-    std::span<const std::byte> indexData,
-    std::span<const std::byte> vertexData,
-    const std::vector<VertexAttributeDescriptor>& vertexLayout
+GLBuffer::GLBuffer(
+    std::span<const std::byte>              indexData,
+    std::span<const std::byte>              vertexData,
+    const std::vector<VertexAttributeDesc>& vertexLayout
 ) noexcept
 {
     glGenVertexArrays(1, &m_vao);
@@ -53,8 +53,8 @@ GLGraphicsBuffer::GLGraphicsBuffer(
 
     for (const auto& vertexAttribute : vertexLayout)
     {
-        const auto attribute = static_cast<ui32>(vertexAttribute.Attribute);
-        const auto format = g_VertexFormatToGL[static_cast<ui32>(vertexAttribute.Format)];
+        const auto attribute = static_cast<ui8>(vertexAttribute.Attribute);
+        const auto format    = gl_VertexAttributeFormat[static_cast<ui8>(vertexAttribute.Format)];
         
         glEnableVertexAttribArray(attribute);
         glVertexAttribPointer(attribute, vertexAttribute.Dimension, format, GL_FALSE, 0, UINT_TO_VOID_PTR(vertexAttribute.Offset));
@@ -62,13 +62,13 @@ GLGraphicsBuffer::GLGraphicsBuffer(
 }
 
 
-GLGraphicsBuffer::GLGraphicsBuffer(GLGraphicsBuffer&& other) noexcept
+GLBuffer::GLBuffer(GLBuffer&& other) noexcept
     : m_vao(std::exchange(other.m_vao, -1))
     , m_vbo(std::exchange(other.m_vbo, -1))
     , m_ibo(std::exchange(other.m_ibo, -1))
 {}
 
-GLGraphicsBuffer& GLGraphicsBuffer::operator=(GLGraphicsBuffer&& other) noexcept
+GLBuffer& GLBuffer::operator=(GLBuffer&& other) noexcept
 {
     // NOTE(v.matushkin): Not sure if this is correct
     m_vao = std::exchange(other.m_vao, -1);
@@ -79,7 +79,7 @@ GLGraphicsBuffer& GLGraphicsBuffer::operator=(GLGraphicsBuffer&& other) noexcept
 }
 
 
-void GLGraphicsBuffer::Bind() const
+void GLBuffer::Bind() const
 {
     glBindVertexArray(m_vao);
 }

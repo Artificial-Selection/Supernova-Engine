@@ -17,11 +17,14 @@ class IRendererBackend;
 class Renderer
 {
 public:
-    static void Init();
+    static void Init(GraphicsApi graphicsApi);
     static void Shutdown();
 
     static void EnableBlend();
     static void EnableDepthTest();
+
+    // TODO(v.matushkin): I think this method shouldn't be In Renderer class, rn it's just a workaround
+    static GraphicsApi GetGraphicsApi() { return s_graphicsApi; }
 
     static void SetBlendFunction(BlendFactor source, BlendFactor destination);
     static void SetClearColor(f32 r, f32 g, f32 b, f32 a);
@@ -32,20 +35,17 @@ public:
 
     static void RenderFrame(const glm::mat4x4& localToWorld);
 
-    static void DrawGraphicsBuffer(
-        TextureHandle textureHandle, GraphicsBufferHandle handle, i32 indexCount, i32 vertexCount
+    static BufferHandle CreateBuffer(
+        std::span<const std::byte>              indexData,
+        std::span<const std::byte>              vertexData,
+        const std::vector<VertexAttributeDesc>& vertexLayout
     );
-
-    static GraphicsBufferHandle CreateGraphicsBuffer(
-        std::span<const std::byte> indexData,
-        std::span<const std::byte> vertexData,
-        const std::vector<VertexAttributeDescriptor>& vertexLayout
-    );
-    static TextureHandle CreateTexture(const TextureDescriptor& textureDescriptor, const ui8* data);
-    static ShaderHandle CreateShader(const char* vertexSource, const char* fragmentSource);
+    static TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData);
+    static ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource);
 
 private:
-    static inline IRendererBackend* s_RendererBackend;
+    static inline GraphicsApi       s_graphicsApi;
+    static inline IRendererBackend* s_rendererBackend;
 };
 
-} // namespace snv::Rendering
+} // namespace snv

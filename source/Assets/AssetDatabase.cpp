@@ -1,12 +1,16 @@
 #include <Assets/AssetDatabase.hpp>
-#include <Core/Assert.hpp>
 #include <Assets/Model.hpp>
 #include <Assets/Mesh.hpp>
 #include <Assets/Material.hpp>
 #include <Assets/Texture.hpp>
 #include <Assets/Shader.hpp>
+
+#include <Core/Assert.hpp>
+
 #include <Entity/GameObject.hpp>
 #include <Components/MeshRenderer.hpp>
+
+#include <Renderer/Renderer.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -92,7 +96,7 @@ TexturePtr AssetDatabase::LoadAsset(const std::string& assetPath)
     auto assetIt = m_textures.find(assetPath);
     if (assetIt == m_textures.end())
     {
-        assetIt = m_textures.emplace(assetPath, std::make_shared<Texture>(LoadTexture(assetPath.c_str()))).first;
+        assetIt = m_textures.emplace(assetPath, std::make_shared<Texture>(LoadTexture(assetPath))).first;
     }
 
     return assetIt->second;
@@ -118,7 +122,8 @@ Model AssetDatabase::LoadModel(const char* modelPath)
         modelPath,
         aiPostProcessSteps::aiProcess_Triangulate
         | aiPostProcessSteps::aiProcess_GenNormals
-        // | aiPostProcessSteps::aiProcess_FlipUVs Instead of stbi_set_flip_vertically_on_load(true); ?
+        // | aiPostProcessSteps::aiProcess_FlipUVs          // Instead of stbi_set_flip_vertically_on_load(true); ?
+        // | aiPostProcessSteps::aiProcess_FlipWindingOrder // Default is counter clockwise
     );
 
     if (scene == nullptr)
@@ -127,8 +132,7 @@ Model AssetDatabase::LoadModel(const char* modelPath)
             "Got an error while loading Mesh"
             "\t\nPath: {0}"
             "\t\nAssimp error message: {1}",
-            modelPath, assimpImporter.GetErrorString()
-        );
+            modelPath, assimpImporter.GetErrorString());
         SNV_ASSERT(false, "REMOVE THIS SOMEHOW");
     }
 
@@ -144,13 +148,13 @@ Model AssetDatabase::LoadModel(const char* modelPath)
         SNV_ASSERT(assimpMesh->HasPositions(), "LOL");
         SNV_ASSERT(assimpMesh->HasNormals(), "LOL");
 
-        const auto numVertices = assimpMesh->mNumVertices;
-        const auto numFaces    = assimpMesh->mNumFaces;
+        const auto numVertices     = assimpMesh->mNumVertices;
+        const auto numFaces        = assimpMesh->mNumFaces;
         // TODO(v.matushkin): Makes assumption that we have 3 indices per face, which should be fine with aiProcess_Triangulate
         //  but seems like there is some shit with lines and points
         const auto indexBufferSize = numFaces * 3;
-        auto indexData = std::make_unique<ui32[]>(indexBufferSize);
-        auto indexDataPtr = indexData.get();
+        auto       indexData       = std::make_unique<ui32[]>(indexBufferSize);
+        auto       indexDataPtr    = indexData.get();
 
         i32 indexCount = 0;
         for (ui32 i = 0; i < numFaces; ++i)
@@ -162,30 +166,30 @@ Model AssetDatabase::LoadModel(const char* modelPath)
             }
         }
 
-        std::vector<VertexAttributeDescriptor> vertexLayout;
+        std::vector<VertexAttributeDesc> vertexLayout;
         ui32 vertexBufferSize = 0;
 
         // Vertex Positions Layout
         {
-            VertexAttributeDescriptor positionAttribute{
+            VertexAttributeDesc positionAttributeDesc = {
                 .Attribute = VertexAttribute::Position,
                 .Format    = VertexAttributeFormat::Float32,
                 .Dimension = AssimpConstants::PositionDimension,
-                .Offset    = vertexBufferSize
+                .Offset    = vertexBufferSize,
             };
-            vertexLayout.push_back(positionAttribute);
+            vertexLayout.push_back(positionAttributeDesc);
 
             vertexBufferSize += numVertices * AssimpConstants::PositionSize;
         }
         // Vertex Normals Layout
         {
-            VertexAttributeDescriptor normalAttribute{
+            VertexAttributeDesc normalAttributeDesc = {
                 .Attribute = VertexAttribute::Normal,
                 .Format    = VertexAttributeFormat::Float32,
                 .Dimension = AssimpConstants::NormalDimension,
-                .Offset    = vertexBufferSize
+                .Offset    = vertexBufferSize,
             };
-            vertexLayout.push_back(normalAttribute);
+            vertexLayout.push_back(normalAttributeDesc);
 
             vertexBufferSize += numVertices * AssimpConstants::NormalSize;
         }
@@ -194,19 +198,19 @@ Model AssetDatabase::LoadModel(const char* modelPath)
         //   There is no need for Float32 uv(as far as I know)
         if (assimpMesh->HasTextureCoords(0))
         {
-            VertexAttributeDescriptor texCoord0Attribute{
+            VertexAttributeDesc texCoord0AttributeDesc = {
                 .Attribute = VertexAttribute::TexCoord0,
                 .Format    = VertexAttributeFormat::Float32,
                 .Dimension = AssimpConstants::TexCoord0Dimension,
-                .Offset    = vertexBufferSize
+                .Offset    = vertexBufferSize,
             };
-            vertexLayout.push_back(texCoord0Attribute);
+            vertexLayout.push_back(texCoord0AttributeDesc);
 
             vertexBufferSize += numVertices * AssimpConstants::TexCoord0Size;
         }
 
         // TODO: What type should I use?
-        auto vertexData = std::make_unique<i8[]>(vertexBufferSize);
+        auto vertexData    = std::make_unique<ui8[]>(vertexBufferSize);
         auto vertexDataPtr = vertexData.get();
 
         // Get Vertex Positions
@@ -240,63 +244,70 @@ Model AssetDatabase::LoadModel(const char* modelPath)
     return Model(std::move(modelGameObjects));
 }
 
-Texture AssetDatabase::LoadTexture(const char* texturePath)
+Texture AssetDatabase::LoadTexture(const std::string& texturePath)
 {
     stbi_set_flip_vertically_on_load(true); // TODO(v.matushkin): Set only once
 
     // TODO(v.matushkin): Asset class shouldn't handle path adjusting
-    std::string fullPath = "../../assets/models/Sponza/" + std::string(texturePath);
+    std::string fullPath = "../../assets/models/Sponza/" + texturePath;
 
     i32 width, height, numComponents;
-    ui8* stbImageData = stbi_load(fullPath.c_str(), &width, &height, &numComponents, 0);
-    if (stbImageData == nullptr)
-    {
-        SNV_ASSERT(false, stbi_failure_reason());
-    }
+    // TODO(v.matushkin): Check for errors
+    stbi_info(fullPath.c_str(), &width, &height, &numComponents);
     // TODO(v.matushkin): TextureGraphicsFormat selection need to be more robust
-    if (numComponents != 3 && numComponents != 4)
-    {
-        LOG_WARN("Texture path: {}, numComponents: {}", texturePath, numComponents);
-    }
+    // TODO(v.matushkin): Make SNV_ASSERT take formatting arguments, so here texturePath can be logged
+    SNV_ASSERT(numComponents == 3 || numComponents == 4, "Right now only Textures with 3 or 4 channels are supported");
+    const i32 desiredComponents = numComponents == 3 ? 4 : numComponents;
+
+    ui8* stbImageData = stbi_load(fullPath.c_str(), &width, &height, &numComponents, desiredComponents);
+    SNV_ASSERT(stbImageData != nullptr, stbi_failure_reason());
 
     // NOTE(v.matushkin): Not sure about this dances with memory
-    const auto textureSize = width * height * numComponents;
-    auto textureData = std::make_unique<ui8[]>(textureSize);
+    const auto textureSize = width * height * desiredComponents;
+    auto       textureData = std::make_unique<ui8[]>(textureSize);
     std::memcpy(textureData.get(), stbImageData, textureSize);
     stbi_image_free(stbImageData);
-   
+
     // TODO(v.matushkin): Load Sponza textures as R8G8B8A8_SRGB ?
     // NOTE(v.matushkin): TextureWrapMode::Repeat by default?
-    TextureDescriptor textureDescriptor{
-        .Width          = width,
-        .Height         = height,
-        .GraphicsFormat = numComponents == 3 ? TextureGraphicsFormat::RGB8 : TextureGraphicsFormat::RGBA8,
-        .WrapMode       = TextureWrapMode::Repeat
+    TextureDesc textureDesc = {
+        .Width    = static_cast<ui32>(width),
+        .Height   = static_cast<ui32>(height),
+        .Format   = TextureFormat::RGBA8,
+        .WrapMode = TextureWrapMode::Repeat
     };
 
-    return Texture(textureDescriptor, std::move(textureData));
+    return Texture(textureDesc, std::move(textureData));
 }
 
-// TODO(v.matushkin): Improve this shit with passes/loading
+// TODO(v.matushkin): Improve this shit with passes/loading(don't know what did I mean by that)
+//  Thats why there should be only one shader language I guess
+//  Or at least there should some static AppSettings class or something, so there is no need to access Renderer
 Shader AssetDatabase::LoadShader(const std::string& shaderPath)
 {
+    const std::string shaderExtension(Renderer::GetGraphicsApi() == GraphicsApi::OpenGL ? ".glsl" : ".hlsl");
+
     // Get Vertex Shader
-    const auto vertexPath = shaderPath + "_vs.glsl";
-    const auto vertexSize = std::filesystem::file_size(vertexPath);
-    auto vertexSource = std::make_unique<char[]>(vertexSize + 1);
-
-    std::ifstream vertexFile(vertexPath, std::ios::binary | std::ios::in);
-    vertexFile.read(vertexSource.get(), vertexSize);
-
+    const std::string vertexPath(shaderPath + "_vs" + shaderExtension);
+    const auto        vertexSize   = std::filesystem::file_size(vertexPath);
+    auto              vertexSource = std::make_unique<char[]>(vertexSize + 1);
+    {
+        std::ifstream vertexFile(vertexPath, std::ios::binary | std::ios::in);
+        vertexFile.read(vertexSource.get(), vertexSize);
+    }
     // Get Fragment Shader
-    const auto fragmentPath = shaderPath + "_fs.glsl";
-    const auto fragmentSize = std::filesystem::file_size(fragmentPath);
-    auto fragmentSource = std::make_unique<char[]>(fragmentSize + 1);
+    const std::string fragmentPath(shaderPath + "_fs" + shaderExtension);
+    const auto        fragmentSize   = std::filesystem::file_size(fragmentPath);
+    auto              fragmentSource = std::make_unique<char[]>(fragmentSize + 1);
+    {
+        std::ifstream fragmentFile(fragmentPath, std::ios::binary | std::ios::in);
+        fragmentFile.read(fragmentSource.get(), fragmentSize);
+    }
 
-    std::ifstream fragmentFile(fragmentPath, std::ios::binary | std::ios::in);
-    fragmentFile.read(fragmentSource.get(), fragmentSize);
-
-    return Shader(vertexSource.get(), fragmentSource.get());
+    return Shader(
+        std::span(vertexSource.get(), vertexSize),
+        std::span(fragmentSource.get(), fragmentSize)
+    );
 }
 
 
@@ -309,9 +320,9 @@ std::vector<std::shared_ptr<Material>> GetAssimpMaterials(const aiScene* scene, 
 
     for (ui32 i = 0; i < numMaterials; ++i)
     {
-        const auto assimpMaterial = scene->mMaterials[i];
+        const auto assimpMaterial     = scene->mMaterials[i];
         const auto assimpMaterialName = assimpMaterial->GetName().C_Str();
-        auto material = std::make_shared<Material>(shader);
+        auto       material           = std::make_shared<Material>(shader);
         material->SetName(assimpMaterialName);
 
         // Get Material BaseColorMap

@@ -13,7 +13,7 @@ public:
     // NOTE(v.matushkin): Can I make this move only without default constructor?
     // TODO(v.matushkin): Define destructor
     GLTexture() noexcept;
-    GLTexture(const TextureDescriptor& textureDescriptor, const ui8* data);
+    GLTexture(const TextureDesc& textureDesc, const ui8* textureData);
 
     GLTexture(GLTexture&& other) noexcept;
     GLTexture& operator=(GLTexture&& other) noexcept;

@@ -1,10 +1,16 @@
 #include <Core/Window.hpp>
 #include <Core/Assert.hpp>
 #include <Input/Cursor.hpp>
+#include <Renderer/RenderTypes.hpp>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#ifdef SNV_PLATFORM_WINDOWS
+    #define GLFW_EXPOSE_NATIVE_WIN32
+    #include <GLFW/glfw3native.h>
+    #undef GLFW_EXPOSE_NATIVE_WIN32
+#endif
 
 // NOTE(v.matushkin): I'm initializing glad here only because its header needs to be included
 //  before glfw and because I'm not sure where I should do it, if not here(GLBackend ?)
@@ -29,30 +35,46 @@ void GlfwErrorCallback(i32 what_is_this, const char* error)
 namespace snv
 {
 
-void Window::Init(i32 width, i32 height, const char* title)
+// TODO(v.matushkin): I shouldn't pass GraphicsApi to the Window
+//  This whole shit about OpenGL should be in GLBackend, not here
+//  But custom OpenGL Context creation for win/linux/mac seems harder than for Vulkan,
+//  so leave it like that for now
+
+void Window::Init(i32 width, i32 height, const char* title, GraphicsApi graphicsApi)
 {
 #ifdef SNV_ENABLE_DEBUG
     glfwSetErrorCallback(GlfwErrorCallback);
 #endif
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-#ifdef SNV_ENABLE_DEBUG
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+    if (graphicsApi == GraphicsApi::OpenGL)
+    {
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+#ifdef SNV_GPU_API_DEBUG_ENABLED
+        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 #endif
+    }
+    else
+    {
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    }
 
     m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
     SNV_ASSERT(m_window != nullptr, "Failed to create GLFW window");
 
-    glfwMakeContextCurrent(m_window);
+    if (graphicsApi == GraphicsApi::OpenGL)
+    {
+        glfwMakeContextCurrent(m_window);
 
-    const auto glad_dont_know_what = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-    SNV_ASSERT(glad_dont_know_what != 0, "Failed to initialize GLAD");
+        const auto glad_dont_know_what = gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+        SNV_ASSERT(glad_dont_know_what != 0, "Failed to initialize GLAD");
+    }
 
     // NOTE(v.matushkin): Do I need to set callbacks here or only when Set*Callback methods are called?
-    // When a window loses input focus, it will generate synthetic key release events for all pressed keys.
+    // NOTE(v.matushkin): From GLFW doc:
+    //  When a window loses input focus, it will generate synthetic key release events for all pressed keys.
     //  You can tell these events from user-generated events by the fact that the synthetic ones are generated
     //  after the focus loss event has been processed, i.e. after the window focus callback has been called.
     glfwSetKeyCallback(m_window, Window::GLFWKeyCallback);
@@ -65,6 +87,14 @@ void Window::Shutdown()
 {
     glfwTerminate();
 }
+
+
+#ifdef SNV_PLATFORM_WINDOWS
+HWND Window::GetWin32Window()
+{
+    return glfwGetWin32Window(m_window);
+}
+#endif // SNV_PLATFORM_WINDOWS
 
 
 bool Window::IsShouldBeClosed()

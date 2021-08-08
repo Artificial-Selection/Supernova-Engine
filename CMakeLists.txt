@@ -6,6 +6,21 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(SNV_PLATFORM_WINDOWS 1)
+    add_compile_definitions(
+        SNV_PLATFORM_WINDOWS
+        WIN32_LEAN_AND_MEAN     # To strip windows.h include. May be there is more macros?
+    )
+# elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+#     add_compile_definitions(SNV_PLATFORM_MAC)
+# elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+#     add_compile_definitions(SNV_PLATFORM_LINUX)
+else()
+    message(FATAL_ERROR "Unsupported OS")
+endif()
+
+
 if(MSVC)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
     set(BUILD_SHARED_LIBS TRUE)
@@ -42,7 +57,7 @@ if(EXISTS ${CONAN_BUILD_INFO_FILE})
     set(CMAKE_MODULE_PATH ${CONAN_DIR} ${CMAKE_MODULE_PATH})
     set(CMAKE_PREFIX_PATH ${CONAN_DIR} ${CMAKE_PREFIX_PATH})
 else()
-    message(ERROR "The file ${CONAN_BUILD_INFO_FILE} doesn't exist, you're fucked, comrade")
+    message(FATAL_ERROR "The file ${CONAN_BUILD_INFO_FILE} doesn't exist, you're fucked, comrade")
 endif()
 
 
@@ -125,12 +140,18 @@ set(Input_SRC
 # -------------------------- Renderer ---------------------------
 set(Renderer_SRC_DIR ${MAIN_SRC_DIR}/Renderer)
 
+set(DirectX11_SRC_DIR ${Renderer_SRC_DIR}/DirectX11)
+set(DirectX11_SRC
+    ${DirectX11_SRC_DIR}/DX11Backend.hpp
+    ${DirectX11_SRC_DIR}/DX11Backend.cpp
+)
+
 set(OpenGL_SRC_DIR ${Renderer_SRC_DIR}/OpenGL)
 set(OpenGL_SRC
     ${OpenGL_SRC_DIR}/GLBackend.hpp
     ${OpenGL_SRC_DIR}/GLBackend.cpp
-    ${OpenGL_SRC_DIR}/GLGraphicsBuffer.hpp
-    ${OpenGL_SRC_DIR}/GLGraphicsBuffer.cpp
+    ${OpenGL_SRC_DIR}/GLBuffer.hpp
+    ${OpenGL_SRC_DIR}/GLBuffer.cpp
     ${OpenGL_SRC_DIR}/GLShader.hpp
     ${OpenGL_SRC_DIR}/GLShader.cpp
     ${OpenGL_SRC_DIR}/GLTexture.hpp
@@ -144,6 +165,11 @@ set(Renderer_SRC
     ${Renderer_SRC_DIR}/Renderer.cpp
     ${Renderer_SRC_DIR}/RenderTypes.hpp
 )
+
+if(SNV_PLATFORM_WINDOWS)
+    set(Renderer_SRC ${DirectX11_SRC} ${Renderer_SRC})
+    set(DirectX11_LIBS d3d11 d3dcompiler)
+endif()
 
 # ----------------------------- Utils -----------------------------
 set(Utils_SRC_DIR ${MAIN_SRC_DIR}/Utils)
@@ -173,6 +199,7 @@ target_link_libraries(SuperNova PRIVATE
     imgui::imgui
     spdlog::spdlog
     stb::stb
+    ${DirectX11_LIBS}
 )
 target_include_directories(SuperNova PRIVATE
     ${MAIN_SRC_DIR}

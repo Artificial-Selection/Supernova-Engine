@@ -5,7 +5,7 @@ AccessModifierOffset: -4
 
 AlignAfterOpenBracket: AlwaysBreak
 
-AlignConsecutiveAssignments:  Consecutive
+AlignConsecutiveAssignments:  AcrossComments
 AlignConsecutiveBitFields:    Consecutive
 AlignConsecutiveDeclarations: Consecutive
 AlignConsecutiveMacros:       Consecutive
@@ -15,13 +15,13 @@ AlignOperands: AlignAfterOperator
 AlignTrailingComments: true
 
 # NOTE: Dont know
-# AllowAllArgumentsOnNextLine:
+AllowAllArgumentsOnNextLine: false
 
 # NOTE: Dont know
 # AllowAllConstructorInitializersOnNextLine:
 
 # NOTE: Dont know
-# AllowAllParametersOfDeclarationOnNextLine
+AllowAllParametersOfDeclarationOnNextLine: false
 
 AllowShortBlocksOnASingleLine:       Never
 AllowShortCaseLabelsOnASingleLine:   false
@@ -42,17 +42,14 @@ AlwaysBreakTemplateDeclarations: Yes
 # NOTE: ?
 # AttributeMacros
 
-# NOTE: Disable?
-# BinPackArguments
-
-# NOTE: Disable?
-# BinPackParameters
+BinPackArguments: false
+BinPackParameters: false
 
 BitFieldColonSpacing: Both
 
 BraceWrapping:
   AfterCaseLabel:        true
-  AfterClass:            false   # NOTE: Not sure
+  AfterClass:            true   # NOTE: Not sure
   AfterControlStatement: Always
   AfterEnum:             true
   AfterFunction:         true
