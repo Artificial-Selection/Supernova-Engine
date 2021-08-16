@@ -10,7 +10,8 @@ enum class GraphicsApi : ui8
 {
     OpenGL,
 #ifdef SNV_PLATFORM_WINDOWS
-    DirectX11
+    DirectX11,
+    DirectX12
 #endif
 };
 

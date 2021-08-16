@@ -146,6 +146,12 @@ set(DirectX11_SRC
     ${DirectX11_SRC_DIR}/DX11Backend.cpp
 )
 
+set(DirectX12_SRC_DIR ${Renderer_SRC_DIR}/DirectX12)
+set(DirectX12_SRC
+    ${DirectX12_SRC_DIR}/DX12Backend.hpp
+    ${DirectX12_SRC_DIR}/DX12Backend.cpp
+)
+
 set(OpenGL_SRC_DIR ${Renderer_SRC_DIR}/OpenGL)
 set(OpenGL_SRC
     ${OpenGL_SRC_DIR}/GLBackend.hpp
@@ -167,8 +173,9 @@ set(Renderer_SRC
 )
 
 if(SNV_PLATFORM_WINDOWS)
-    set(Renderer_SRC ${DirectX11_SRC} ${Renderer_SRC})
+    set(Renderer_SRC ${Renderer_SRC} ${DirectX11_SRC} ${DirectX12_SRC})
     set(DirectX11_LIBS d3d11 d3dcompiler)
+    set(DirectX12_LIBS d3d12)
 endif()
 
 # ----------------------------- Utils -----------------------------
@@ -200,6 +207,7 @@ target_link_libraries(SuperNova PRIVATE
     spdlog::spdlog
     stb::stb
     ${DirectX11_LIBS}
+    ${DirectX12_LIBS}
 )
 target_include_directories(SuperNova PRIVATE
     ${MAIN_SRC_DIR}
