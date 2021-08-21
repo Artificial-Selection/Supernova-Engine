@@ -174,8 +174,9 @@ set(Renderer_SRC
 
 if(SNV_PLATFORM_WINDOWS)
     set(Renderer_SRC ${Renderer_SRC} ${DirectX11_SRC} ${DirectX12_SRC})
+    # NOTE: d3dcompiler/dxgi should be in DirectXCommon_LIBS ?
     set(DirectX11_LIBS d3d11 d3dcompiler)
-    set(DirectX12_LIBS d3d12)
+    set(DirectX12_LIBS d3d12 dxgi)
 endif()
 
 # ----------------------------- Utils -----------------------------
