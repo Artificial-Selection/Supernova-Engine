@@ -15,6 +15,7 @@
 #include <Input/Mouse.hpp>
 
 #include <Renderer/Renderer.hpp>
+#include <Core/Application.hpp>
 
 #include <Utils/Time.hpp>
 
@@ -55,6 +56,9 @@ i32 main()
     LOG_TRACE("SuperNova-Engine Init");
     snv::Time::Init();
 
+    SuperNova::Application* application = new SuperNova::Application("MyApp");
+    application->Init();
+
     snv::Window::Init(k_WindowWidth, k_WindowHeight, "SuperNova-Engine", k_GraphicsApi);
     snv::Window::SetKeyCallback(snv::Input::Keyboard::KeyCallback);
     snv::Window::SetMouseButtonCallback(snv::Input::Mouse::ButtonCallback);
@@ -67,28 +71,28 @@ i32 main()
     snv::Renderer::EnableDepthTest();
     snv::Renderer::SetDepthFunction(snv::DepthFunction::Less);
 
-    (void) snv::AssetDatabase::LoadAsset<snv::Shader>(k_ShaderPath);
+    //(void) snv::AssetDatabase::LoadAsset<snv::Shader>(k_ShaderPath);
 
-    const auto sponzaLoadStart = std::chrono::high_resolution_clock::now();
-    const auto sponzaModel     = snv::AssetDatabase::LoadAsset<snv::Model>(k_SponzaObjPath);
-    const auto sponzaLoadTime  = std::chrono::high_resolution_clock::now() - sponzaLoadStart;
-    LOG_INFO("Sponza loading time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(sponzaLoadTime).count());
+    //const auto sponzaLoadStart = std::chrono::high_resolution_clock::now();
+    //const auto sponzaModel     = snv::AssetDatabase::LoadAsset<snv::Model>(k_SponzaObjPath);
+    //const auto sponzaLoadTime  = std::chrono::high_resolution_clock::now() - sponzaLoadStart;
+    //LOG_INFO("Sponza loading time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(sponzaLoadTime).count());
 
-    snv::GameObject sponzaGameObject;
-    auto&           sponzaTransform = sponzaGameObject.GetComponent<snv::Transform>();
-    sponzaTransform.SetScale(0.005f);
+    //snv::GameObject sponzaGameObject;
+    //auto&           sponzaTransform = sponzaGameObject.GetComponent<snv::Transform>();
+    //sponzaTransform.SetScale(0.005f);
 
-    snv::GameObject cameraGameObject;
-    cameraGameObject.AddComponent<snv::Camera>(90.0f, f32(k_WindowWidth) / k_WindowHeight, 0.1f, 100.0f);
-    auto& cameraController = cameraGameObject.AddComponent<snv::CameraController>(k_MovementSpeed, k_MovementBoost);
+   // snv::GameObject cameraGameObject;
+  //  cameraGameObject.AddComponent<snv::Camera>(90.0f, f32(k_WindowWidth) / k_WindowHeight, 0.1f, 100.0f);
+   // auto& cameraController = cameraGameObject.AddComponent<snv::CameraController>(k_MovementSpeed, k_MovementBoost);
 
     while (snv::Window::IsShouldBeClosed() == false)
     {
         snv::Time::Update();
         ProcessInput();
-        Update(cameraController);
+        //Update(cameraController);
 
-        snv::Renderer::RenderFrame(sponzaTransform.GetMatrix());
+       // snv::Renderer::RenderFrame(sponzaTransform.GetMatrix());
     }
 
     LOG_TRACE("SuperNova-Engine Shutdown");

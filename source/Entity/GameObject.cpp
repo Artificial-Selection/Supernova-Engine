@@ -1,14 +1,12 @@
 #include <Entity/GameObject.hpp>
 #include <Components/Transform.hpp>
-
+#include "Scene.h"
 
 namespace snv
 {
 
-GameObject::GameObject()
-    : m_entity(ComponentFactory::CreateEntity())
+GameObject::GameObject(entt::entity entityId, Scene* attachedScene) : m_entity(entityId), m_scene(attachedScene)
 {
-    ComponentFactory::AddComponent<Transform>(m_entity, this);
 }
 
 } // namespace snv

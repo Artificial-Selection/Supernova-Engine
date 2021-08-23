@@ -115,6 +115,8 @@ set(Core_SRC
     ${Core_SRC_DIR}/Log.cpp
     ${Core_SRC_DIR}/Window.hpp
     ${Core_SRC_DIR}/Window.cpp
+    ${Core_SRC_DIR}/Application.cpp
+    ${Core_SRC_DIR}/Application.hpp
 )
 
 # ---------------------------- Entity -----------------------------
@@ -137,6 +139,11 @@ set(Input_SRC
     ${Input_SRC_DIR}/Mouse.cpp
 )
 
+set(Event_SRC_DIR ${MAIN_SRC_DIR}/EventSystem)
+set(Event_SRC
+    ${Event_SRC_DIR}/Event.cpp
+    ${Event_SRC_DIR}/Event.hpp
+    )
 # -------------------------- Renderer ---------------------------
 set(Renderer_SRC_DIR ${MAIN_SRC_DIR}/Renderer)
 
@@ -176,7 +183,7 @@ set(Utils_SRC_DIR ${MAIN_SRC_DIR}/Utils)
 set(Utils_SRC
     ${Utils_SRC_DIR}/Time.hpp
     ${Utils_SRC_DIR}/Time.cpp
-    # ${Utils_SRC_DIR}/Singleton.cpp
+    ${Utils_SRC_DIR}/Singleton.hpp
 )
 
 
@@ -189,6 +196,7 @@ add_executable(SuperNova
     ${Input_SRC}
     ${Renderer_SRC}
     ${Utils_SRC}
+    ${Event_SRC}
 )
 target_link_libraries(SuperNova PRIVATE
     assimp::assimp

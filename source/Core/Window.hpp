@@ -24,6 +24,10 @@ enum class GraphicsApi : ui8;
 
 class Window
 {
+    struct InternalData
+    {
+        std::function<void()> EventCallback;
+    };
 public:
     using KeyCallback           = std::function<void(i32 key, i32 scancode, i32 action, i32 mods)>;
     using MouseButtonCallback   = std::function<void(i32 button, i32 action, i32 mods)>;
@@ -31,6 +35,8 @@ public:
     using MouseWheelCallback    = std::function<void(f64 yoffset)>;
 
 public:
+    Window();
+    ~Window() = default;
     static void Init(i32 width, i32 height, const char* title, GraphicsApi graphicsApi);
     static void Shutdown();
 
@@ -58,9 +64,10 @@ private:
     static void GLFWMousePositionCallback(GLFWwindow* glfwWindow, f64 xpos, f64 ypos);
     static void GLFWMouseWheelCallback(GLFWwindow* glfwWindow, f64 xoffset, f64 yoffset);
 
+    void CreateGLFWCallbacks();
 private:
     static inline GLFWwindow*           m_window;
-
+    InternalData m_internalData = InternalData();
     static inline KeyCallback           m_keyCallback;
     static inline MouseButtonCallback   m_mouseButtonCallback;
     static inline MousePositionCallback m_mousePositionCallback;

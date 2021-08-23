@@ -40,6 +40,31 @@ namespace snv
 //  But custom OpenGL Context creation for win/linux/mac seems harder than for Vulkan,
 //  so leave it like that for now
 
+
+Window::Window()
+{
+#ifdef SNV_ENABLE_DEBUG
+    glfwSetErrorCallback(GlfwErrorCallback);
+#endif
+    glfwInit();
+    m_window = glfwCreateWindow(1280, 720, "exsdee", nullptr, nullptr);
+    SNV_ASSERT(m_window != nullptr, "Failed to create GLFW window");
+    
+    CreateGLFWCallbacks();
+}
+
+void Window::CreateGLFWCallbacks()
+{
+    //NOTE(@I.Nazarov)
+    //Because GLFW uses static context we can bind only raw function pointers
+    //But we can use lambda without capture because she will wrap into raw pointer function
+    glfwSetWindowUserPointer(m_window, &m_internalData);
+    glfwSetKeyCallback(m_window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+        InternalData& userData = *static_cast<InternalData*>(glfwGetWindowUserPointer(window));
+        //Do something
+    });
+}
+
 void Window::Init(i32 width, i32 height, const char* title, GraphicsApi graphicsApi)
 {
 #ifdef SNV_ENABLE_DEBUG
@@ -77,10 +102,6 @@ void Window::Init(i32 width, i32 height, const char* title, GraphicsApi graphics
     //  When a window loses input focus, it will generate synthetic key release events for all pressed keys.
     //  You can tell these events from user-generated events by the fact that the synthetic ones are generated
     //  after the focus loss event has been processed, i.e. after the window focus callback has been called.
-    glfwSetKeyCallback(m_window, Window::GLFWKeyCallback);
-    glfwSetMouseButtonCallback(m_window, Window::GLFWMouseButtonCallback);
-    glfwSetCursorPosCallback(m_window, Window::GLFWMousePositionCallback);
-    glfwSetScrollCallback(m_window, Window::GLFWMouseWheelCallback);
 }
 
 void Window::Shutdown()
