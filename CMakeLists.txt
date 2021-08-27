@@ -150,6 +150,8 @@ set(DirectX12_SRC_DIR ${Renderer_SRC_DIR}/DirectX12)
 set(DirectX12_SRC
     ${DirectX12_SRC_DIR}/DX12Backend.hpp
     ${DirectX12_SRC_DIR}/DX12Backend.cpp
+    ${DirectX12_SRC_DIR}/DX12ShaderCompiler.hpp
+    ${DirectX12_SRC_DIR}/DX12ShaderCompiler.cpp
 )
 
 set(OpenGL_SRC_DIR ${Renderer_SRC_DIR}/OpenGL)
@@ -172,11 +174,13 @@ set(Renderer_SRC
     ${Renderer_SRC_DIR}/RenderTypes.hpp
 )
 
+# TODO(v.matushkin): I guess, I should put DX dll's in the engine repo, to not rely on user Windows SDK
 if(SNV_PLATFORM_WINDOWS)
     set(Renderer_SRC ${Renderer_SRC} ${DirectX11_SRC} ${DirectX12_SRC})
     # NOTE: d3dcompiler/dxgi should be in DirectXCommon_LIBS ?
+    find_library(DXCOMPILER_LIB dxcompiler)
     set(DirectX11_LIBS d3d11 d3dcompiler)
-    set(DirectX12_LIBS d3d12 dxgi)
+    set(DirectX12_LIBS d3d12 dxgi ${DXCOMPILER_LIB})
 endif()
 
 # ----------------------------- Utils -----------------------------

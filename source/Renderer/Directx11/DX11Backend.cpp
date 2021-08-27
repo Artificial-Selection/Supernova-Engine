@@ -151,6 +151,7 @@ void DX11Backend::EndFrame()
 
 void DX11Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
+    // TODO(v.matushkin): Rename, there is no GraphicsBuffer anymore
     const auto& graphicsBuffer = m_buffers[bufferHandle];
     const auto& texture        = m_textures[textureHandle];
 

@@ -49,7 +49,7 @@ class DX11Backend final : public IRendererBackend
         Microsoft::WRL::ComPtr<ID3D11PixelShader>  FragmentShader;
     };
 
-    // TODO(v.matushkin): PerFrame/PerDraw should be declared in some commong header
+    // TODO(v.matushkin): PerFrame/PerDraw should be declared in some common header
     struct PerFrame
     {
         glm::mat4x4 _CameraView;
