@@ -30,7 +30,9 @@ endif()
 set(BUILD_DIR ${PROJECT_SOURCE_DIR}/build)
 
 
-# ------------------------- Conan setup -------------------------
+# ----------------------------------------------------------------------------------------------------
+# ------------------------------------------- Conan setup --------------------------------------------
+# ----------------------------------------------------------------------------------------------------
 set(ENV{CONAN_USER_HOME} ${PROJECT_SOURCE_DIR})
 
 set(CONAN_DIR ${BUILD_DIR}/conan)
@@ -61,6 +63,22 @@ else()
 endif()
 
 
+# ----------------------------------------------------------------------------------------------------
+# ------------------------------------------ 3rdparty libs -------------------------------------------
+# ----------------------------------------------------------------------------------------------------
+set(3RDPARTY_LIBS_DIR ${PROJECT_SOURCE_DIR}/libs)
+set(3RDPARTY_LIBS_INCLUDE_DIR ${3RDPARTY_LIBS_DIR}/include)
+set(3RDPARTY_LIBS_STATIC_DIR ${3RDPARTY_LIBS_DIR}/lib)
+set(3RDPARTY_LIBS_SHARED_DIR ${3RDPARTY_LIBS_DIR}/shared)
+
+# --------------------------- DXC ----------------------------
+set(DXC_STATIC ${3RDPARTY_LIBS_STATIC_DIR}/dxcompiler.lib)
+set(DXC_SHARED
+    ${3RDPARTY_LIBS_SHARED_DIR}/dxcompiler.dll
+    ${3RDPARTY_LIBS_SHARED_DIR}/dxil.dll
+)
+
+# ------------------------ Conan libs ------------------------
 find_package(assimp REQUIRED)
 find_package(EnTT   REQUIRED)
 find_package(glad   REQUIRED)
@@ -71,9 +89,35 @@ find_package(spdlog REQUIRED)
 find_package(stb    REQUIRED)
 
 
+set(3RDPARTY_LIBS
+    assimp::assimp
+    EnTT::EnTT
+    glad::glad
+    glfw::glfw
+    glm::glm
+    imgui::imgui
+    spdlog::spdlog
+    stb::stb
+)
+
+if(SNV_PLATFORM_WINDOWS)
+    # NOTE: d3dcompiler/dxgi should be in DirectXCommon_LIBS ?
+    set(DirectX11_LIBS d3d11 d3dcompiler)
+    set(DirectX12_LIBS d3d12 dxgi ${DXC_STATIC})
+
+    set(3RDPARTY_LIBS ${3RDPARTY_LIBS}
+        ${DirectX11_LIBS}
+        ${DirectX12_LIBS}
+    )
+endif()
+
+
+# ----------------------------------------------------------------------------------------------------
+# ------------------------------------------ Engine sources ------------------------------------------
+# ----------------------------------------------------------------------------------------------------
 set(MAIN_SRC_DIR ${PROJECT_SOURCE_DIR}/source)
 
-# --------------------------- Assets ----------------------------
+# -------------------------- Assets --------------------------
 set(Assets_SRC_DIR ${MAIN_SRC_DIR}/Assets)
 set(Assets_SRC
     ${Assets_SRC_DIR}/AssetDatabase.hpp
@@ -90,7 +134,7 @@ set(Assets_SRC
     ${Assets_SRC_DIR}/Texture.cpp
 )
 
-# -------------------------- Components ---------------------------
+# ------------------------ Components ------------------------
 set(Components_SRC_DIR ${MAIN_SRC_DIR}/Components)
 set(Components_SRC
     ${Components_SRC_DIR}/Camera.hpp
@@ -106,7 +150,7 @@ set(Components_SRC
     ${Components_SRC_DIR}/Transform.cpp
 )
 
-# ---------------------------- Core -----------------------------
+# --------------------------- Core ---------------------------
 set(Core_SRC_DIR ${MAIN_SRC_DIR}/Core)
 set(Core_SRC
     ${Core_SRC_DIR}/Assert.hpp
@@ -117,14 +161,14 @@ set(Core_SRC
     ${Core_SRC_DIR}/Window.cpp
 )
 
-# ---------------------------- Entity -----------------------------
+# -------------------------- Entity --------------------------
 set(Entity_SRC_DIR ${MAIN_SRC_DIR}/Entity)
 set(Entity_SRC
     ${Entity_SRC_DIR}/GameObject.hpp
     ${Entity_SRC_DIR}/GameObject.cpp
 )
 
-# ---------------------------- Input ----------------------------
+# -------------------------- Input ---------------------------
 set(Input_SRC_DIR ${MAIN_SRC_DIR}/Input)
 set(Input_SRC
     ${Input_SRC_DIR}/Cursor.hpp
@@ -137,7 +181,7 @@ set(Input_SRC
     ${Input_SRC_DIR}/Mouse.cpp
 )
 
-# -------------------------- Renderer ---------------------------
+# ------------------------- Renderer -------------------------
 set(Renderer_SRC_DIR ${MAIN_SRC_DIR}/Renderer)
 
 set(DirectX11_SRC_DIR ${Renderer_SRC_DIR}/DirectX11)
@@ -174,16 +218,14 @@ set(Renderer_SRC
     ${Renderer_SRC_DIR}/RenderTypes.hpp
 )
 
-# TODO(v.matushkin): I guess, I should put DX dll's in the engine repo, to not rely on user Windows SDK
 if(SNV_PLATFORM_WINDOWS)
-    set(Renderer_SRC ${Renderer_SRC} ${DirectX11_SRC} ${DirectX12_SRC})
-    # NOTE: d3dcompiler/dxgi should be in DirectXCommon_LIBS ?
-    find_library(DXCOMPILER_LIB dxcompiler)
-    set(DirectX11_LIBS d3d11 d3dcompiler)
-    set(DirectX12_LIBS d3d12 dxgi ${DXCOMPILER_LIB})
+    set(Renderer_SRC ${Renderer_SRC}
+        ${DirectX11_SRC}
+        ${DirectX12_SRC}
+    )
 endif()
 
-# ----------------------------- Utils -----------------------------
+# -------------------------- Utils ---------------------------
 set(Utils_SRC_DIR ${MAIN_SRC_DIR}/Utils)
 set(Utils_SRC
     ${Utils_SRC_DIR}/Time.hpp
@@ -202,18 +244,8 @@ add_executable(SuperNova
     ${Renderer_SRC}
     ${Utils_SRC}
 )
-target_link_libraries(SuperNova PRIVATE
-    assimp::assimp
-    EnTT::EnTT
-    glad::glad
-    glfw::glfw
-    glm::glm
-    imgui::imgui
-    spdlog::spdlog
-    stb::stb
-    ${DirectX11_LIBS}
-    ${DirectX12_LIBS}
-)
+target_link_libraries(SuperNova PRIVATE ${3RDPARTY_LIBS})
 target_include_directories(SuperNova PRIVATE
     ${MAIN_SRC_DIR}
+    ${3RDPARTY_LIBS_INCLUDE_DIR}
 )
