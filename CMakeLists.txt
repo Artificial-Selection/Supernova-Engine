@@ -249,3 +249,9 @@ target_include_directories(SuperNova PRIVATE
     ${MAIN_SRC_DIR}
     ${3RDPARTY_LIBS_INCLUDE_DIR}
 )
+
+if(SNV_PLATFORM_WINDOWS)
+    add_custom_command(TARGET SuperNova POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DXC_SHARED} $<TARGET_FILE_DIR:SuperNova>
+    )
+endif()
