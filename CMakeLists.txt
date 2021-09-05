@@ -123,6 +123,8 @@ set(Application_SRC
     ${Application_SRC_DIR}/Application.hpp
     ${Application_SRC_DIR}/Application.cpp
     ${Application_SRC_DIR}/IApplicationLayer.hpp
+    ${Application_SRC_DIR}/Window.hpp
+    ${Application_SRC_DIR}/Window.cpp
 )
 
 # -------------------------- Assets --------------------------
@@ -165,8 +167,6 @@ set(Core_SRC
     ${Core_SRC_DIR}/Core.hpp
     ${Core_SRC_DIR}/Log.hpp
     ${Core_SRC_DIR}/Log.cpp
-    ${Core_SRC_DIR}/Window.hpp
-    ${Core_SRC_DIR}/Window.cpp
 )
 
 # -------------------------- Engine --------------------------

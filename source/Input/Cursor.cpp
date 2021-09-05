@@ -1,7 +1,7 @@
 #include <Input/Cursor.hpp>
-#include <Core/Log.hpp>
 
-#include <Core/Window.hpp>
+#include <Application/Window.hpp>
+#include <Core/Log.hpp>
 
 
 namespace snv::Input

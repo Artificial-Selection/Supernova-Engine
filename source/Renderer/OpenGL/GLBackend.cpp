@@ -1,6 +1,7 @@
 #include <Renderer/OpenGL/GLBackend.hpp>
+
+#include <Application/Window.hpp>
 #include <Core/Log.hpp>
-#include <Core/Window.hpp>
 
 #include <glad/glad.h>
 

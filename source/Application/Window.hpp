@@ -34,6 +34,8 @@ public:
     static void Init(i32 width, i32 height, const char* title, GraphicsApi graphicsApi);
     static void Shutdown();
 
+    [[nodiscard]] static i32 GetWidth()  { return m_width; }
+    [[nodiscard]] static i32 GetHeight() { return m_height; }
 #ifdef SNV_PLATFORM_WINDOWS
     [[nodiscard]] static HWND GetWin32Window();
 #endif
@@ -59,6 +61,9 @@ private:
     static void GLFWMouseWheelCallback(GLFWwindow* glfwWindow, f64 xoffset, f64 yoffset);
 
 private:
+    static inline i32                   m_width;
+    static inline i32                   m_height;
+
     static inline GLFWwindow*           m_window;
 
     static inline KeyCallback           m_keyCallback;

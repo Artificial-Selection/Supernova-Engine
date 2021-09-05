@@ -1,7 +1,6 @@
 #include <Application/Application.hpp>
 
-#include <Core/Log.hpp>
-#include <Core/Window.hpp>
+#include <Application/Window.hpp>
 #include <Input/Keyboard.hpp>
 #include <Input/Mouse.hpp>
 #include <Renderer/Renderer.hpp>
