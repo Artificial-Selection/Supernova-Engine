@@ -157,7 +157,7 @@ private:
     void*                                m_fenceEvent;
 
 
-    DX12ShaderCompiler m_shaderCompiler;
+    std::unique_ptr<DX12ShaderCompiler> m_shaderCompiler;
 
     f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f};
 

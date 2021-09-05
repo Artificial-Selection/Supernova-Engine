@@ -3,9 +3,6 @@
 #include <Core/Assert.hpp>
 #include <Core/Window.hpp>
 
-// NOTE(v.matushkin): <dxcapi.h> shouldn't be included here, but for some fucking reason compiler cries about IDxcCompiler3/IDxcUtils
-//  even though they're not used here
-#include <dxcapi.h>
 #include <dxgi1_6.h>
 
 #include <string>
@@ -185,7 +182,7 @@ namespace snv
 {
 
 DX12Backend::DX12Backend()
-    : m_shaderCompiler()
+    : m_shaderCompiler(std::make_unique<DX12ShaderCompiler>())
 {
     CreateDevice();
     CreateCommandQueue();
@@ -659,8 +656,8 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
 ShaderHandle DX12Backend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
 {
     DX12Shader dx12Shader = {
-        .VertexShader   = m_shaderCompiler.CompileShader(L"vs_6_5", vertexSource),
-        .FragmentShader = m_shaderCompiler.CompileShader(L"ps_6_5", fragmentSource),
+        .VertexShader   = m_shaderCompiler->CompileShader(L"vs_6_5", vertexSource),
+        .FragmentShader = m_shaderCompiler->CompileShader(L"ps_6_5", fragmentSource),
     };
 
     static ui32 shader_handle_workaround = 0;

@@ -1,7 +1,5 @@
 #include <Renderer/DirectX12/DX12ShaderCompiler.hpp>
 
-#include <dxcapi.h>
-
 
 namespace snv
 {
