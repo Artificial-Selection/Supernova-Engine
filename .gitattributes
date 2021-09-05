@@ -1,0 +1,19 @@
+*.h    text
+*.hpp  text
+*.cpp  text
+*.glsl text
+*.hlsl text
+*.json text
+*.md   text
+*.py   text
+*.txt  text
+*.yml  text
+
+.clang-format  text
+.gitattributes text
+.gitignore     text
+
+LICENSE text
+
+*.dll filter=lfs diff=lfs merge=lfs -text
+*.lib filter=lfs diff=lfs merge=lfs -text

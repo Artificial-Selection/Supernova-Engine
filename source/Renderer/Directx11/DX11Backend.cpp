@@ -151,6 +151,7 @@ void DX11Backend::EndFrame()
 
 void DX11Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
+    // TODO(v.matushkin): Rename, there is no GraphicsBuffer anymore
     const auto& graphicsBuffer = m_buffers[bufferHandle];
     const auto& texture        = m_textures[textureHandle];
 
@@ -224,7 +225,7 @@ BufferHandle DX11Backend::CreateBuffer(
 
 TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
-    const auto d3dTextureFormat      = dx11_TextureFormat[static_cast<ui8>(textureDesc.Format)];
+    const auto dxgiTextureFormat     = dx11_TextureFormat[static_cast<ui8>(textureDesc.Format)];
     const auto d3dTextureAddressMode = dx11_TextureWrapMode[static_cast<ui8>(textureDesc.WrapMode)];
 
     DX11Texture dx11Texture;
@@ -235,7 +236,7 @@ TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const u
         .Height         = textureDesc.Height,
         .MipLevels      = 1, // TODO(v.matushkin): No way to use texture without mip, 0 =  generate a full set of subtextures?
         .ArraySize      = 1,
-        .Format         = d3dTextureFormat,
+        .Format         = dxgiTextureFormat,
         .SampleDesc     = dxgiSampleDesc,
         .Usage          = D3D11_USAGE_DEFAULT,
         .BindFlags      = D3D11_BIND_SHADER_RESOURCE,
@@ -257,7 +258,7 @@ TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const u
     // TODO(v.matushkin): Don't know how to use ID3D11ShaderResourceView1
     //  if m_deviceContext->PSSetShaderResources takes only ID3D11ShaderResourceView
     D3D11_SHADER_RESOURCE_VIEW_DESC d3dSrvDesc = {
-        .Format        = d3dTextureFormat,
+        .Format        = dxgiTextureFormat,
         .ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D,
         .Texture2D     = d3dSrvTex2D,
     };

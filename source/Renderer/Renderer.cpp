@@ -3,6 +3,7 @@
 #include <Renderer/OpenGL/GLBackend.hpp>
 #ifdef SNV_PLATFORM_WINDOWS
     #include <Renderer/Directx11/DX11Backend.hpp>
+    #include <Renderer/Directx12/DX12Backend.hpp>
 #endif
 
 #include <Core/Assert.hpp>
@@ -30,6 +31,9 @@ void Renderer::Init(GraphicsApi graphicsApi)
 #ifdef SNV_PLATFORM_WINDOWS
     case snv::GraphicsApi::DirectX11:
         s_rendererBackend = new DX11Backend();
+        break;
+    case snv::GraphicsApi::DirectX12:
+        s_rendererBackend = new DX12Backend();
         break;
 #endif
     default:

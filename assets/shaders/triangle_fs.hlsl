@@ -18,5 +18,5 @@ float4 main(Varyings input) : SV_TARGET
     float4 baseColor = _BaseColorMap.Sample(sampler_BaseColorMap, input.texCoord0);
 
     return baseColor;
-    //return float4(normalWS, 1);
+    // return float4(normalWS, 1);
 }
