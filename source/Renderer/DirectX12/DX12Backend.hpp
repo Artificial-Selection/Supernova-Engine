@@ -41,6 +41,12 @@ class DX12Backend final : public IRendererBackend
         D3D12_VERTEX_BUFFER_VIEW TexCoord0View;
     };
 
+    struct DX12Texture
+    {
+        Microsoft::WRL::ComPtr<ID3D12Resource2> Texture;
+        ui32                                    IndexInDescriptorHeap;
+    };
+
     struct DX12Shader
     {
         DX12ShaderBytecode VertexShader;
@@ -125,6 +131,7 @@ private:
 
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>       m_descriptorHeapRTV;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>       m_descriptorHeapDSV;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>       m_descriptorHeapSRV;
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature>        m_rootSignature;
     Microsoft::WRL::ComPtr<ID3D12PipelineState>        m_graphicsPipeline;
@@ -140,6 +147,7 @@ private:
     D3D12_RECT     m_scissorRect;
 
     ui32 m_rtvDescriptorSize;
+    ui32 m_srvDescriptorSize; // CBV/SRV/UAV
     ui32 m_currentBackBufferIndex;
 
     // Synchronization objects
@@ -153,8 +161,9 @@ private:
 
     f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f};
 
-    std::unordered_map<BufferHandle, DX12Buffer> m_buffers;
-    std::unordered_map<ShaderHandle, DX12Shader> m_shaders;
+    std::unordered_map<BufferHandle, DX12Buffer>   m_buffers;
+    std::unordered_map<TextureHandle, DX12Texture> m_textures;
+    std::unordered_map<ShaderHandle, DX12Shader>   m_shaders;
 };
 
 } // namespace snv

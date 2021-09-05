@@ -11,7 +11,81 @@
 #include <string>
 
 
-// TODO(v.matushkin): REMOVE
+// TODO(v.matushkin):
+//  - <ResourceDesc>
+//    Change Create*Resource* methods:
+//      - Pass textureData in TextureDesc
+//      - Pass indexData, vertexData, vertexLayout in BufferDesc
+//      - Pass vertexSource, fragmentSource in ShaderDesc
+//
+//  - <VSync>
+//    Right now DX12Backend doesn't sync frame presentation and GL/DX11 do. Add a way to turn it on/off.
+//    This is a high priority because right now there is no way to compare FPS between backends.
+//    - <Tearing>
+//      There is a method to check Tearing support but it's not used. I don't even know what this is and how it is connected to VSync (if at all?)
+//
+//  - <WaitForPreviousFrame>
+//    I'm think WaitForPreviousFrame() doesn't work as it should.
+//    It doesn't use triple buffering and just always waits for the previous frame to finish?
+//
+//  - <WindowResize>
+//    Add support for window resizing (for every Backend), shouldn't be that hard.
+//
+//  - <DynamicTextureDescriptorHeap>
+//    Right now the size of a m_descriptorHeapSRV is fixed and limited by k_MaxTextureDescriptors (quick workaround to get rendering of textures done)
+//    But it should be dynamically resizable, I think it's not that hard to implement
+//
+//  - <ComPtr>
+//    Replace Microsoft::WRL::ComPtr with my own. Don't know if it's worth it.
+//
+//  - <MeshCreation>
+//    - <Rename>
+//      Rename CreateBuffer -> CreateMesh (and DrawBuffer -> DrawMesh) in every Backend
+//    - <Upload>
+//      Right now meshes are just placed in UPLOAD heap, copy them to the GPU (same as textures)
+//
+//  - <CopyQueue>
+//    Right now resources are copied on gpu through DIRECT queue. I should use COPY queue, especially for async resource upload(I guess?)
+//    Also look into transition barriers, I saw somewhere that sometimes there are redundant,
+//    and after some operations, resource is already in the right state. Does COPY queue helps with this somehow? (doubt that)
+//
+//  - <TextureCreation>
+//    - <Upload>
+//        Right now I just memcpy texture data to UPLOAD(CPU) heap. Things will get more complicated with mipmaps, texture arrays.
+//        [LINKS]:
+//          - http://alextardif.com/D3D11To12P3.html
+//          - https://mynameismjp.wordpress.com/2016/03/25/bindless-texturing-for-deferred-rendering-and-decals/
+//
+//  - <WindowSize>
+//    Window size is hardcoded (k_WindowWidth/k_WindowHeight), pass this values in costructor, or get them from window (first one is better I think).
+//
+//  - <TextureSampler>
+//    Right now CreateTexture ignores texture wrapping options, there is only one static sampler. I don't know how to manage differnt samplers
+//
+//  - <AsynResourceUpload>
+//    Right now CreateTexture(and later CreateMesh) call is blocking until it's done uploading to the GPU.
+//    There should be async resource uploading API, although right now I don't how I'm gonna synchronize it with the rendering
+//      - Sync with graphcis command list:
+//        IDK???
+//      - Do not sync with graphics command list:
+//        - Use smth like isUploadingDone? And then if it false, do not render it? Seems bad beacause then I need to check it for every
+//          vertex/index buffers and every material texture.
+//        - Assign some default resource and replace it with the real one when uploading is done.
+//          But this way I should use mutex/lock? may be not
+//    [LINKS]:
+//      - https://docs.unity3d.com/2021.2/Documentation/Manual/LoadingTextureandMeshData.html
+//
+//  - <HeapPropertiesUnknown>
+//    Why am I forced to use D3D12_CPU_PAGE_PROPERTY_UNKNOWN/D3D12_MEMORY_POOL_UNKNOWN in D3D12_HEAP_PROPERTIES?
+//    What is the use of D3D12_CPU_PAGE_PROPERTY_NOT_AVAILABLE/D3D12_MEMORY_POOL_L1 ?
+//
+//  - <RenderGraph>
+//    Shaders loading happens after *Backend initialization, and in other Backends it's working, but not in this one.
+//    I should have another step of initialization which will happen after Backend init, but before rendering starts.
+//    And I think RenderGraph should solve this problem
+
+
+// TODO(v.matushkin): <WindowSize>
 const ui32 k_WindowWidth  = 1100;
 const ui32 k_WindowHeight = 800;
 
@@ -21,14 +95,49 @@ const D3D12_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
     {"TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 };
 
-const ui32 k_cbPerFrameSlot = 0;
-const ui32 k_cbPerDrawSlot  = 1;
+// NOTE(v.matushkin): Same as in DX11Backend, place it in something like DXCommon.hpp?
+// NOTE(v.matushkin): Don't know if I should use UINT or UNORM
+// TODO(v.matushkin): Apparently there is no support fo 24 bit formats (like RGB8, DEPTH24) on all(almost?) gpus
+//  So I guess, I should remove this formats from TextureGraphicsFormat
+const DXGI_FORMAT dx12_TextureFormat[] = {
+    DXGI_FORMAT_R8_UINT,
+    DXGI_FORMAT_R16_UINT,
+    DXGI_FORMAT_R16_FLOAT,
+    DXGI_FORMAT_R32_FLOAT,
+    DXGI_FORMAT_R8G8_UINT,
+    DXGI_FORMAT_R16G16_UINT,
+    // DXGI_FORMAT_R8G8B8A8_UNORM,     // RGB8
+    // DXGI_FORMAT_R16G16B16A16_UINT,  // RGB16
+    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R16G16B16A16_FLOAT,
+    DXGI_FORMAT_D16_UNORM,
+    // DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH24
+    DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH32
+    DXGI_FORMAT_D32_FLOAT
+};
+
+namespace RootParameterIndex
+{
+    const ui32 cbPerFrame = 0;
+    const ui32 cbPerDraw  = 1;
+    const ui32 dtTextures = 2;
+}
+namespace ShaderRegister
+{
+    const ui32 bPerFrame      = 0;
+    const ui32 bPerDraw       = 1;
+    const ui32 tTextureAlbedo = 0;
+    const ui32 sStatic        = 0;
+}
 
 const DXGI_FORMAT k_DepthStencilFormat = DXGI_FORMAT_D32_FLOAT;
 const f32 k_DepthClearValue = 1.0f;
 
 // TODO(v.matushkin): <RenderGraph>
 bool g_IsPipelineInitialized = false;
+
+// TODO(v.matushkin): <DynamicTextureDescriptorHeap>
+const ui32 k_MaxTextureDescriptors = 300;
 
 
 // void D3D12MessageCallback(
@@ -93,7 +202,7 @@ DX12Backend::DX12Backend()
 
     CreateRootSignature();
 
-    // TODO(v.matushkin): Shouldn't be hardcoded. Viewport and SwapChain should be the same size?
+    // TODO(v.matushkin): <WindowSize> Viewport and SwapChain should be the same size?
     m_viewport = {
         .TopLeftX = 0,
         .TopLeftY = 0,
@@ -150,9 +259,6 @@ void DX12Backend::Clear(BufferBit bufferBitMask)
 void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
     // TODO(v.matushkin): <RenderGraph>
-    //  Shaders loading happens after *Backend initialization, and in other Backends it's working, but not in this one.
-    //  I should have another step of initialization which will happen after Backend init, but before rendering starts.
-    //  And I think RenderGraph should solve this problem
     if (g_IsPipelineInitialized == false)
     {
         CreatePipeline();
@@ -164,7 +270,7 @@ void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
     commandAllocator->Reset();
     m_graphicsCommandList->Reset(commandAllocator, m_graphicsPipeline.Get());
 
-    //- Set RootSignature
+    //- Set RootSignature ConstantBuffer's
     m_graphicsCommandList->SetGraphicsRootSignature(m_rootSignature.Get());
     {
         m_cbPerFrameData._CameraProjection = cameraProjection;
@@ -186,9 +292,13 @@ void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
 
         const auto cbPerFrameLocation = m_cbPerFrame->GetGPUVirtualAddress() + cbPerFrameStartByte;
         const auto cbPerDrawLocation  = m_cbPerDraw->GetGPUVirtualAddress() + cbPerDrawStartByte;
-        m_graphicsCommandList->SetGraphicsRootConstantBufferView(k_cbPerFrameSlot, cbPerFrameLocation);
-        m_graphicsCommandList->SetGraphicsRootConstantBufferView(k_cbPerDrawSlot, cbPerDrawLocation);
+        m_graphicsCommandList->SetGraphicsRootConstantBufferView(RootParameterIndex::cbPerFrame, cbPerFrameLocation);
+        m_graphicsCommandList->SetGraphicsRootConstantBufferView(RootParameterIndex::cbPerDraw, cbPerDrawLocation);
     }
+
+    //- Set DescriptorHeaps
+    ID3D12DescriptorHeap* descriptorHeaps[] = { m_descriptorHeapSRV.Get() };
+    m_graphicsCommandList->SetDescriptorHeaps(1, descriptorHeaps);
 
     //- Set Rasterizer Stage
     // NOTE(v.matushkin): No way to set this once? May be with bundles?
@@ -248,24 +358,28 @@ void DX12Backend::EndFrame()
 
     //- Present frame
     // TODO(v.matushkin): Present1() ?
-    // NOTE(v.matushkin): VSync? Tearing?
+    // NOTE(v.matushkin): <VSync>, <VSync/Tearing>
     m_swapChain->Present(0, 0);
 
     WaitForPreviousFrame();
 }
 
+// NOTE(v.matushkin): Useless vertexCount?
 void DX12Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
+    //- Set Index/Vertex buffers
     const auto& buffer = m_buffers[bufferHandle];
-
     D3D12_VERTEX_BUFFER_VIEW d3dVertexBuffers[] = {buffer.PositionView, buffer.NormalView, buffer.TexCoord0View};
-    // ui32          strides[]    = {sizeof(f32) * 3, sizeof(f32) * 3, sizeof(f32) * 3};
-    // ui32          offset[]     = {0, 0, 0};
-
-    m_graphicsCommandList->IASetVertexBuffers(0, 3, d3dVertexBuffers);
     m_graphicsCommandList->IASetIndexBuffer(&buffer.IndexView);
-    // TODO(v.matushkin): Store index count in DX12Buffer?
-    m_graphicsCommandList->DrawIndexedInstanced(buffer.IndexView.SizeInBytes / 4, 1, 0, 0, 0);
+    m_graphicsCommandList->IASetVertexBuffers(0, 3, d3dVertexBuffers);
+
+    //- Set Material Texture
+    const auto& texture = m_textures[textureHandle];
+    auto srvGPUDescriptorHandle = m_descriptorHeapSRV->GetGPUDescriptorHandleForHeapStart();
+    srvGPUDescriptorHandle.ptr += m_srvDescriptorSize * texture.IndexInDescriptorHeap;
+    m_graphicsCommandList->SetGraphicsRootDescriptorTable(RootParameterIndex::dtTextures, srvGPUDescriptorHandle);
+
+    m_graphicsCommandList->DrawIndexedInstanced(indexCount, 1, 0, 0, 0);
 }
 
 void DX12Backend::DrawArrays(i32 count)
@@ -284,11 +398,11 @@ BufferHandle DX12Backend::CreateBuffer(
 {
     DX12Buffer dx12Buffer;
 
-    // TODO(v.matushkin): Why I'm forced to use *UNKNOWN?
+    // TODO(v.matushkin): <HeapPropertiesUnknown>
     D3D12_HEAP_PROPERTIES d3dHeapProperties = {
         .Type                 = D3D12_HEAP_TYPE_UPLOAD,
-        .CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN, //D3D12_CPU_PAGE_PROPERTY_NOT_AVAILABLE,
-        .MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN, //D3D12_MEMORY_POOL_L1,
+        .CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
+        .MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN,
         .CreationNodeMask     = 1, // Multi-GPU
         .VisibleNodeMask      = 1, // Multi-GPU
     };
@@ -342,7 +456,7 @@ BufferHandle DX12Backend::CreateBuffer(
         &dx12Buffer.TexCoord0View,
     };
 
-    // TODO(v.matushkin): I should use one heap for this vertex buffers
+    // TODO(v.matushkin): At least I should use one heap for this vertex buffers
     for (ui32 i = 0; i < vertexLayout.size(); ++i)
     {
         // TODO(v.matushkin): Adjust VertexAttributeDescriptor to remove this hacks
@@ -384,7 +498,162 @@ BufferHandle DX12Backend::CreateBuffer(
 
 TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
-    return TextureHandle();
+    const auto dxgiTextureFormat = dx12_TextureFormat[static_cast<ui8>(textureDesc.Format)];
+
+    DX12Texture dx12Texture;
+
+    //- Create D3D12 TextureDesc
+    DXGI_SAMPLE_DESC dxgiSampleDesc = {
+        .Count   = 1,
+        .Quality = 0,
+    };
+    D3D12_RESOURCE_DESC1 d3dResourceDesc = {
+        .Dimension                = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+        .Alignment                = 0,                               //NOTE(v.matushkin): ???
+        .Width                    = textureDesc.Width,
+        .Height                   = textureDesc.Height,
+        .DepthOrArraySize         = 1,
+        .MipLevels                = 1,
+        .Format                   = dxgiTextureFormat,
+        .SampleDesc               = dxgiSampleDesc,
+        // .Layout                   = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,  //NOTE(v.matushkin): ???
+        .Flags                    = D3D12_RESOURCE_FLAG_NONE,
+        // .SamplerFeedbackMipRegion = ,
+    };
+
+    //- Create texture on the GPU
+    // TODO(v.matushkin): <HeapPropertiesUnknown>
+    D3D12_HEAP_PROPERTIES d3dHeapProperties = {
+        .Type                 = D3D12_HEAP_TYPE_DEFAULT,
+        .CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
+        .MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN,
+        .CreationNodeMask     = 1, // Multi-GPU
+        .VisibleNodeMask      = 1, // Multi-GPU
+    };
+    m_device->CreateCommittedResource2(
+        &d3dHeapProperties,
+        D3D12_HEAP_FLAG_NONE,               // NOTE(v.matushkin): Sure?
+        &d3dResourceDesc,
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,                            // D3D12_CLEAR_VALUE is null for buffers
+        nullptr,                            // ID3D12ProtectedResourceSession1
+        IID_PPV_ARGS(dx12Texture.Texture.GetAddressOf())
+    );
+
+    //- Create CPU -> GPU upload buffer
+    ui64 uploadBufferSize;
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT d3dTextureLayout;
+    ui32 numRows;
+
+    m_device->GetCopyableFootprints1(
+        &d3dResourceDesc,
+        0, 1, 0,
+        &d3dTextureLayout,
+        &numRows,
+        nullptr,
+        &uploadBufferSize
+    );
+
+    d3dResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    d3dResourceDesc.Width     = uploadBufferSize;
+    d3dResourceDesc.Height    = 1;
+    d3dResourceDesc.Format    = DXGI_FORMAT_UNKNOWN;
+    d3dResourceDesc.Layout    = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+    d3dHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource2> d3dTextureUploadHeap;
+    m_device->CreateCommittedResource2(
+        &d3dHeapProperties,
+        D3D12_HEAP_FLAG_NONE,
+        &d3dResourceDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr,
+        nullptr,
+        IID_PPV_ARGS(d3dTextureUploadHeap.GetAddressOf())
+    );
+
+    //- Copy texture to the GPU
+    // TODO(v.matushkin): I can get RowPitch/SlicePitch from TextureDesc or from GetCopyableFootprints1, is there any difference?
+    const auto rowPitch = d3dTextureLayout.Footprint.RowPitch;
+    D3D12_SUBRESOURCE_DATA d3dSubresourceData = {
+        .pData      = textureData,
+        .RowPitch   = rowPitch,
+        .SlicePitch = rowPitch * numRows,
+    };
+
+    //-- Copy texture to intermediate upload heap
+    D3D12_RANGE d3dReadRange = { .Begin = 0, .End = 0 };
+    ui8* uploadBufferBegin;
+    // NOTE(v.matushkin): Can pass nullptr instead of d3dReadRange, is it the same thing?
+    d3dTextureUploadHeap->Map(0, &d3dReadRange, reinterpret_cast<void**>(&uploadBufferBegin));
+    std::memcpy(uploadBufferBegin, textureData, uploadBufferSize);
+    // NOTE(v.matushkin): Does it needs to be Unmapped?
+    d3dTextureUploadHeap->Unmap(0, nullptr);
+
+    //-- Copy texture from upload heap to GPU
+    D3D12_TEXTURE_COPY_LOCATION d3dTextureCopyLocationSrc = {
+        .pResource       = d3dTextureUploadHeap.Get(),
+        .Type            = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+        .PlacedFootprint = d3dTextureLayout
+    };
+    D3D12_TEXTURE_COPY_LOCATION d3dTextureCopyLocationDst = {
+        .pResource        = dx12Texture.Texture.Get(),
+        .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0
+    };
+
+    D3D12_RESOURCE_TRANSITION_BARRIER d3dResourceTransitionBarrier = {
+        .pResource   = dx12Texture.Texture.Get(),
+        .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, // NOTE(v.matushkin): ???
+        .StateBefore = D3D12_RESOURCE_STATE_COPY_DEST,
+        .StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+    };
+    D3D12_RESOURCE_BARRIER d3dResourceBarrier = {
+        .Type       = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+        .Flags      = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+        .Transition = d3dResourceTransitionBarrier,
+    };
+
+    auto commandAllocator = m_commandAllocators[0].Get();
+    commandAllocator->Reset();
+    m_graphicsCommandList->Reset(commandAllocator, nullptr);
+    // NOTE(v.matushkin): The fuck is DstX/DstY/DstZ and pSrcBox ?
+    m_graphicsCommandList->CopyTextureRegion(&d3dTextureCopyLocationDst, 0, 0, 0, &d3dTextureCopyLocationSrc, nullptr);
+    m_graphicsCommandList->ResourceBarrier(1, &d3dResourceBarrier);
+    m_graphicsCommandList->Close();
+
+    ID3D12CommandList* commandLists[] = {m_graphicsCommandList.Get()};
+    m_commandQueue->ExecuteCommandLists(1, commandLists);
+
+    //- Create Texture SRV
+    D3D12_TEX2D_SRV d3dTexture2DSRV = {
+        // .MostDetailedMip     = ,
+        .MipLevels           = 1,
+        // .PlaneSlice          = ,
+        // .ResourceMinLODClamp = ,
+    };
+    D3D12_SHADER_RESOURCE_VIEW_DESC d3dTextureSRVDesc = {
+        .Format                  = dxgiTextureFormat,
+        .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
+        .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, // NOTE(v.matushkin): texture channels swizzling, but when it's useful?
+        .Texture2D               = d3dTexture2DSRV,
+    };
+
+    static ui32 texture_handle_workaround = 0;
+
+    // TODO(v.matushkin): This shouldn't depend on texture_handle_workaround. One hack depends on the other one, nice!
+    auto srvDescriptorHandle = m_descriptorHeapSRV->GetCPUDescriptorHandleForHeapStart();
+    dx12Texture.IndexInDescriptorHeap = texture_handle_workaround;
+    srvDescriptorHandle.ptr += m_srvDescriptorSize * texture_handle_workaround;
+    m_device->CreateShaderResourceView(dx12Texture.Texture.Get(), &d3dTextureSRVDesc, srvDescriptorHandle);
+
+    auto textureHandle = static_cast<TextureHandle>(texture_handle_workaround++);
+    m_textures[textureHandle] = dx12Texture;
+
+    WaitForPreviousFrame();
+
+    return textureHandle;
 }
 
 ShaderHandle DX12Backend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
@@ -531,15 +800,27 @@ void DX12Backend::CreateDescriptorHeaps()
     D3D12_DESCRIPTOR_HEAP_DESC d3dDescriptorHeapDSV = {
         .Type           = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
         .NumDescriptors = 1,
-        .Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE, // This flag only applies to CBV, SRV, UAV and samplers
+        .Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
         .NodeMask       = 0,
     };
     m_device->CreateDescriptorHeap(&d3dDescriptorHeapDSV, IID_PPV_ARGS(m_descriptorHeapDSV.GetAddressOf()));
+
+    //- Create SRV heap
+    D3D12_DESCRIPTOR_HEAP_DESC d3dDescriptorHeapSRV = {
+        .Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        .NumDescriptors = k_MaxTextureDescriptors,
+        .Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+        .NodeMask       = 0,
+    };
+    m_device->CreateDescriptorHeap(&d3dDescriptorHeapSRV, IID_PPV_ARGS(m_descriptorHeapSRV.GetAddressOf()));
+
+    //- Get Descriptor sizes
+    m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    m_srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 void DX12Backend::CreateRenderTargetViews()
 {
-    m_rtvDescriptorSize      = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     auto rtvDescriptorHandle = m_descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 
     for (ui32 i = 0; i < k_BackBufferFrames; ++i)
@@ -556,23 +837,7 @@ void DX12Backend::CreateRenderTargetViews()
 
 void DX12Backend::CreateDepthStencilView()
 {
-    // typedef struct D3D12_DEPTH_STENCIL_VIEW_DESC
-    // {
-    // DXGI_FORMAT Format;
-    // D3D12_DSV_DIMENSION ViewDimension;
-    // D3D12_DSV_FLAGS Flags;
-    // union 
-    //     {
-    //     D3D12_TEX1D_DSV Texture1D;
-    //     D3D12_TEX1D_ARRAY_DSV Texture1DArray;
-    //     D3D12_TEX2D_DSV Texture2D;
-    //     D3D12_TEX2D_ARRAY_DSV Texture2DArray;
-    //     D3D12_TEX2DMS_DSV Texture2DMS;
-    //     D3D12_TEX2DMS_ARRAY_DSV Texture2DMSArray;
-    //     } 	;
-    // } 	D3D12_DEPTH_STENCIL_VIEW_DESC;
-
-    // NOTE(v.matushkin): Why it works without setting Texture2D?
+    //TODO(v.matushkin): <HeapPropertiesUnknown>
     D3D12_HEAP_PROPERTIES d3dHeapProperties = {
         .Type                 = D3D12_HEAP_TYPE_DEFAULT,
         .CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
@@ -622,10 +887,12 @@ void DX12Backend::CreateDepthStencilView()
         IID_PPV_ARGS(m_depthStencil.GetAddressOf())
     );
 
+    // NOTE(v.matushkin): Why it works without setting Texture2D?
     D3D12_DEPTH_STENCIL_VIEW_DESC d3dDepthStencilViewDesc = {
         .Format        = k_DepthStencilFormat,
         .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
         .Flags         = D3D12_DSV_FLAG_NONE,
+        // .Texture2D     = ,
     };
     m_device->CreateDepthStencilView(m_depthStencil.Get(), &d3dDepthStencilViewDesc, m_descriptorHeapDSV->GetCPUDescriptorHandleForHeapStart());
 }
@@ -659,6 +926,7 @@ void DX12Backend::CreateFence()
 
 void DX12Backend::CreateConstantBuffer(ID3D12Resource2** constantBuffer, ui32 size)
 {
+    // TODO(v.matushkin): <HeapPropertiesUnknown>
     D3D12_HEAP_PROPERTIES d3dHeapProperties = {
         .Type                 = D3D12_HEAP_TYPE_UPLOAD,
         .CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
@@ -698,16 +966,31 @@ void DX12Backend::CreateConstantBuffer(ID3D12Resource2** constantBuffer, ui32 si
 // TODO(v.matushkin): Root signature should be created based on shader reflection
 void DX12Backend::CreateRootSignature()
 {
+    //- ConstantBuffer's
     // TODO(v.matushkin): The doc says that desctiptors must be sorted by frequency of change, so the most volatile should be first
     D3D12_ROOT_DESCRIPTOR1 d3dRootDescriptorPerFrame = {
-        .ShaderRegister = k_cbPerFrameSlot,
+        .ShaderRegister = ShaderRegister::bPerFrame,
         .RegisterSpace  = 0,
-        .Flags          = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE, // TODO(v.matushkin): Not sure what should I set for PerFrame/PerDraw
+        .Flags          = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC, // TODO(v.matushkin): Not sure what should I set for PerFrame/PerDraw
     };
     D3D12_ROOT_DESCRIPTOR1 d3dRootDescriptorPerDraw = {
-        .ShaderRegister = k_cbPerDrawSlot,
+        .ShaderRegister = ShaderRegister::bPerDraw,
         .RegisterSpace  = 0,
-        .Flags          = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE, // TODO(v.matushkin): Not sure what should I set for PerFrame/PerDraw
+        .Flags          = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC, // TODO(v.matushkin): Not sure what should I set for PerFrame/PerDraw
+    };
+
+    //- Material Texture
+    D3D12_DESCRIPTOR_RANGE1 d3dTexturesDescriptorRange = {
+        .RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+        .NumDescriptors                    = 1,
+        .BaseShaderRegister                = ShaderRegister::tTextureAlbedo,
+        .RegisterSpace                     = 0,
+        .Flags                             = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE, // TODO(v.matushkin): What should I use?
+        .OffsetInDescriptorsFromTableStart = 0, // NOTE(v.matushkin): Don't know
+    };
+    D3D12_ROOT_DESCRIPTOR_TABLE1 d3dTexturesRootDescriptorTable = {
+        .NumDescriptorRanges = 1,
+        .pDescriptorRanges   = &d3dTexturesDescriptorRange,
     };
 
     D3D12_ROOT_PARAMETER1 d3dRootParameters[] = {
@@ -722,6 +1005,12 @@ void DX12Backend::CreateRootSignature()
             .ParameterType    = D3D12_ROOT_PARAMETER_TYPE_CBV,
             .Descriptor       = d3dRootDescriptorPerDraw,
             .ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX,
+        },
+        // Material Texture
+        {
+            .ParameterType    = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+            .DescriptorTable  = d3dTexturesRootDescriptorTable,
+            .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL,
         }
     };
 
@@ -736,7 +1025,7 @@ void DX12Backend::CreateRootSignature()
         // .BorderColor      = , // NOTE(v.matushkin): Only used if D3D11_TEXTURE_ADDRESS_BORDER is specified in Address*
         .MinLOD           = 0,
         .MaxLOD           = D3D12_FLOAT32_MAX,
-        .ShaderRegister   = 0,
+        .ShaderRegister   = ShaderRegister::sStatic,
         .RegisterSpace    = 0,
         .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL,
     };
@@ -750,7 +1039,7 @@ void DX12Backend::CreateRootSignature()
         | D3D12_ROOT_SIGNATURE_FLAG_DENY_MESH_SHADER_ROOT_ACCESS;
 
     D3D12_ROOT_SIGNATURE_DESC1 d3dRootSignatureDesc = {
-        .NumParameters     = 2,
+        .NumParameters     = ARRAYSIZE(d3dRootParameters),
         .pParameters       = d3dRootParameters,
         .NumStaticSamplers = 1,
         .pStaticSamplers   = &d3dStaticSampler,
@@ -763,9 +1052,14 @@ void DX12Backend::CreateRootSignature()
 
     Microsoft::WRL::ComPtr<ID3DBlob> rootSignature;
     Microsoft::WRL::ComPtr<ID3DBlob> rootSignatureError;
-    D3D12SerializeVersionedRootSignature(&d3dVersionedRootSignatureDesc, rootSignature.GetAddressOf(), rootSignatureError.GetAddressOf());
+    auto hr = D3D12SerializeVersionedRootSignature(&d3dVersionedRootSignatureDesc, rootSignature.GetAddressOf(), rootSignatureError.GetAddressOf());
+    // TODO(v.matushkin): Remove error check from release build?
+    if (FAILED(hr))
+    {
+        OutputDebugStringA((LPSTR)rootSignatureError->GetBufferPointer());
+    }
 
-    auto hr = m_device->CreateRootSignature(0, rootSignature->GetBufferPointer(), rootSignature->GetBufferSize(), IID_PPV_ARGS(m_rootSignature.GetAddressOf()));
+    m_device->CreateRootSignature(0, rootSignature->GetBufferPointer(), rootSignature->GetBufferSize(), IID_PPV_ARGS(m_rootSignature.GetAddressOf()));
 }
 
 void DX12Backend::CreatePipeline()

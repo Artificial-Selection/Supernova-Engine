@@ -25,7 +25,7 @@ DX12ShaderBytecode DX12ShaderCompiler::CompileShader(LPCWSTR profile, std::span<
     };
 
     Microsoft::WRL::ComPtr<IDxcCompilerArgs> dxcCompilerArgs;
-    auto hr = m_utils->BuildArguments(nullptr, L"main", profile, arguments, 1, nullptr, 0, dxcCompilerArgs.GetAddressOf());
+    auto hr = m_utils->BuildArguments(nullptr, L"main", profile, arguments, ARRAYSIZE(arguments), nullptr, 0, dxcCompilerArgs.GetAddressOf());
 
     DxcBuffer dxcBuffer = {
         .Ptr      = shaderSource.data(),
