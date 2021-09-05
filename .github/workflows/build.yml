@@ -18,8 +18,13 @@ jobs:
         build_type: [Debug, Release]
 
     steps:
+      # lfs might fail
+      # reason: https://github.com/actions/checkout/issues/270
+      # fix: https://stackoverflow.com/questions/61463578/github-actions-actions-checkoutv2-lfs-true-flag-not-converting-pointers-to-act
       - name: Get source code
         uses: actions/checkout@v2
+        with:
+          lfs: true
 
       - name: Setup VisualStudio Environment
         uses: egor-tensin/vs-shell@v2
