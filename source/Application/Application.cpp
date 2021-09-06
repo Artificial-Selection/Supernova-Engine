@@ -8,7 +8,7 @@
 
 const ui32 k_WindowWidth  = 1100;
 const ui32 k_WindowHeight = 800;
-
+// TODO(v.matushkin): Remove k_GraphicsApi duplication in Engine.cpp
 const snv::GraphicsApi k_GraphicsApi = snv::GraphicsApi::DirectX12;
 
 
@@ -37,7 +37,7 @@ Application::Application()
 
 Application::~Application()
 {
-    for (auto layer: m_layers)
+    for (auto layer : m_layers)
     {
         layer->OnDestroy();
         delete layer;
@@ -59,7 +59,7 @@ void Application::Run()
     {
         ProcessInput();
 
-        for (auto layer: m_layers)
+        for (auto layer : m_layers)
         {
             layer->OnUpdate();
         }

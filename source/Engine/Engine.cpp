@@ -5,7 +5,6 @@
 #include <Assets/Shader.hpp>
 #include <Components/Camera.hpp>
 #include <Components/CameraController.hpp>
-#include <Components/MeshRenderer.hpp>
 #include <Components/Transform.hpp>
 #include <Core/Log.hpp>
 #include <Renderer/Renderer.hpp>
