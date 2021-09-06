@@ -117,6 +117,16 @@ endif()
 # ----------------------------------------------------------------------------------------------------
 set(MAIN_SRC_DIR ${PROJECT_SOURCE_DIR}/source)
 
+# --------------------------- App ----------------------------
+set(Application_SRC_DIR ${MAIN_SRC_DIR}/Application)
+set(Application_SRC
+    ${Application_SRC_DIR}/Application.hpp
+    ${Application_SRC_DIR}/Application.cpp
+    ${Application_SRC_DIR}/IApplicationLayer.hpp
+    ${Application_SRC_DIR}/Window.hpp
+    ${Application_SRC_DIR}/Window.cpp
+)
+
 # -------------------------- Assets --------------------------
 set(Assets_SRC_DIR ${MAIN_SRC_DIR}/Assets)
 set(Assets_SRC
@@ -157,8 +167,13 @@ set(Core_SRC
     ${Core_SRC_DIR}/Core.hpp
     ${Core_SRC_DIR}/Log.hpp
     ${Core_SRC_DIR}/Log.cpp
-    ${Core_SRC_DIR}/Window.hpp
-    ${Core_SRC_DIR}/Window.cpp
+)
+
+# -------------------------- Engine --------------------------
+set(Engine_SRC_DIR ${MAIN_SRC_DIR}/Engine)
+set(Engine_SRC
+    ${Engine_SRC_DIR}/Engine.hpp
+    ${Engine_SRC_DIR}/Engine.cpp
 )
 
 # -------------------------- Entity --------------------------
@@ -236,9 +251,11 @@ set(Utils_SRC
 
 add_executable(SuperNova
     ${MAIN_SRC_DIR}/main.cpp
+    ${Application_SRC}
     ${Assets_SRC}
     ${Components_SRC}
     ${Core_SRC}
+    ${Engine_SRC}
     ${Entity_SRC}
     ${Input_SRC}
     ${Renderer_SRC}

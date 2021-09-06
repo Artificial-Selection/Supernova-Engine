@@ -1,7 +1,7 @@
 #include <Renderer/DirectX12/DX12Backend.hpp>
 
+#include <Application/Window.hpp>
 #include <Core/Assert.hpp>
-#include <Core/Window.hpp>
 
 #include <dxgi1_6.h>
 

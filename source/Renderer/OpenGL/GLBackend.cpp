@@ -1,6 +1,7 @@
 #include <Renderer/OpenGL/GLBackend.hpp>
+
+#include <Application/Window.hpp>
 #include <Core/Log.hpp>
-#include <Core/Window.hpp>
 
 #include <glad/glad.h>
 
@@ -188,6 +189,10 @@ void GLBackend::Clear(BufferBit bufferBitMask)
 
 void GLBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
+    // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
+    const auto cleaFlags = snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil;
+    Clear(static_cast<snv::BufferBit>(cleaFlags));
+
     // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
     // const auto& shader = m_shaders[shaderHandle];
     const auto& shader = m_shaders.begin()->second;

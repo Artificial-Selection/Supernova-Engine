@@ -1,7 +1,7 @@
 #include <Renderer/Directx11/DX11Backend.hpp>
 
+#include <Application/Window.hpp>
 #include <Core/Assert.hpp>
-#include <Core/Window.hpp>
 
 #include <d3d11_4.h>
 #include <d3dcompiler.h>

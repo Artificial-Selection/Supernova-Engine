@@ -91,12 +91,6 @@ void Renderer::Clear(BufferBit bufferBitMask)
 //   use global localToWorld
 void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
 {
-    // NOTE(v.matushkin): Clear should be done in *Backend::StartFrame() ?
-    // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
-    const auto cleaFlags = snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil;
-    Clear(static_cast<snv::BufferBit>(cleaFlags));
-
-
     const auto cameraView = ComponentFactory::GetView<const Camera>();
     SNV_ASSERT(cameraView.size() == 1, "The scene must have at least and only 1 camera");
     const auto meshRendererView = ComponentFactory::GetView<const MeshRenderer>();

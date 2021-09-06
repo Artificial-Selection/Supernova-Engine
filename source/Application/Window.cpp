@@ -1,4 +1,5 @@
-#include <Core/Window.hpp>
+#include <Application/Window.hpp>
+
 #include <Core/Assert.hpp>
 #include <Input/Cursor.hpp>
 #include <Renderer/RenderTypes.hpp>
@@ -17,7 +18,7 @@
 //  Leave this shit to the future me
 
 
-constexpr i32 glfw_CursorMode[] = {
+const i32 glfw_CursorMode[] = {
     GLFW_CURSOR_NORMAL,  // Cursor::Normal
     GLFW_CURSOR_HIDDEN,  // Cursor::Hidden
     GLFW_CURSOR_DISABLED // Cursor::Locked
@@ -42,6 +43,9 @@ namespace snv
 
 void Window::Init(i32 width, i32 height, const char* title, GraphicsApi graphicsApi)
 {
+    m_width  = width;
+    m_height = height;
+
 #ifdef SNV_ENABLE_DEBUG
     glfwSetErrorCallback(GlfwErrorCallback);
 #endif
