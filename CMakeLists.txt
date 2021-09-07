@@ -27,7 +27,10 @@ if(MSVC)
 endif()
 
 
-set(BUILD_DIR ${PROJECT_SOURCE_DIR}/build)
+set(BUILD_DIR     ${PROJECT_SOURCE_DIR}/build)
+set(LIBS_DIR      ${PROJECT_SOURCE_DIR}/libs)
+set(SuperNova_DIR ${PROJECT_SOURCE_DIR}/SuperNova)
+set(CONAN_DIR     ${BUILD_DIR}/conan)
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -66,19 +69,20 @@ endif()
 # ----------------------------------------------------------------------------------------------------
 # ------------------------------------------ 3rdparty libs -------------------------------------------
 # ----------------------------------------------------------------------------------------------------
-set(3RDPARTY_LIBS_DIR ${PROJECT_SOURCE_DIR}/libs)
-set(3RDPARTY_LIBS_INCLUDE_DIR ${3RDPARTY_LIBS_DIR}/include)
-set(3RDPARTY_LIBS_STATIC_DIR ${3RDPARTY_LIBS_DIR}/lib)
-set(3RDPARTY_LIBS_SHARED_DIR ${3RDPARTY_LIBS_DIR}/shared)
+set(LIBS_INCLUDE_DIR ${LIBS_DIR}/include)
+set(LIBS_STATIC_DIR  ${LIBS_DIR}/lib)
+set(LIBS_SHARED_DIR  ${LIBS_DIR}/shared)
 
 # --------------------------- DXC ----------------------------
-set(DXC_STATIC ${3RDPARTY_LIBS_STATIC_DIR}/dxcompiler.lib)
+set(DXC_STATIC
+    ${LIBS_STATIC_DIR}/dxcompiler.lib
+)
 set(DXC_SHARED
-    ${3RDPARTY_LIBS_SHARED_DIR}/dxcompiler.dll
-    ${3RDPARTY_LIBS_SHARED_DIR}/dxil.dll
+    ${LIBS_SHARED_DIR}/dxcompiler.dll
+    ${LIBS_SHARED_DIR}/dxil.dll
 )
 
-# ------------------------ Conan libs ------------------------
+# -------------------------- Conan ---------------------------
 find_package(assimp REQUIRED)
 find_package(EnTT   REQUIRED)
 find_package(glad   REQUIRED)
@@ -89,13 +93,15 @@ find_package(spdlog REQUIRED)
 find_package(stb    REQUIRED)
 
 
-set(3RDPARTY_LIBS
-    assimp::assimp
+# --------------------- SuperNova-Engine ---------------------
+set(SuperNovaEngine_LIBS_PUBLIC
     EnTT::EnTT
+)
+set(SuperNovaEngine_LIBS_PRIVATE
+    assimp::assimp
     glad::glad
     glfw::glfw
     glm::glm
-    imgui::imgui
     spdlog::spdlog
     stb::stb
 )
@@ -105,132 +111,188 @@ if(SNV_PLATFORM_WINDOWS)
     set(DirectX11_LIBS d3d11 d3dcompiler)
     set(DirectX12_LIBS d3d12 dxgi ${DXC_STATIC})
 
-    set(3RDPARTY_LIBS ${3RDPARTY_LIBS}
+    set(SuperNovaEngine_LIBS_PRIVATE ${SuperNovaEngine_LIBS_PRIVATE}
         ${DirectX11_LIBS}
         ${DirectX12_LIBS}
     )
 endif()
 
+# --------------------- SuperNova-Editor ---------------------
+set(SuperNovaEditor_LIBS_PRIVATE
+    imgui::imgui
+)
+
 
 # ----------------------------------------------------------------------------------------------------
-# ------------------------------------------ Engine sources ------------------------------------------
+# ------------------------------------- SuperNova-Engine sources -------------------------------------
 # ----------------------------------------------------------------------------------------------------
-set(MAIN_SRC_DIR ${PROJECT_SOURCE_DIR}/source)
+set(SuperNovaEngine_DIR         ${SuperNova_DIR}/Engine)
+set(SuperNovaEngine_PUBLIC_DIR  ${SuperNovaEngine_DIR}/public)
+set(SuperNovaEngine_PRIVATE_DIR ${SuperNovaEngine_DIR}/private)
 
-# --------------------------- App ----------------------------
-set(Application_SRC_DIR ${MAIN_SRC_DIR}/Application)
+set(SuperNovaEngine_SRC_DIR         ${SuperNovaEngine_DIR}/source)
+set(SuperNovaEngine_INC_PUBLIC_DIR  ${SuperNovaEngine_PUBLIC_DIR}/Engine)
+set(SuperNovaEngine_INC_PRIVATE_DIR ${SuperNovaEngine_PRIVATE_DIR}/Engine)
+
+# ----------------------- Application ------------------------
+set(Application_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Application)
+set(Application_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/Application)
+
 set(Application_SRC
-    ${Application_SRC_DIR}/Application.hpp
     ${Application_SRC_DIR}/Application.cpp
-    ${Application_SRC_DIR}/IApplicationLayer.hpp
-    ${Application_SRC_DIR}/Window.hpp
     ${Application_SRC_DIR}/Window.cpp
+)
+set(Application_INC_PUBLIC
+    ${Application_INC_PUBLIC_DIR}/Application.hpp
+    ${Application_INC_PUBLIC_DIR}/IApplicationLayer.hpp
+    ${Application_INC_PUBLIC_DIR}/Window.hpp
 )
 
 # -------------------------- Assets --------------------------
-set(Assets_SRC_DIR ${MAIN_SRC_DIR}/Assets)
+set(Assets_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Assets)
+set(Assets_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/Assets)
+
 set(Assets_SRC
-    ${Assets_SRC_DIR}/AssetDatabase.hpp
     ${Assets_SRC_DIR}/AssetDatabase.cpp
-    ${Assets_SRC_DIR}/Material.hpp
     ${Assets_SRC_DIR}/Material.cpp
-    ${Assets_SRC_DIR}/Mesh.hpp
     ${Assets_SRC_DIR}/Mesh.cpp
-    ${Assets_SRC_DIR}/Model.hpp
     ${Assets_SRC_DIR}/Model.cpp
-    ${Assets_SRC_DIR}/Shader.hpp
     ${Assets_SRC_DIR}/Shader.cpp
-    ${Assets_SRC_DIR}/Texture.hpp
     ${Assets_SRC_DIR}/Texture.cpp
+)
+set(Assets_INC_PUBLIC
+    ${Assets_INC_PUBLIC_DIR}/AssetDatabase.hpp
+    ${Assets_INC_PUBLIC_DIR}/Material.hpp
+    ${Assets_INC_PUBLIC_DIR}/Mesh.hpp
+    ${Assets_INC_PUBLIC_DIR}/Model.hpp
+    ${Assets_INC_PUBLIC_DIR}/Shader.hpp
+    ${Assets_INC_PUBLIC_DIR}/Texture.hpp
 )
 
 # ------------------------ Components ------------------------
-set(Components_SRC_DIR ${MAIN_SRC_DIR}/Components)
+set(Components_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Components)
+set(Components_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/Components)
+
 set(Components_SRC
-    ${Components_SRC_DIR}/Camera.hpp
     ${Components_SRC_DIR}/Camera.cpp
-    ${Components_SRC_DIR}/CameraController.hpp
     ${Components_SRC_DIR}/CameraController.cpp
-    ${Components_SRC_DIR}/Component.hpp
-    ${Components_SRC_DIR}/ComponentFactory.hpp
     ${Components_SRC_DIR}/ComponentFactory.cpp
-    ${Components_SRC_DIR}/MeshRenderer.hpp
     ${Components_SRC_DIR}/MeshRenderer.cpp
-    ${Components_SRC_DIR}/Transform.hpp
     ${Components_SRC_DIR}/Transform.cpp
+)
+set(Components_INC_PUBLIC
+    ${Components_INC_PUBLIC_DIR}/Camera.hpp
+    ${Components_INC_PUBLIC_DIR}/CameraController.hpp
+    ${Components_INC_PUBLIC_DIR}/Component.hpp
+    ${Components_INC_PUBLIC_DIR}/ComponentFactory.hpp
+    ${Components_INC_PUBLIC_DIR}/MeshRenderer.hpp
+    ${Components_INC_PUBLIC_DIR}/Transform.hpp
 )
 
 # --------------------------- Core ---------------------------
-set(Core_SRC_DIR ${MAIN_SRC_DIR}/Core)
+set(Core_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Core)
+set(Core_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/Core)
+
 set(Core_SRC
-    ${Core_SRC_DIR}/Assert.hpp
-    ${Core_SRC_DIR}/Core.hpp
-    ${Core_SRC_DIR}/Log.hpp
     ${Core_SRC_DIR}/Log.cpp
+)
+set(Core_INC_PUBLIC
+    ${Core_INC_PUBLIC_DIR}/Assert.hpp
+    ${Core_INC_PUBLIC_DIR}/Core.hpp
+    ${Core_INC_PUBLIC_DIR}/Log.hpp
 )
 
 # -------------------------- Engine --------------------------
-set(Engine_SRC_DIR ${MAIN_SRC_DIR}/Engine)
 set(Engine_SRC
-    ${Engine_SRC_DIR}/Engine.hpp
-    ${Engine_SRC_DIR}/Engine.cpp
+    ${SuperNovaEngine_SRC_DIR}/Engine.cpp
+)
+set(Engine_INC_PUBLIC
+    ${SuperNovaEngine_INC_PUBLIC_DIR}/Engine.hpp
 )
 
 # -------------------------- Entity --------------------------
-set(Entity_SRC_DIR ${MAIN_SRC_DIR}/Entity)
+set(Entity_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Entity)
+set(Entity_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/Entity)
+
 set(Entity_SRC
-    ${Entity_SRC_DIR}/GameObject.hpp
     ${Entity_SRC_DIR}/GameObject.cpp
+)
+set(Entity_INC_PUBLIC
+    ${Entity_INC_PUBLIC_DIR}/GameObject.hpp
 )
 
 # -------------------------- Input ---------------------------
-set(Input_SRC_DIR ${MAIN_SRC_DIR}/Input)
+set(Input_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Input)
+set(Input_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/Input)
+
 set(Input_SRC
-    ${Input_SRC_DIR}/Cursor.hpp
     ${Input_SRC_DIR}/Cursor.cpp
-    ${Input_SRC_DIR}/Input.hpp
-    ${Input_SRC_DIR}/Keyboard.hpp
     ${Input_SRC_DIR}/Keyboard.cpp
-    ${Input_SRC_DIR}/KeyboardKey.hpp
-    ${Input_SRC_DIR}/Mouse.hpp
     ${Input_SRC_DIR}/Mouse.cpp
+)
+set(Input_INC_PUBLIC
+    ${Input_INC_PUBLIC_DIR}/Cursor.hpp
+    ${Input_INC_PUBLIC_DIR}/Input.hpp
+    ${Input_INC_PUBLIC_DIR}/Keyboard.hpp
+    ${Input_INC_PUBLIC_DIR}/KeyboardKey.hpp
+    ${Input_INC_PUBLIC_DIR}/Mouse.hpp
 )
 
 # ------------------------- Renderer -------------------------
-set(Renderer_SRC_DIR ${MAIN_SRC_DIR}/Renderer)
+set(Renderer_SRC_DIR         ${SuperNovaEngine_SRC_DIR}/Renderer)
+set(Renderer_INC_PUBLIC_DIR  ${SuperNovaEngine_INC_PUBLIC_DIR}/Renderer)
+set(Renderer_INC_PRIVATE_DIR ${SuperNovaEngine_INC_PRIVATE_DIR}/Renderer)
 
-set(DirectX11_SRC_DIR ${Renderer_SRC_DIR}/DirectX11)
-set(DirectX11_SRC
-    ${DirectX11_SRC_DIR}/DX11Backend.hpp
-    ${DirectX11_SRC_DIR}/DX11Backend.cpp
-)
-
-set(DirectX12_SRC_DIR ${Renderer_SRC_DIR}/DirectX12)
-set(DirectX12_SRC
-    ${DirectX12_SRC_DIR}/DX12Backend.hpp
-    ${DirectX12_SRC_DIR}/DX12Backend.cpp
-    ${DirectX12_SRC_DIR}/DX12ShaderCompiler.hpp
-    ${DirectX12_SRC_DIR}/DX12ShaderCompiler.cpp
-)
-
+# ------------ OpenGL ------------
 set(OpenGL_SRC_DIR ${Renderer_SRC_DIR}/OpenGL)
+set(OpenGL_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/OpenGL)
 set(OpenGL_SRC
-    ${OpenGL_SRC_DIR}/GLBackend.hpp
     ${OpenGL_SRC_DIR}/GLBackend.cpp
-    ${OpenGL_SRC_DIR}/GLBuffer.hpp
     ${OpenGL_SRC_DIR}/GLBuffer.cpp
-    ${OpenGL_SRC_DIR}/GLShader.hpp
     ${OpenGL_SRC_DIR}/GLShader.cpp
-    ${OpenGL_SRC_DIR}/GLTexture.hpp
     ${OpenGL_SRC_DIR}/GLTexture.cpp
 )
+set(OpenGL_INC_PRIVATE
+    ${OpenGL_INC_PRIVATE_DIR}/GLBackend.hpp
+    ${OpenGL_INC_PRIVATE_DIR}/GLBuffer.hpp
+    ${OpenGL_INC_PRIVATE_DIR}/GLShader.hpp
+    ${OpenGL_INC_PRIVATE_DIR}/GLTexture.hpp
+)
+
+# ---------- DirectX 11 ----------
+set(DirectX11_SRC_DIR ${Renderer_SRC_DIR}/DirectX11)
+set(DirectX11_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/DirectX11)
+set(DirectX11_SRC
+    ${DirectX11_SRC_DIR}/DX11Backend.cpp
+)
+set(DirectX11_INC_PRIVATE
+    ${DirectX11_INC_DIR_PRIVATE}/DX11Backend.hpp
+)
+
+# ---------- DirectX 12 ----------
+set(DirectX12_SRC_DIR ${Renderer_SRC_DIR}/DirectX12)
+set(DirectX12_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/DirectX12)
+set(DirectX12_SRC
+    ${DirectX12_SRC_DIR}/DX12Backend.cpp
+    ${DirectX12_SRC_DIR}/DX12ShaderCompiler.cpp
+)
+set(DirectX12_INC_PRIVATE
+    ${DirectX12_INC_DIR_PRIVATE}/DX12Backend.hpp
+    ${DirectX12_INC_DIR_PRIVATE}/DX12ShaderCompiler.hpp
+)
+
 
 set(Renderer_SRC
-    ${OpenGL_SRC}
-    ${Renderer_SRC_DIR}/IRendererBackend.hpp
-    ${Renderer_SRC_DIR}/Renderer.hpp
     ${Renderer_SRC_DIR}/Renderer.cpp
-    ${Renderer_SRC_DIR}/RenderTypes.hpp
+    ${OpenGL_SRC}
+)
+set(Renderer_INC_PUBLIC
+    ${Renderer_INC_PUBLIC_DIR}/IRendererBackend.hpp
+    ${Renderer_INC_PUBLIC_DIR}/Renderer.hpp
+    ${Renderer_INC_PUBLIC_DIR}/RenderTypes.hpp
+)
+set(Renderer_INC_PRIVATE
+    ${OpenGL_INC_PRIVATE}
 )
 
 if(SNV_PLATFORM_WINDOWS)
@@ -238,19 +300,26 @@ if(SNV_PLATFORM_WINDOWS)
         ${DirectX11_SRC}
         ${DirectX12_SRC}
     )
+    set(Renderer_INC_PRIVATE ${Renderer_INC_PRIVATE}
+        ${DirectX11_INC_PRIVATE}
+        ${DirectX12_INC_PRIVATE}
+    )
 endif()
 
 # -------------------------- Utils ---------------------------
-set(Utils_SRC_DIR ${MAIN_SRC_DIR}/Utils)
+set(Utils_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Utils)
+set(Utils_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/Utils)
+
 set(Utils_SRC
-    ${Utils_SRC_DIR}/Time.hpp
     ${Utils_SRC_DIR}/Time.cpp
-    # ${Utils_SRC_DIR}/Singleton.cpp
+)
+set(Utils_INC_PUBLIC
+    ${Utils_INC_PUBLIC_DIR}/Time.hpp
+    # ${Utils_INC_PUBLIC_DIR}/Singleton.hpp
 )
 
 
-add_executable(SuperNova
-    ${MAIN_SRC_DIR}/main.cpp
+set(SuperNovaEngine_SRC
     ${Application_SRC}
     ${Assets_SRC}
     ${Components_SRC}
@@ -261,14 +330,90 @@ add_executable(SuperNova
     ${Renderer_SRC}
     ${Utils_SRC}
 )
-target_link_libraries(SuperNova PRIVATE ${3RDPARTY_LIBS})
-target_include_directories(SuperNova PRIVATE
-    ${MAIN_SRC_DIR}
-    ${3RDPARTY_LIBS_INCLUDE_DIR}
+set(SuperNovaEngine_INC_PUBLIC
+    ${Application_INC_PUBLIC}
+    ${Assets_INC_PUBLIC}
+    ${Components_INC_PUBLIC}
+    ${Core_INC_PUBLIC}
+    ${Engine_INC_PUBLIC}
+    ${Entity_INC_PUBLIC}
+    ${Input_INC_PUBLIC}
+    ${Renderer_INC_PUBLIC}
+    ${Utils_INC_PUBLIC}
+)
+set(SuperNovaEngine_INC_PRIVATE
+    ${Renderer_INC_PRIVATE}
+)
+
+
+# ----------------------------------------------------------------------------------------------------
+# ------------------------------------- SuperNova-Editor sources -------------------------------------
+# ----------------------------------------------------------------------------------------------------
+set(SuperNovaEditor_DIR         ${SuperNova_DIR}/Editor)
+set(SuperNovaEditor_PRIVATE_DIR ${SuperNovaEditor_DIR}/private)
+
+set(SuperNovaEditor_SRC_DIR         ${SuperNovaEditor_DIR}/source)
+set(SuperNovaEditor_INC_PRIVATE_DIR ${SuperNovaEditor_PRIVATE_DIR}/Editor)
+
+# -------------------------- Editor --------------------------
+set(Editor_SRC
+    ${SuperNovaEditor_SRC_DIR}/Editor.cpp
+)
+set(Editor_INC_PURIVATE
+    ${SuperNovaEditor_INC_PRIVATE_DIR}/Editor.hpp
+)
+
+
+set(SuperNovaEditor_SRC
+    ${SuperNovaEditor_SRC_DIR}/main.cpp
+    ${Editor_SRC}
+)
+set(SuperNovaEditor_INC_PRIVATE
+    ${Editor_INC_PURIVATE}
+)
+
+
+# ----------------------------------------------------------------------------------------------------
+# ---------------------------------------- SuperNova targets -----------------------------------------
+# ----------------------------------------------------------------------------------------------------
+
+# --------------------- SuperNova-Engine ---------------------
+add_library(SuperNovaEngine STATIC
+    ${SuperNovaEngine_SRC}
+    ${SuperNovaEngine_INC_PUBLIC}
+    ${SuperNovaEngine_INC_PRIVATE}
+)
+target_link_libraries(SuperNovaEngine
+    PUBLIC
+        ${SuperNovaEngine_LIBS_PUBLIC}
+    PRIVATE
+        ${SuperNovaEngine_LIBS_PRIVATE}
+)
+target_include_directories(SuperNovaEngine
+    PUBLIC
+        ${SuperNovaEngine_PUBLIC_DIR}
+    PRIVATE
+        ${SuperNovaEngine_PRIVATE_DIR}
+        ${LIBS_INCLUDE_DIR}
+)
+
+# --------------------- SuperNova-Editor ---------------------
+add_executable(SuperNovaEditor
+    ${SuperNovaEditor_SRC}
+    ${SuperNovaEditor_INC_PRIVATE}
+)
+target_link_libraries(SuperNovaEditor
+    PRIVATE
+        SuperNovaEngine
+        ${SuperNovaEditor_LIBS_PRIVATE}
+)
+target_include_directories(SuperNovaEditor
+    PRIVATE
+        ${SuperNovaEditor_PRIVATE_DIR}
 )
 
 if(SNV_PLATFORM_WINDOWS)
-    add_custom_command(TARGET SuperNova POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DXC_SHARED} $<TARGET_FILE_DIR:SuperNova>
+    add_custom_command(TARGET SuperNovaEditor POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DXC_SHARED} $<TARGET_FILE_DIR:SuperNovaEditor>
     )
 endif()
