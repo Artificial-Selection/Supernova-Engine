@@ -36,6 +36,8 @@ public:
 
     [[nodiscard]] static i32 GetWidth()  { return m_width; }
     [[nodiscard]] static i32 GetHeight() { return m_height; }
+
+    [[nodiscard]] static GLFWwindow* GetGlfwWindow() { return m_window; }
 #ifdef SNV_PLATFORM_WINDOWS
     [[nodiscard]] static HWND GetWin32Window();
 #endif

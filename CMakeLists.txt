@@ -349,10 +349,27 @@ set(SuperNovaEngine_INC_PRIVATE
 # ----------------------------------------------------------------------------------------------------
 # ------------------------------------- SuperNova-Editor sources -------------------------------------
 # ----------------------------------------------------------------------------------------------------
-set(SuperNovaEditor_DIR ${SuperNova_DIR}/Editor)
+set(SuperNovaEditor_DIR         ${SuperNova_DIR}/Editor)
+set(SuperNovaEditor_PRIVATE_DIR ${SuperNovaEditor_DIR}/private)
+
+set(SuperNovaEditor_SRC_DIR         ${SuperNovaEditor_DIR}/source)
+set(SuperNovaEditor_INC_PRIVATE_DIR ${SuperNovaEditor_PRIVATE_DIR}/Editor)
+
+# -------------------------- Editor --------------------------
+set(Editor_SRC
+    ${SuperNovaEditor_SRC_DIR}/Editor.cpp
+)
+set(Editor_INC_PURIVATE
+    ${SuperNovaEditor_INC_PRIVATE_DIR}/Editor.hpp
+)
+
 
 set(SuperNovaEditor_SRC
-    ${SuperNovaEditor_DIR}/main.cpp
+    ${SuperNovaEditor_SRC_DIR}/main.cpp
+    ${Editor_SRC}
+)
+set(SuperNovaEditor_INC_PRIVATE
+    ${Editor_INC_PURIVATE}
 )
 
 
@@ -383,11 +400,16 @@ target_include_directories(SuperNovaEngine
 # --------------------- SuperNova-Editor ---------------------
 add_executable(SuperNovaEditor
     ${SuperNovaEditor_SRC}
+    ${SuperNovaEditor_INC_PRIVATE}
 )
 target_link_libraries(SuperNovaEditor
     PRIVATE
         SuperNovaEngine
         ${SuperNovaEditor_LIBS_PRIVATE}
+)
+target_include_directories(SuperNovaEditor
+    PRIVATE
+        ${SuperNovaEditor_PRIVATE_DIR}
 )
 
 if(SNV_PLATFORM_WINDOWS)
