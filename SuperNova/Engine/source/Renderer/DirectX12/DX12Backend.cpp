@@ -488,7 +488,7 @@ BufferHandle DX12Backend::CreateBuffer(
     static ui32 buffer_handle_workaround = 0;
     auto        graphicsBufferHandle     = static_cast<BufferHandle>(buffer_handle_workaround++);
 
-    m_buffers[graphicsBufferHandle] = dx12Buffer;
+    m_buffers[graphicsBufferHandle] = std::move(dx12Buffer);
 
     return graphicsBufferHandle;
 }
@@ -646,7 +646,7 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
     m_device->CreateShaderResourceView(dx12Texture.Texture.Get(), &d3dTextureSRVDesc, srvDescriptorHandle);
 
     auto textureHandle = static_cast<TextureHandle>(texture_handle_workaround++);
-    m_textures[textureHandle] = dx12Texture;
+    m_textures[textureHandle] = std::move(dx12Texture);
 
     WaitForPreviousFrame();
 

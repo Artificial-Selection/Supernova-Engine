@@ -9,7 +9,7 @@ namespace snv
 
 Texture::Texture(const TextureDesc& textureDesc, std::unique_ptr<ui8[]>&& textureData)
     : m_textureData(std::move(textureData))
-    , m_textureHandle(snv::Renderer::CreateTexture(textureDesc, m_textureData.get()))
+    , m_textureHandle(Renderer::CreateTexture(textureDesc, m_textureData.get()))
 {}
 
 Texture::Texture(Texture&& other) noexcept

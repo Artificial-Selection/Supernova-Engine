@@ -38,7 +38,6 @@ set(CONAN_DIR     ${BUILD_DIR}/conan)
 # ----------------------------------------------------------------------------------------------------
 set(ENV{CONAN_USER_HOME} ${PROJECT_SOURCE_DIR})
 
-set(CONAN_DIR ${BUILD_DIR}/conan)
 set(CONAN_BUILD_INFO_FILE ${CONAN_DIR}/conanbuildinfo.txt)
 
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
@@ -50,13 +49,19 @@ if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
 endif()
 
 include(${CONAN_DIR}/conan.cmake)
-conan_cmake_autodetect(settings)
+# NOTE(v.matushkin): CMakePresets.json:
+#  conan-cmake cries about CMAKE_BUILD_TYPE being not set when using visual studio generator is there a way to fix it?
+# NOTE(v.matushkin): How does this work for single configuration types?
+foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
+    conan_cmake_autodetect(settings BUILD_TYPE ${TYPE})
 conan_cmake_run(
     CONANFILE ${PROJECT_SOURCE_DIR}/conanfile.py
     CMAKE_TARGETS
     INSTALL_FOLDER ${CONAN_DIR}
     BUILD missing
 )
+endforeach()
+
 
 if(EXISTS ${CONAN_BUILD_INFO_FILE})
     set(CMAKE_MODULE_PATH ${CONAN_DIR} ${CMAKE_MODULE_PATH})
