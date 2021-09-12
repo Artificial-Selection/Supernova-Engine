@@ -97,6 +97,11 @@ find_package(imgui  REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(stb    REQUIRED)
 
+# -------------------------- Vulkan --------------------------
+# NOTE(v.matushkin): It also finds glslc and glslangValidator(CMake 3.21)
+#  - https://cmake.org/cmake/help/latest/module/FindVulkan.html
+find_package(Vulkan REQUIRED)
+
 
 # --------------------- SuperNova-Engine ---------------------
 set(SuperNovaEngine_LIBS_PUBLIC
@@ -109,6 +114,7 @@ set(SuperNovaEngine_LIBS_PRIVATE
     glm::glm
     spdlog::spdlog
     stb::stb
+    Vulkan::Vulkan
 )
 
 if(SNV_PLATFORM_WINDOWS)
@@ -264,6 +270,16 @@ set(OpenGL_INC_PRIVATE
     ${OpenGL_INC_PRIVATE_DIR}/GLTexture.hpp
 )
 
+# ------------ Vulkan ------------
+set(Vulkan_SRC_DIR ${Renderer_SRC_DIR}/Vulkan)
+set(Vulkan_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/Vulkan)
+set(Vulkan_SRC
+    ${Vulkan_SRC_DIR}/VKBackend.cpp
+)
+set(Vulkan_INC_PRIVATE
+    ${Vulkan_INC_DIR_PRIVATE}/VKBackend.hpp
+)
+
 # ---------- DirectX 11 ----------
 set(DirectX11_SRC_DIR ${Renderer_SRC_DIR}/DirectX11)
 set(DirectX11_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/DirectX11)
@@ -290,6 +306,7 @@ set(DirectX12_INC_PRIVATE
 set(Renderer_SRC
     ${Renderer_SRC_DIR}/Renderer.cpp
     ${OpenGL_SRC}
+    ${Vulkan_SRC}
 )
 set(Renderer_INC_PUBLIC
     ${Renderer_INC_PUBLIC_DIR}/IRendererBackend.hpp
@@ -298,6 +315,7 @@ set(Renderer_INC_PUBLIC
 )
 set(Renderer_INC_PRIVATE
     ${OpenGL_INC_PRIVATE}
+    ${Vulkan_INC_PRIVATE}
 )
 
 if(SNV_PLATFORM_WINDOWS)

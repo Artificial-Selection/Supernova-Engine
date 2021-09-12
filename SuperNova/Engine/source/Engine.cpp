@@ -19,7 +19,7 @@ const f32 k_MovementBoost = 5.0f;
 const char* k_SponzaObjPath = "../../assets/models/Sponza/sponza.obj";
 const char* k_ShaderPath    = "../../assets/shaders/triangle";
 
-const snv::GraphicsApi k_GraphicsApi = snv::GraphicsApi::DirectX12;
+const snv::GraphicsApi k_GraphicsApi = snv::GraphicsApi::Vulkan;
 
 
 namespace snv
