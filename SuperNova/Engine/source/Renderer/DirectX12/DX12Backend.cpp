@@ -754,7 +754,7 @@ void DX12Backend::CreateSwapChain()
     DXGI_SWAP_CHAIN_DESC1 dxgiSwapChainDesc = {
         // .Width,                                      // NOTE(v.matushkin): Specify Width/Height explicitly?
         // .Height
-        .Format      = DXGI_FORMAT_R8G8B8A8_UNORM,      // TODO(v.matushkin): Shouldn't be hardcoded
+        .Format      = DXGI_FORMAT_R8G8B8A8_UNORM,      // TODO(v.matushkin): <SwapchainCreation/Format>
         .Stereo      = false,
         .SampleDesc  = dxgiSwapChainSampleDesc,
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,

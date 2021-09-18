@@ -3,7 +3,8 @@
 #include <Engine/Core/Core.hpp>
 #include <Engine/Renderer/IRendererBackend.hpp>
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vk_platform.h>
+#include <vulkan/vulkan_core.h>
 
 
 namespace snv
@@ -11,6 +12,8 @@ namespace snv
 
 class VKBackend final : public IRendererBackend
 {
+    static const ui32 k_BackBufferFrames = 3;
+
 public:
     VKBackend();
     ~VKBackend() override;
@@ -41,21 +44,37 @@ public:
 
 private:
     void CreateInstance();
+    void CreateSurface();
+    void CreateDevice();
+    void CreateSwapchain();
+    void CreateGraphicsPipeline();
 
 #ifdef SNV_GPU_API_DEBUG_ENABLED
     VkDebugUtilsMessengerCreateInfoEXT CreateDebugUtilsMessengerInfo();
     void CreateDebugUtilsMessenger();
 #endif
 
+    // Helpers
+    bool IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& graphicsQueueFamily);
     // void EnumerateInstanceLayerProperties();
     // void EnumerateInstanceExtensionProperties();
+    // void CheckDeviceExtensionsSupport(VkPhysicalDevice physicalDevice);
 
 private:
     VkInstance               m_instance;
+    VkPhysicalDevice         m_physiacalDevice;
+    VkDevice                 m_device;
+    VkQueue                  m_graphicsQueue;
+
+    VkSurfaceKHR             m_surface;
+    VkSwapchainKHR           m_swapchain;
+    VkImageView              m_backBuffers[k_BackBufferFrames];
 
 #ifdef SNV_GPU_API_DEBUG_ENABLED
     VkDebugUtilsMessengerEXT m_debugMessenger;
 #endif
+
+    ui32 m_graphicsQueueFamily;
 };
 
 } // namespace snv
