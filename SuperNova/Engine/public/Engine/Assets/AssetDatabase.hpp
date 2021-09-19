@@ -26,15 +26,23 @@ class AssetDatabase
     using Textures = Assets<Texture>;
 
 public:
+    static void Init(std::string assetDirectory);
+
     template<class T>
     [[nodiscard]] static std::shared_ptr<T> LoadAsset(const std::string& assetPath);
 
 private:
-    [[nodiscard]] static Model   LoadModel(const char* modelPath);
+    [[nodiscard]] static Model   LoadModel(const std::string& modelName);
     [[nodiscard]] static Texture LoadTexture(const std::string& texturePath);
-    [[nodiscard]] static Shader  LoadShader(const std::string& shaderPath);
+    [[nodiscard]] static Shader  LoadShader(const std::string& shaderName);
 
 private:
+    static inline std::string m_assetDir;
+    static inline std::string m_modelDir;
+    static inline std::string m_glShaderDir;
+    static inline std::string m_vkShaderDir;
+    static inline std::string m_dxShaderDir;
+
     static inline Models    m_models;
     static inline Textures  m_textures;
     static inline ShaderPtr m_theOneAndOnlyForNow;
