@@ -281,9 +281,11 @@ set(Vulkan_SRC_DIR ${Renderer_SRC_DIR}/Vulkan)
 set(Vulkan_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/Vulkan)
 set(Vulkan_SRC
     ${Vulkan_SRC_DIR}/VKBackend.cpp
+    ${Vulkan_SRC_DIR}/VKShaderCompiler.cpp
 )
 set(Vulkan_INC_PRIVATE
     ${Vulkan_INC_DIR_PRIVATE}/VKBackend.hpp
+    ${Vulkan_INC_DIR_PRIVATE}/VKShaderCompiler.hpp
 )
 
 # ---------- DirectX 11 ----------
