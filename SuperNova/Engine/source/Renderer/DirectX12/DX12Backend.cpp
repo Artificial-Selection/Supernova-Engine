@@ -131,7 +131,7 @@ const DXGI_FORMAT k_DepthStencilFormat = DXGI_FORMAT_D32_FLOAT;
 const f32 k_DepthClearValue = 1.0f;
 
 // TODO(v.matushkin): <RenderGraph>
-bool g_IsPipelineInitialized = false;
+static bool g_IsPipelineInitialized = false;
 
 // TODO(v.matushkin): <DynamicTextureDescriptorHeap>
 const ui32 k_MaxTextureDescriptors = 300;
@@ -258,6 +258,7 @@ void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
     // TODO(v.matushkin): <RenderGraph>
     if (g_IsPipelineInitialized == false)
     {
+        g_IsPipelineInitialized = true;
         CreatePipeline();
     }
 
@@ -1153,10 +1154,7 @@ void DX12Backend::CreatePipeline()
     };
     d3dGraphicsPipelineDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-    auto hr = m_device->CreateGraphicsPipelineState(&d3dGraphicsPipelineDesc, IID_PPV_ARGS(m_graphicsPipeline.GetAddressOf()));
-
-    // TODO(v.matushkin): <RenderGraph>
-    g_IsPipelineInitialized = true;
+    m_device->CreateGraphicsPipelineState(&d3dGraphicsPipelineDesc, IID_PPV_ARGS(m_graphicsPipeline.GetAddressOf()));
 }
 
 

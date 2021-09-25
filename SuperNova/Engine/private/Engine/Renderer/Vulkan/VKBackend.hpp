@@ -3,8 +3,9 @@
 #include <Engine/Core/Core.hpp>
 #include <Engine/Renderer/IRendererBackend.hpp>
 
-#include <vulkan/vk_platform.h>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
+
+#include <unordered_map>
 
 
 namespace snv
@@ -13,6 +14,14 @@ namespace snv
 class VKBackend final : public IRendererBackend
 {
     static const ui32 k_BackBufferFrames = 3;
+
+
+    struct VKShader
+    {
+        VkShaderModule Vertex;
+        VkShaderModule Fragment;
+    };
+
 
 public:
     VKBackend();
@@ -47,7 +56,14 @@ private:
     void CreateSurface();
     void CreateDevice();
     void CreateSwapchain();
-    void CreateGraphicsPipeline();
+    void CreateRenderPass();
+    void CreateFramebuffers();
+    void CreatePipeline();
+
+    void CreateCommandPool();
+    // NOTE(v.matushkin): Should be reworked, can't prerecord commandbuffer in the real world
+    void CreateCommandBuffers();
+    void CreateSyncronizationObjects();
 
 #ifdef SNV_GPU_API_DEBUG_ENABLED
     VkDebugUtilsMessengerCreateInfoEXT CreateDebugUtilsMessengerInfo();
@@ -65,16 +81,35 @@ private:
     VkPhysicalDevice         m_physiacalDevice;
     VkDevice                 m_device;
     VkQueue                  m_graphicsQueue;
+    ui32                     m_graphicsQueueFamily;
 
     VkSurfaceKHR             m_surface;
     VkSwapchainKHR           m_swapchain;
+    VkExtent2D               m_swapchainExtent;
     VkImageView              m_backBuffers[k_BackBufferFrames];
+    VkFramebuffer            m_framebuffers[k_BackBufferFrames];
+    ui32                     m_currentBackBufferIndex;
+
+    VkRenderPass             m_renderPass;
+    VkPipelineLayout         m_pipelineLayout;
+    VkPipeline               m_graphicsPipeline;
+
+    VkCommandPool            m_commandPool;
+    VkCommandBuffer          m_commandBuffers[k_BackBufferFrames];
+
+    VkSemaphore              m_semaphoreImageAvailable[k_BackBufferFrames];
+    VkSemaphore              m_semaphoreRenderFinished[k_BackBufferFrames];
+    VkFence                  m_fences[k_BackBufferFrames];
+    ui32                     m_currentFrame;
 
 #ifdef SNV_GPU_API_DEBUG_ENABLED
     VkDebugUtilsMessengerEXT m_debugMessenger;
 #endif
 
-    ui32 m_graphicsQueueFamily;
+
+    VkClearValue             m_clearValue; // NOTE(v.matushkin): Different from other backends, default initialized
+
+    std::unordered_map<ShaderHandle, VKShader> m_shaders;
 };
 
 } // namespace snv

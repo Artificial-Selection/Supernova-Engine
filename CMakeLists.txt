@@ -53,12 +53,12 @@ endif()
 # NOTE(v.matushkin): How does this work for single configuration types?
 foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
     conan_cmake_autodetect(settings BUILD_TYPE ${TYPE})
-conan_cmake_run(
-    CONANFILE ${PROJECT_SOURCE_DIR}/conanfile.py
-    CMAKE_TARGETS
-    INSTALL_FOLDER ${CONAN_DIR}
-    BUILD missing
-)
+    conan_cmake_run(
+        CONANFILE ${PROJECT_SOURCE_DIR}/conanfile.py
+        CMAKE_TARGETS
+        INSTALL_FOLDER ${CONAN_DIR}
+        BUILD missing
+    )
 endforeach()
 
 
