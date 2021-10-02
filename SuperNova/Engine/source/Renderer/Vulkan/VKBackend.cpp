@@ -15,7 +15,6 @@
 
 #include <limits>
 
-
 // TODO(v.matushkin):
 // - <SurfaceCreation>
 //   I can put surface creation in Window class and use GLFW methods, but I think this is wrong
@@ -48,6 +47,29 @@
 //   [LINKS]
 //     - https://www.reddit.com/r/vulkan/comments/jtuhmu/synchronizing_frames_in_flight/
 //     - https://vkguide.dev/docs/chapter-4/double_buffering/
+//
+// - <CommandBuffers>
+//   Not sure that I'm using/reusing them the right way. Learn about:
+//     - VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
+//     - VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+//     - other relevant flags?
+//
+// - <UniformBuffers>
+//   - Do not use 'alignas(256)' and query minUniformBufferOffsetAlignment with VkPhysicalDeviceProperties?
+//     Or member alignment and minimus uniform buffer size is a different things?
+//   - Place all UniformBuffers in one VkDeviceMemory?
+//   - Always mapped?
+//   [LINKS]
+//     - https://developer.nvidia.com/vulkan-shader-resource-binding
+//     - Not sure how relevant this is http://kylehalladay.com/blog/tutorial/vulkan/2017/08/13/Vulkan-Uniform-Buffers.html
+//     - http://kylehalladay.com/blog/tutorial/2017/11/27/Vulkan-Material-System.html
+//
+// - <DescriptorSet>
+//   What are the values for
+//     - VkDescriptorPoolSize::descriptorCount
+//     - VkDescriptorPoolCreateInfo::maxSets
+//     - VkDescriptorSetAllocateInfo::descriptorSetCount
+//   should be?
 
 
 // NOTE(v.matushkin): Just use c++17 std::size() or c++20 std::ssize() ?
@@ -79,7 +101,15 @@ const char* vk_DeviceExtensions[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 
+namespace ShaderBinding
+{
+    const ui32 PerFrame = 0;
+    const ui32 PerDraw  = 1;
+} // namespace ShaderBinding
+
 const VkFormat k_SwapchainFormat    = VK_FORMAT_B8G8R8A8_UNORM;
+// NOTE(v.mnatushkin): 0.04s, this will break for FPS <30, I'm sure I'm doing this acquire/present thing wrong
+const ui64 k_Timeout                = 40'000'000;
 // TODO(v.matushkin): <RenderGraph>
 static bool g_IsPipelineInitialized = false;
 
@@ -173,7 +203,14 @@ VKBackend::VKBackend()
     CreateRenderPass();
     CreateFramebuffers();
     CreateCommandPool();
+    CreateCommandBuffers();
+    FindMemoryTypeIndices();
     CreateSyncronizationObjects();
+
+    CreateUniformBuffers();
+    CreateDescriptorPool();
+    CreateDescriptorSetLayout();
+    CreateDescriptorSets();
 }
 
 VKBackend::~VKBackend()
@@ -182,6 +219,43 @@ VKBackend::~VKBackend()
 
     vkQueueWaitIdle(m_graphicsQueue);
 
+    //- Resources
+    //-- Uniform Buffers
+    for (ui32 i = 0; i < k_BackBufferFrames; ++i)
+    {
+        vkDestroyBuffer(m_device, m_ubPerDraw[i], nullptr);
+        vkDestroyBuffer(m_device, m_ubPerFrame[i], nullptr);
+
+        vkFreeMemory(m_device, m_ubPerDrawMemory[i], nullptr);
+        vkFreeMemory(m_device, m_ubPerFrameMemory[i], nullptr);
+    }
+    //-- Buffers
+    for (auto& handleAndBuffer : m_buffers)
+    {
+        auto& buffer = handleAndBuffer.second;
+
+        vkDestroyBuffer(m_device, buffer.Index, nullptr);
+        vkDestroyBuffer(m_device, buffer.Position, nullptr);
+        vkDestroyBuffer(m_device, buffer.Normal, nullptr);
+        vkDestroyBuffer(m_device, buffer.TexCoord0, nullptr);
+
+        vkFreeMemory(m_device, buffer.IndexMemory, nullptr);
+        vkFreeMemory(m_device, buffer.PositionMemory, nullptr);
+        vkFreeMemory(m_device, buffer.NormalMemory, nullptr);
+        vkFreeMemory(m_device, buffer.TexCoord0Memory, nullptr);
+    }
+    //-- Shaders
+    // NOTE(v.matushkin): Delete them afetr pipeline creation?
+    for (auto& handleAndShader : m_shaders)
+    {
+        auto& shader = handleAndShader.second;
+
+        vkDestroyShaderModule(m_device, shader.Vertex, nullptr);
+        vkDestroyShaderModule(m_device, shader.Fragment, nullptr);
+    }
+
+    //- Vulkan
+    //-- Syncronization Objects
     for (ui32 i = 0; i < k_BackBufferFrames; ++i)
     {
         vkDestroySemaphore(m_device, m_semaphoreImageAvailable[i], nullptr);
@@ -192,20 +266,19 @@ VKBackend::~VKBackend()
 
     vkDestroyCommandPool(m_device, m_commandPool, nullptr);
 
-    // NOTE(v.matushkin): Delete them afetr pipeline creation?
-    auto& shader = m_shaders.begin()->second;
-    vkDestroyShaderModule(m_device, shader.Vertex, nullptr);
-    vkDestroyShaderModule(m_device, shader.Fragment, nullptr);
+    vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
 
     for (ui32 i = 0; i < k_BackBufferFrames; ++i)
     {
         vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
     }
 
+    //-- Graphics Pipeline
     vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
+    vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
     vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
     vkDestroyRenderPass(m_device, m_renderPass, nullptr);
-
+    //-- Swapchain
     for (ui32 i = 0; i < k_BackBufferFrames; ++i)
     {
         vkDestroyImageView(m_device, m_backBuffers[i], nullptr);
@@ -256,19 +329,89 @@ void VKBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
     {
         g_IsPipelineInitialized = true;
         CreatePipeline();
-        CreateCommandBuffers();
     }
 
-    // NOTE(v.mnatushkin): 0.04s, this will break for FPS <30, I'm sure I'm doing this acquire/present thing wrong
-    const auto timeout = 40'000'000;
-
     auto semaphoreImageAvailable = m_semaphoreImageAvailable[m_currentFrame];
-
-    vkAcquireNextImageKHR(m_device, m_swapchain, timeout, semaphoreImageAvailable, nullptr, &m_currentBackBufferIndex);
+    vkAcquireNextImageKHR(m_device, m_swapchain, k_Timeout, semaphoreImageAvailable, nullptr, &m_currentBackBufferIndex);
 
     auto fence = m_fences[m_currentBackBufferIndex];
-    vkWaitForFences(m_device, 1, &fence, VK_TRUE, timeout);
+    vkWaitForFences(m_device, 1, &fence, VK_TRUE, k_Timeout);
     vkResetFences(m_device, 1, &fence);
+
+    // NOTE(v.matushkin): VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT ?
+    VkCommandBufferBeginInfo vkCommandBufferBegin = {
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext            = nullptr,
+        .flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pInheritanceInfo = nullptr, // NOTE(v.matushkin): For secondary command buffers
+    };
+    VkRect2D vkRenderArea = {
+        .offset = {0, 0},
+        .extent = m_swapchainExtent,
+    };
+    VkRenderPassBeginInfo vkRenderPassBegin = {
+        .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext           = nullptr,
+        .renderPass      = m_renderPass,
+        .framebuffer     = m_framebuffers[m_currentBackBufferIndex],
+        .renderArea      = vkRenderArea,
+        .clearValueCount = 1,
+        .pClearValues    = &m_clearValue,
+    };
+
+    // NOTE(v.matushkin): Just make a m_currentCommandBuffer member?
+    auto commandBuffer = m_commandBuffers[m_currentBackBufferIndex];
+    vkResetCommandBuffer(commandBuffer, 0);
+    vkBeginCommandBuffer(commandBuffer, &vkCommandBufferBegin);
+    // NOTE(v.matushkin): vkCmdBeginRenderPass2 ?
+    vkCmdBeginRenderPass(commandBuffer, &vkRenderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
+
+    //- Update Uniform Buffers
+    {
+        void* data;
+        //-- PerFrame
+        PerFrame ubPerFrame = {
+            ._CameraView       = cameraView,
+            ._CameraProjection = cameraProjection,
+        };
+        auto ubPerFrameMemory = m_ubPerFrameMemory[m_currentBackBufferIndex];
+
+        vkMapMemory(m_device, ubPerFrameMemory, 0, sizeof(PerFrame), 0, &data);
+        std::memcpy(data, &ubPerFrame, sizeof(PerFrame));
+        vkUnmapMemory(m_device, ubPerFrameMemory);
+
+        //-- PerDraw
+        PerDraw ubPerDraw = {
+            ._ObjectToWorld = localToWorld
+        };
+        auto ubPerDrawMemory = m_ubPerDrawMemory[m_currentBackBufferIndex];
+
+        vkMapMemory(m_device, ubPerDrawMemory, 0, sizeof(PerDraw), 0, &data);
+        std::memcpy(data, &ubPerDraw, sizeof(PerDraw));
+        vkUnmapMemory(m_device, ubPerDrawMemory);
+    }
+
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_pipelineLayout,
+        0,
+        1,
+        &m_descriptorSets[m_currentBackBufferIndex],
+        0,
+        nullptr
+    );
+}
+
+void VKBackend::EndFrame()
+{
+    auto commandBuffer = m_commandBuffers[m_currentBackBufferIndex];
+    vkCmdEndRenderPass(commandBuffer);
+    vkEndCommandBuffer(commandBuffer);
+
+    auto semaphoreImageAvailable = m_semaphoreImageAvailable[m_currentFrame];
+    auto semaphoreRenderFinished = m_semaphoreRenderFinished[m_currentFrame];
 
     const VkPipelineStageFlags vkPipelineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     // NOTE(v.matushkin): VkSubmitInfo2KHR ?
@@ -283,13 +426,7 @@ void VKBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
         .signalSemaphoreCount = 1,
         .pSignalSemaphores    = &m_semaphoreRenderFinished[m_currentFrame],
     };
-
-    vkQueueSubmit(m_graphicsQueue, 1, &vkSubmitInfo, fence);
-}
-
-void VKBackend::EndFrame()
-{
-    auto semaphoreRenderFinished = m_semaphoreRenderFinished[m_currentFrame];
+    vkQueueSubmit(m_graphicsQueue, 1, &vkSubmitInfo, m_fences[m_currentBackBufferIndex]);
 
     VkPresentInfoKHR vkPresentInfo = {
         .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -307,7 +444,17 @@ void VKBackend::EndFrame()
 }
 
 void VKBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
-{}
+{
+    auto commandBuffer = m_commandBuffers[m_currentBackBufferIndex];
+    const auto& buffer = m_buffers[bufferHandle];
+
+    VkBuffer     vkVertexBuffers[] = {buffer.Position, buffer.Normal, buffer.TexCoord0};
+    VkDeviceSize vkOffsets[]       = {0, 0, 0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 3, vkVertexBuffers, vkOffsets);
+    // TODO(v.matushkin): Vertex type shouldn't be hardcoded
+    vkCmdBindIndexBuffer(commandBuffer, buffer.Index, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+}
 
 void VKBackend::DrawArrays(i32 count)
 {}
@@ -322,7 +469,233 @@ BufferHandle VKBackend::CreateBuffer(
     const std::vector<VertexAttributeDesc>& vertexLayout
 )
 {
-    return BufferHandle();
+    // NOTE(v.matushkin): It almost like it got slower after moving VkBuffer
+    // from VISIBLE|COHERENT to DEVICE LOCAL, it can't be, right?
+
+    VKBuffer buffer;
+
+    VkBuffer* vkBuffers[] = {
+        &buffer.Position,
+        &buffer.Normal,
+        &buffer.TexCoord0,
+    };
+    VkDeviceMemory* vkBuffersMemory[] = {
+        &buffer.PositionMemory,
+        &buffer.NormalMemory,
+        &buffer.TexCoord0Memory,
+    };
+
+    VkBuffer       vkStagingBuffers[4];
+    VkDeviceMemory vkStagingBuffersMemory[4];
+
+    //- Create transfer VkCommnadBuffer
+    VkCommandBufferAllocateInfo vkCommandBufferInfo = {
+        .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool        = m_commandPool,
+        .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    VkCommandBuffer vkCommandBuffer;
+    vkAllocateCommandBuffers(m_device, &vkCommandBufferInfo, &vkCommandBuffer);
+
+    VkCommandBufferBeginInfo vkCommandBufferBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    vkBeginCommandBuffer(vkCommandBuffer, &vkCommandBufferBeginInfo);
+
+    VkBufferCopy vkBufferCopyRegion = {
+        .srcOffset = 0,
+        .dstOffset = 0,
+    };
+
+    //- Create Vertex buffers
+    for (ui32 i = 0; i < vertexLayout.size(); ++i)
+    {
+        // TODO(v.matushkin): Adjust VertexAttributeDescriptor to remove this hacks
+        const auto& vertexAttribute = vertexLayout[i];
+        const auto  currOffset      = vertexAttribute.Offset;
+        const auto  nextOffset      = (i + 1) < vertexLayout.size() ? vertexLayout[i + 1].Offset : vertexData.size_bytes();
+        const auto  attributeSize   = (nextOffset - currOffset);
+
+        //-- Create staging VkBuffer
+        auto& vkStagingBuffer       = vkStagingBuffers[i];
+        auto& vkStagingBufferMemory = vkStagingBuffersMemory[i];
+        {
+            VkBufferCreateInfo vkBufferInfo = {
+                .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .pNext                 = nullptr,
+                .flags                 = 0,
+                .size                  = attributeSize,
+                .usage                 = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+                .queueFamilyIndexCount = 0, // NOTE(v.matushkin): This is for VK_SHARING_MODE_CONCURRENT ?
+                .pQueueFamilyIndices   = nullptr,
+            };
+            vkCreateBuffer(m_device, &vkBufferInfo, nullptr, &vkStagingBuffer);
+
+            // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
+            VkMemoryRequirements vkMemoryRequirements;
+            vkGetBufferMemoryRequirements(m_device, vkStagingBuffer, &vkMemoryRequirements);
+
+            //--- Allocate VkDeviceMemory
+            VkMemoryAllocateInfo vkAllocateInfo = {
+                .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                .pNext           = nullptr,
+                .allocationSize  = vkMemoryRequirements.size,
+                .memoryTypeIndex = m_bufferMemoryTypeIndex.CPUtoGPU,
+            };
+            vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &vkStagingBufferMemory);
+
+            //--- Bind VkDeviceMemory to VkBuffer
+            // NOTE(v.matushkin): Use vkBindBufferMemory2 to bind multiple buffers at once?
+            vkBindBufferMemory(m_device, vkStagingBuffer, vkStagingBufferMemory, 0);
+
+            //--- Copy vertex data to VkDeviceMemory
+            void* data;
+            vkMapMemory(m_device, vkStagingBufferMemory, 0, attributeSize, 0, &data);
+            std::memcpy(data, vertexData.data() + currOffset, attributeSize);
+            vkUnmapMemory(m_device, vkStagingBufferMemory);
+        }
+        //-- Create GPU VkBuffer
+        auto vkBuffer       = vkBuffers[i];
+        auto vkBufferMemory = vkBuffersMemory[i];
+        {
+            VkBufferCreateInfo vkStagingBufferInfo = {
+                .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .pNext                 = nullptr,
+                .flags                 = 0,
+                .size                  = attributeSize,
+                .usage                 = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+                .queueFamilyIndexCount = 0, // NOTE(v.matushkin): This is for VK_SHARING_MODE_CONCURRENT ?
+                .pQueueFamilyIndices   = nullptr,
+            };
+            vkCreateBuffer(m_device, &vkStagingBufferInfo, nullptr, vkBuffer);
+
+            // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
+            VkMemoryRequirements vkMemoryRequirements;
+            vkGetBufferMemoryRequirements(m_device, *vkBuffer, &vkMemoryRequirements);
+
+            //--- Allocate VkDeviceMemory
+            VkMemoryAllocateInfo vkAllocateInfo = {
+                .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                .pNext           = nullptr,
+                .allocationSize  = vkMemoryRequirements.size,
+                .memoryTypeIndex = m_bufferMemoryTypeIndex.VertexGPU,
+            };
+            vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, vkBufferMemory);
+
+            //--- Bind VkDeviceMemory to VkBuffer
+            // NOTE(v.matushkin): Use vkBindBufferMemory2 to bind multiple buffers at once?
+            vkBindBufferMemory(m_device, *vkBuffer, *vkBufferMemory, 0);
+        }
+
+        vkBufferCopyRegion.size = attributeSize;
+        // NOTE(v.matushkin): vkCmdCopyBuffer2KHR ?
+        vkCmdCopyBuffer(vkCommandBuffer, vkStagingBuffer, *vkBuffer, 1, &vkBufferCopyRegion);
+    }
+
+    //- Create Index buffer
+    //-- Create staging VkBuffer
+    auto& vkIndexStagingBuffer       = vkStagingBuffers[3];
+    auto& vkIndexStagingBufferMemory = vkStagingBuffersMemory[3];
+    {
+        VkBufferCreateInfo vkBufferInfo = {
+            .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .pNext                 = nullptr,
+            .flags                 = 0,
+            .size                  = indexData.size_bytes(),
+            .usage                 = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0, // NOTE(v.matushkin): This is for VK_SHARING_MODE_CONCURRENT ?
+            .pQueueFamilyIndices   = nullptr,
+        };
+        vkCreateBuffer(m_device, &vkBufferInfo, nullptr, &vkIndexStagingBuffer);
+
+        // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
+        VkMemoryRequirements vkMemoryRequirements;
+        vkGetBufferMemoryRequirements(m_device, vkIndexStagingBuffer, &vkMemoryRequirements);
+
+        //--- Allocate VkDeviceMemory
+        VkMemoryAllocateInfo vkAllocateInfo = {
+            .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext           = nullptr,
+            .allocationSize  = vkMemoryRequirements.size,
+            .memoryTypeIndex = m_bufferMemoryTypeIndex.CPUtoGPU,
+        };
+        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &vkIndexStagingBufferMemory);
+
+        //--- Bind VkDeviceMemory to VkBuffer
+        // NOTE(v.matushkin): Use vkBindBufferMemory2 to bind multiple buffers at once?
+        vkBindBufferMemory(m_device, vkIndexStagingBuffer, vkIndexStagingBufferMemory, 0);
+
+        //--- Copy vertex data to VkDeviceMemory
+        void* data;
+        vkMapMemory(m_device, vkIndexStagingBufferMemory, 0, indexData.size_bytes(), 0, &data);
+        std::memcpy(data, indexData.data(), indexData.size_bytes());
+        vkUnmapMemory(m_device, vkIndexStagingBufferMemory);
+    }
+    //-- Create GPU VkBuffer
+    {
+        VkBufferCreateInfo vkStagingBufferInfo = {
+            .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .pNext                 = nullptr,
+            .flags                 = 0,
+            .size                  = indexData.size_bytes(),
+            .usage                 = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0, // NOTE(v.matushkin): This is for VK_SHARING_MODE_CONCURRENT ?
+            .pQueueFamilyIndices   = nullptr,
+        };
+        vkCreateBuffer(m_device, &vkStagingBufferInfo, nullptr, &buffer.Index);
+
+        // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
+        VkMemoryRequirements vkMemoryRequirements;
+        vkGetBufferMemoryRequirements(m_device, buffer.Index, &vkMemoryRequirements);
+
+        //--- Allocate VkDeviceMemory
+        VkMemoryAllocateInfo vkAllocateInfo = {
+            .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext           = nullptr,
+            .allocationSize  = vkMemoryRequirements.size,
+            .memoryTypeIndex = m_bufferMemoryTypeIndex.VertexGPU,
+        };
+        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &buffer.IndexMemory);
+
+        //--- Bind VkDeviceMemory to VkBuffer
+        // NOTE(v.matushkin): Use vkBindBufferMemory2 to bind multiple buffers at once?
+        vkBindBufferMemory(m_device, buffer.Index, buffer.IndexMemory, 0);
+    }
+
+    vkBufferCopyRegion.size = indexData.size_bytes();
+    vkCmdCopyBuffer(vkCommandBuffer, vkStagingBuffers[3], buffer.Index, 1, &vkBufferCopyRegion);
+
+    //- Copy vertex data from staging buffers to GPU
+    vkEndCommandBuffer(vkCommandBuffer);
+    VkSubmitInfo vkSubmitInfo = {
+        .sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers    = &vkCommandBuffer,
+    };
+    vkQueueSubmit(m_graphicsQueue, 1, &vkSubmitInfo, nullptr);
+    vkQueueWaitIdle(m_graphicsQueue);
+
+    vkFreeCommandBuffers(m_device, m_commandPool, 1, &vkCommandBuffer);
+
+    //- Destroy staging buffers
+    for (ui32 i = 0; i < 4; ++i)
+    {
+        vkDestroyBuffer(m_device, vkStagingBuffers[i], nullptr);
+        vkFreeMemory(m_device, vkStagingBuffersMemory[i], nullptr);
+    }
+
+    static ui32 buffer_handle_workaround = 0;
+    auto        bufferHandle     = static_cast<BufferHandle>(buffer_handle_workaround++);
+
+    m_buffers[bufferHandle] = buffer;
+
+    return bufferHandle;
 }
 
 TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
@@ -389,24 +762,24 @@ void VKBackend::CreateInstance()
     vkInstanceInfo.ppEnabledLayerNames = vk_ValidationLayers;
 
     //- Enable Best Practices Validation extension
-    // VkValidationFeatureEnableEXT vkValidationFeaturesEnable[] = {
-    //     VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
-    //     VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
-    //     VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
-    // };
-    // 
-    // VkValidationFeaturesEXT vkValidationFeatures = {
-    //     .sType                          = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
-    //     .pNext                          = nullptr,
-    //     .enabledValidationFeatureCount  = ARRAYSIZE(vkValidationFeaturesEnable),
-    //     .pEnabledValidationFeatures     = vkValidationFeaturesEnable,
-    //     .disabledValidationFeatureCount = 0,
-    //     .pDisabledValidationFeatures    = nullptr,
-    // };
+    VkValidationFeatureEnableEXT vkValidationFeaturesEnable[] = {
+        VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+        //VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+        //VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+    };
+    
+    VkValidationFeaturesEXT vkValidationFeatures = {
+        .sType                          = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+        .pNext                          = nullptr,
+        .enabledValidationFeatureCount  = ARRAYSIZE(vkValidationFeaturesEnable),
+        .pEnabledValidationFeatures     = vkValidationFeaturesEnable,
+        .disabledValidationFeatureCount = 0,
+        .pDisabledValidationFeatures    = nullptr,
+    };
 
     //- Create Instance Debug Messenger
     auto vkDebugUtilsMessengerInfo  = CreateDebugUtilsMessengerInfo();
-    // vkDebugUtilsMessengerInfo.pNext = &vkValidationFeatures;
+    //vkDebugUtilsMessengerInfo.pNext = &vkValidationFeatures;
 
     vkInstanceInfo.pNext = &vkDebugUtilsMessengerInfo;
 #endif
@@ -718,6 +1091,37 @@ void VKBackend::CreateFramebuffers()
     }
 }
 
+void VKBackend::CreateDescriptorSetLayout()
+{
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBindings[] = {
+        // PerFrame
+        {
+            .binding            = ShaderBinding::PerFrame,
+            .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount    = 1,
+            .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
+            .pImmutableSamplers = nullptr,
+        },
+        // PerDraw
+        {
+            .binding            = ShaderBinding::PerDraw,
+            .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount    = 1,
+            .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
+            .pImmutableSamplers = nullptr,
+        },
+    };
+
+    VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutInfo = {
+        .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext        = nullptr,
+        .flags        = 0,
+        .bindingCount = ARRAYSIZE(vkDescriptorSetLayoutBindings),
+        .pBindings    = vkDescriptorSetLayoutBindings,
+    };
+    vkCreateDescriptorSetLayout(m_device, &vkDescriptorSetLayoutInfo, nullptr, &m_descriptorSetLayout);
+}
+
 void VKBackend::CreatePipeline()
 {
     //- ShaderStages
@@ -746,26 +1150,52 @@ void VKBackend::CreatePipeline()
     };
 
     //- VertexInput
-    // NOTE(v.matushkin): This will be complicated
-    /*VkVertexInputBindingDescription vkVertexInputBindingDescription = {
-        .binding   = 0,
-        .stride    = ,
-        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+    // TODO(v.matushkin): Hardcoded
+    VkVertexInputBindingDescription vkVertexBindingDescriptions[] = {
+        {
+            .binding   = 0,
+            .stride    = sizeof(f32) * 3,
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        },
+        {
+            .binding   = 1,
+            .stride    = sizeof(f32) * 3,
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        },
+        {
+            .binding   = 2,
+            .stride    = sizeof(f32) * 3,
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        },
     };
-    VkVertexInputAttributeDescription vkVertexInputAttributeDescription = {
-        .location = ,
-        .binding  = ,
-        .format   = ,
-        .offset   = ,
-    };*/
+    VkVertexInputAttributeDescription vkVertexAttributeDescriptions[] = {
+        {
+            .location = 0,
+            .binding  = 0,
+            .format   = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset   = 0,
+        },
+        {
+            .location = 1,
+            .binding  = 1,
+            .format   = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset   = 0,
+        },
+        {
+            .location = 2,
+            .binding  = 2,
+            .format   = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset   = 0,
+        },
+    };
     VkPipelineVertexInputStateCreateInfo vkVertexInputState = {
         .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .pNext                           = nullptr,
         .flags                           = 0, // SPEC: reserved for future use
-        .vertexBindingDescriptionCount   = 0,
-        .pVertexBindingDescriptions      = nullptr,
-        .vertexAttributeDescriptionCount = 0,
-        .pVertexAttributeDescriptions    = nullptr,
+        .vertexBindingDescriptionCount   = ARRAYSIZE(vkVertexBindingDescriptions),
+        .pVertexBindingDescriptions      = vkVertexBindingDescriptions,
+        .vertexAttributeDescriptionCount = ARRAYSIZE(vkVertexAttributeDescriptions),
+        .pVertexAttributeDescriptions    = vkVertexAttributeDescriptions,
     };
 
     //- InputAssembly
@@ -878,8 +1308,8 @@ void VKBackend::CreatePipeline()
         .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext                  = nullptr,
         .flags                  = 0, // SPEC: reserved for future use
-        .setLayoutCount         = 0,
-        .pSetLayouts            = nullptr,
+        .setLayoutCount         = 1,
+        .pSetLayouts            = &m_descriptorSetLayout,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges    = nullptr,
     };
@@ -911,6 +1341,146 @@ void VKBackend::CreatePipeline()
     vkCreateGraphicsPipelines(m_device, nullptr, 1, &vkGraphicsPipelineInfo, nullptr, &m_graphicsPipeline);
 }
 
+void VKBackend::CreateUniformBuffers()
+{
+    VkBufferCreateInfo vkStagingBufferInfo = {
+        .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext                 = nullptr,
+        .flags                 = 0,
+        .size                  = sizeof(PerFrame),
+        .usage                 = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices   = nullptr,
+    };
+    VkMemoryAllocateInfo vkAllocateInfo = {
+        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext           = nullptr,
+        .memoryTypeIndex = m_bufferMemoryTypeIndex.CPU,
+    };
+
+    //- PerFrame
+    for (ui32 i = 0; i < k_BackBufferFrames; ++i)
+    {
+        auto perFrameBuffer       = &m_ubPerFrame[i];
+        auto perFrameBufferMemory = &m_ubPerFrameMemory[i];
+
+        vkCreateBuffer(m_device, &vkStagingBufferInfo, nullptr, perFrameBuffer);
+
+        VkMemoryRequirements vkMemoryRequirements;
+        vkGetBufferMemoryRequirements(m_device, *perFrameBuffer, &vkMemoryRequirements);
+
+        vkAllocateInfo.allocationSize = vkMemoryRequirements.size;
+        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, perFrameBufferMemory);
+
+        vkBindBufferMemory(m_device, *perFrameBuffer, *perFrameBufferMemory, 0);
+    }
+    //- PerDraw
+    vkStagingBufferInfo.size = sizeof(PerDraw);
+
+    for (ui32 i = 0; i < k_BackBufferFrames; ++i)
+    {
+        auto perDrawBuffer       = &m_ubPerDraw[i];
+        auto perDrawBufferMemory = &m_ubPerDrawMemory[i];
+
+        vkCreateBuffer(m_device, &vkStagingBufferInfo, nullptr, perDrawBuffer);
+
+        VkMemoryRequirements vkMemoryRequirements;
+        vkGetBufferMemoryRequirements(m_device, *perDrawBuffer, &vkMemoryRequirements);
+
+        vkAllocateInfo.allocationSize = vkMemoryRequirements.size;
+        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, perDrawBufferMemory);
+
+        vkBindBufferMemory(m_device, *perDrawBuffer, *perDrawBufferMemory, 0);
+    }
+}
+
+void VKBackend::CreateDescriptorPool()
+{
+    // TODO(v.matushkin): <DescriptorSet>
+    VkDescriptorPoolSize vkDescriptorPoolSize = {
+        .type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = k_BackBufferFrames * 2, // (PerFrame and PerDraw) * k_BackBufferFrames
+    };
+
+    // NOTE(v.matushkin): Flags?
+    VkDescriptorPoolCreateInfo vkDescriptorPoolInfo = {
+        .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .pNext         = nullptr,
+        .flags         = 0,
+        .maxSets       = k_BackBufferFrames,
+        .poolSizeCount = 1,
+        .pPoolSizes    = &vkDescriptorPoolSize,
+    };
+    vkCreateDescriptorPool(m_device, &vkDescriptorPoolInfo, nullptr, &m_descriptorPool);
+}
+
+void VKBackend::CreateDescriptorSets()
+{
+    // TODO(v.matushkin): <DescriptorSet>
+    //- Allocate DescriptorSets
+    const VkDescriptorSetLayout descriptorSetLayouts[] = {m_descriptorSetLayout, m_descriptorSetLayout, m_descriptorSetLayout};
+
+    VkDescriptorSetAllocateInfo vkDescriptorSetInfo = {
+        .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext              = nullptr,
+        .descriptorPool     = m_descriptorPool,
+        .descriptorSetCount = k_BackBufferFrames,
+        .pSetLayouts        = descriptorSetLayouts,
+    };
+    vkAllocateDescriptorSets(m_device, &vkDescriptorSetInfo, m_descriptorSets);
+
+    //- Configure descriptors
+    VkDescriptorBufferInfo vkDescriptorBufferInfos[k_BackBufferFrames * 2];
+    VkWriteDescriptorSet   vkWriteDescriptorSets[k_BackBufferFrames * 2];
+
+    for (ui32 i = 0; i < k_BackBufferFrames; ++i)
+    {
+        //- PerFrame
+        vkDescriptorBufferInfos[i] = {
+            .buffer = m_ubPerFrame[i],
+            .offset = 0,
+            .range  = sizeof(PerFrame),
+        };
+        vkWriteDescriptorSets[i] = {
+            .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext            = nullptr,
+            .dstSet           = m_descriptorSets[i],
+            .dstBinding       = ShaderBinding::PerFrame,
+            .dstArrayElement  = 0,
+            .descriptorCount  = 1,
+            .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pImageInfo       = nullptr,
+            .pBufferInfo      = &vkDescriptorBufferInfos[i],
+            .pTexelBufferView = nullptr,
+        };
+        //- PerDraw
+        const auto perDrawIndex = i + k_BackBufferFrames;
+
+        vkDescriptorBufferInfos[perDrawIndex] = {
+            .buffer = m_ubPerDraw[i],
+            .offset = 0,
+            .range  = sizeof(PerDraw),
+        };
+        vkWriteDescriptorSets[perDrawIndex] = {
+            .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext            = nullptr,
+            .dstSet           = m_descriptorSets[i],
+            .dstBinding       = ShaderBinding::PerDraw,
+            .dstArrayElement  = 0,
+            .descriptorCount  = 1,
+            .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pImageInfo       = nullptr,
+            .pBufferInfo      = &vkDescriptorBufferInfos[perDrawIndex],
+            .pTexelBufferView = nullptr,
+        };
+    }
+
+    // NOTE(v.matushkin): What is vkUpdateDescriptorSetWithTemplate?
+    // NOTE(v.matushkin): Can I use VkCopyDescriptorSet somehow?
+    vkUpdateDescriptorSets(m_device, ARRAYSIZE(vkWriteDescriptorSets), vkWriteDescriptorSets, 0, nullptr);
+}
+
 void VKBackend::CreateCommandPool()
 {
     // NOTE(v.matushkin): VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT ?
@@ -918,10 +1488,47 @@ void VKBackend::CreateCommandPool()
     VkCommandPoolCreateInfo vkCommandPoolInfo = {
         .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext            = nullptr,
-        .flags            = 0,
+        .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = m_graphicsQueueFamily,
     };
     vkCreateCommandPool(m_device, &vkCommandPoolInfo, nullptr, &m_commandPool);
+}
+
+void VKBackend::FindMemoryTypeIndices()
+{
+    // NOTE(v.matushkin): VkPhysicalDeviceMemoryProperties2 ?
+    VkPhysicalDeviceMemoryProperties vkMemoryProperties;
+    vkGetPhysicalDeviceMemoryProperties(m_physiacalDevice, &vkMemoryProperties);
+
+    //- CPU
+    m_bufferMemoryTypeIndex.CPU = FindMemoryTypeIndex(
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        vkMemoryProperties
+    );
+    //- CPUtoGPU
+    m_bufferMemoryTypeIndex.CPUtoGPU = FindMemoryTypeIndex(
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        vkMemoryProperties
+    );
+    //- GPU
+    //-- Index
+    m_bufferMemoryTypeIndex.IndexGPU = FindMemoryTypeIndex(
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        vkMemoryProperties);
+    //-- Vertex
+    m_bufferMemoryTypeIndex.VertexGPU = FindMemoryTypeIndex(
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        vkMemoryProperties
+    );
+
+    LOG_INFO(
+        "CPUtoGPU: {} | IndexGPU: {} | VertexGPU: {}",
+        m_bufferMemoryTypeIndex.CPUtoGPU, m_bufferMemoryTypeIndex.IndexGPU, m_bufferMemoryTypeIndex.VertexGPU
+    );
 }
 
 void VKBackend::CreateCommandBuffers()
@@ -934,42 +1541,6 @@ void VKBackend::CreateCommandBuffers()
         .commandBufferCount = k_BackBufferFrames,
     };
     vkAllocateCommandBuffers(m_device, &vkCommandBufferInfo, m_commandBuffers);
-
-    // NOTE(v.matushkin): VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT ?
-    VkCommandBufferBeginInfo vkCommandBufferBegin = {
-        .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .pNext            = nullptr,
-        .flags            = 0,
-        .pInheritanceInfo = nullptr, // NOTE(v.matushkin): For secondary command buffers
-    };
-    VkRect2D vkRenderArea = {
-        .offset = {0, 0},
-        .extent = m_swapchainExtent,
-    };
-    VkRenderPassBeginInfo vkRenderPassBegin = {
-        .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .pNext           = nullptr,
-        .renderPass      = m_renderPass,
-        .renderArea      = vkRenderArea,
-        .clearValueCount = 1,
-        .pClearValues    = &m_clearValue,
-    };
-
-    for (ui32 i = 0; i < k_BackBufferFrames; ++i)
-    {
-        vkRenderPassBegin.framebuffer = m_framebuffers[i];
-        auto commandBuffer            = m_commandBuffers[i];
-
-        vkBeginCommandBuffer(commandBuffer, &vkCommandBufferBegin);
-        // NOTE(v.matushkin): vkCmdBeginRenderPass2 ?
-        vkCmdBeginRenderPass(commandBuffer, &vkRenderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
-
-        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-        vkCmdEndRenderPass(commandBuffer);
-        vkEndCommandBuffer(commandBuffer);
-    }
 }
 
 void VKBackend::CreateSyncronizationObjects()
@@ -1080,7 +1651,6 @@ bool VKBackend::IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& 
     return true;
 }
 
-
 //void VKBackend::EnumerateInstanceLayerProperties()
 //{
 //    ui32 vkLayerCount;
@@ -1122,5 +1692,46 @@ bool VKBackend::IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& 
 //    }
 //    delete[] vkDeviceExtensions;
 //}
+
+ui32 VKBackend::FindMemoryTypeIndex(
+    VkBufferUsageFlags                      vkUsageFlags,
+    VkMemoryPropertyFlags                   vkPropertyFlags,
+    const VkPhysicalDeviceMemoryProperties& vkMemoryProperties
+)
+{
+    //- Create dummy VkBuffer
+    VkBufferCreateInfo vkBufferInfo = {
+        .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext                 = nullptr,
+        .flags                 = 0,
+        .size                  = 20,
+        .usage                 = vkUsageFlags,
+        .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0, // NOTE(v.matushkin): This is for VK_SHARING_MODE_CONCURRENT ?
+        .pQueueFamilyIndices   = nullptr,
+    };
+    VkBuffer vkBuffer;
+    vkCreateBuffer(m_device, &vkBufferInfo, nullptr, &vkBuffer);
+
+    // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
+    VkMemoryRequirements vkMemoryRequirements;
+    vkGetBufferMemoryRequirements(m_device, vkBuffer, &vkMemoryRequirements);
+    vkDestroyBuffer(m_device, vkBuffer, nullptr);
+
+    const auto memoryTypeBits = vkMemoryRequirements.memoryTypeBits;
+    //- Find suitable memory type index
+    for (ui32 i = 0; i < vkMemoryProperties.memoryTypeCount; ++i)
+    {
+        const auto propertyFlags         = vkMemoryProperties.memoryTypes[i].propertyFlags;
+        const auto isRequiredMemoryType  = memoryTypeBits & (1 << i);
+        const auto hasRequiredProperties = (propertyFlags & vkPropertyFlags) == vkPropertyFlags;
+        if (isRequiredMemoryType && hasRequiredProperties)
+        {
+            return i;
+        }
+    }
+
+    SNV_ASSERT(false, "Couldn't find required memory type");
+}
 
 } // namespace snv

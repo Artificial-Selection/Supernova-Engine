@@ -950,7 +950,7 @@ void DX12Backend::CreateConstantBuffer(ID3D12Resource2** constantBuffer, ui32 si
         // .SamplerFeedbackMipRegion = ,
     };
 
-    auto hr = m_device->CreateCommittedResource2(
+    m_device->CreateCommittedResource2(
         &d3dHeapProperties,
         D3D12_HEAP_FLAG_NONE,
         &d3dResourceDesc,
