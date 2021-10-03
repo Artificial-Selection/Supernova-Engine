@@ -103,6 +103,7 @@ private:
     void CreateSurface();
     void CreateDevice();
     void CreateSwapchain();
+    void CreateDepthBuffer();
     void CreateRenderPass();
     void CreateFramebuffers();
 
@@ -152,8 +153,14 @@ private:
     VkSurfaceKHR             m_surface;
     VkSwapchainKHR           m_swapchain;
     VkExtent2D               m_swapchainExtent;
+
     VkImageView              m_backBuffers[k_BackBufferFrames];
     VkFramebuffer            m_framebuffers[k_BackBufferFrames];
+
+    VkImage                  m_depthImage;
+    VkImageView              m_depthImageView;
+    VkDeviceMemory           m_depthImageMemory;
+
     ui32                     m_currentBackBufferIndex;
     //-- Pipeline
     // TODO(v.matushkin): Useless VkDescriptorSetLayout, VkPipelineLayout members? Why have them?
@@ -192,7 +199,7 @@ private:
     VkDeviceMemory           m_ubPerDrawMemory[k_BackBufferFrames];
 
 
-    VkClearValue             m_clearValue; // NOTE(v.matushkin): Different from other backends, default initialized
+    VkClearValue             m_clearValues[2]; // 0 - color, 1 - depth
 
     std::unordered_map<BufferHandle,  VKBuffer>  m_buffers;
     std::unordered_map<TextureHandle, VKTexture> m_textures;

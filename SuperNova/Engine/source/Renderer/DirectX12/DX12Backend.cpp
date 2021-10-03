@@ -48,10 +48,10 @@
 //
 //  - <TextureCreation>
 //    - <Upload>
-//        Right now I just memcpy texture data to UPLOAD(CPU) heap. Things will get more complicated with mipmaps, texture arrays.
-//        [LINKS]:
-//          - http://alextardif.com/D3D11To12P3.html
-//          - https://mynameismjp.wordpress.com/2016/03/25/bindless-texturing-for-deferred-rendering-and-decals/
+//      Right now I just memcpy texture data to UPLOAD(CPU) heap. Things will get more complicated with mipmaps, texture arrays.
+//      [LINKS]:
+//        - http://alextardif.com/D3D11To12P3.html
+//        - https://mynameismjp.wordpress.com/2016/03/25/bindless-texturing-for-deferred-rendering-and-decals/
 //
 //  - <WindowSize>
 //    Window size is hardcoded (k_WindowWidth/k_WindowHeight), pass this values in costructor, or get them from window (first one is better I think).

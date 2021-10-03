@@ -76,6 +76,12 @@
 //   - There is a lot of code repetition in creating VkBuffer/VkImage and allocating memory for them
 //   - There is even more code repetition in CreateMesh/CreateTexture
 //   - There is a code repetition in FindImageMemoryTypeIndex and FindBufferMemoryTypeIndex
+//
+// - <SubpassDependency>
+//   - Not sure that stage and access masks specified correctly in VkSubpassDependency2.
+//   - Do I need to use one VkSubpassDependency2 for color and one for depth?
+//   [LINKS]
+//     - https://stackoverflow.com/questions/62371266/why-is-a-single-depth-buffer-sufficient-for-this-vulkan-swapchain-render-loop
 
 
 // NOTE(v.matushkin): Just use c++17 std::size() or c++20 std::ssize() ?
@@ -115,6 +121,8 @@ namespace ShaderBinding
 } // namespace ShaderBinding
 
 const VkFormat k_SwapchainFormat    = VK_FORMAT_B8G8R8A8_UNORM;
+const VkFormat k_DepthStencilFormat = VK_FORMAT_D32_SFLOAT;
+const f32      k_DepthClearValue    = 1.0f;
 
 // NOTE(v.mnatushkin): 0.04s, this will break for FPS <30, I'm sure I'm doing this acquire/present thing wrong
 const ui64 k_Timeout = 40'000'000;
@@ -165,7 +173,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vk_DebugMessageCallback(
     // NOTE(v.matushkin): Ignore this spamming fuck
     if (std::strcmp(callbackData->pMessageIdName, "Loader Message") == 0)
     {
-        return VK_FALSE;
+        return false;
     }
 
     if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
@@ -186,7 +194,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vk_DebugMessageCallback(
         LOG_ERROR(callbackData->pMessage);
     }
 
-    return VK_FALSE;
+    return false;
 }
 
 static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
@@ -227,6 +235,9 @@ namespace snv
 VKBackend::VKBackend()
     : m_currentFrame(0)
 {
+    m_clearValues[0].color        = {.float32 = {1.0f, 0.0f, 0.0f, 0.0f}};
+    m_clearValues[1].depthStencil = {.depth = k_DepthClearValue, .stencil = 0};
+
     VKShaderCompiler::Init();
 
     CreateInstance();
@@ -236,8 +247,10 @@ VKBackend::VKBackend()
     CreateSurface();
     CreateDevice();
     CreateSwapchain();
+    CreateDepthBuffer();
     CreateRenderPass();
     CreateFramebuffers();
+
     CreateCommandPool();
     CreateCommandBuffers();
     FindMemoryTypeIndices();
@@ -266,7 +279,7 @@ VKBackend::~VKBackend()
         vkFreeMemory(m_device, m_ubPerDrawMemory[i], nullptr);
         vkFreeMemory(m_device, m_ubPerFrameMemory[i], nullptr);
     }
-    //-- Buffers
+    //-- Meshes
     for (auto& handleAndBuffer : m_buffers)
     {
         auto& buffer = handleAndBuffer.second;
@@ -302,13 +315,12 @@ VKBackend::~VKBackend()
         vkDestroyShaderModule(m_device, shader.Fragment, nullptr);
     }
 
-    //-- Descriptors
+    //- Descriptors
     vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayoutCamera, nullptr);
     vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayourMaterial, nullptr);
 
-    //- Vulkan
-    //-- Syncronization Objects
+    //- Syncronization Objects
     for (ui32 i = 0; i < k_BackBufferFrames; ++i)
     {
         vkDestroySemaphore(m_device, m_semaphoreImageAvailable[i], nullptr);
@@ -319,18 +331,20 @@ VKBackend::~VKBackend()
 
     vkDestroyCommandPool(m_device, m_commandPool, nullptr);
 
-    for (ui32 i = 0; i < k_BackBufferFrames; ++i)
-    {
-        vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
-    }
-
-    //-- Graphics Pipeline
+    //- Graphics Pipeline
     vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
     vkDestroyRenderPass(m_device, m_renderPass, nullptr);
-    //-- Swapchain
+
+    //- Swapchain
+    //-- Depth
+    vkDestroyImageView(m_device, m_depthImageView, nullptr);
+    vkDestroyImage(m_device, m_depthImage, nullptr);
+    vkFreeMemory(m_device, m_depthImageMemory, nullptr);
+    //-- Color
     for (ui32 i = 0; i < k_BackBufferFrames; ++i)
     {
+        vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
         vkDestroyImageView(m_device, m_backBuffers[i], nullptr);
     }
     vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
@@ -355,10 +369,7 @@ void VKBackend::SetBlendFunction(BlendFactor source, BlendFactor destination)
 
 void VKBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
 {
-    VkClearColorValue vkClearColorValue = {
-        .float32 = {r, g, b, a},
-    };
-    m_clearValue.color = vkClearColorValue;
+    m_clearValues[0].color = {.float32 = {r, g, b, a}};
 }
 
 void VKBackend::SetDepthFunction(DepthFunction depthFunction)
@@ -385,7 +396,7 @@ void VKBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
     vkAcquireNextImageKHR(m_device, m_swapchain, k_Timeout, semaphoreImageAvailable, nullptr, &m_currentBackBufferIndex);
 
     auto fence = m_fences[m_currentBackBufferIndex];
-    vkWaitForFences(m_device, 1, &fence, VK_TRUE, k_Timeout);
+    vkWaitForFences(m_device, 1, &fence, true, k_Timeout);
     vkResetFences(m_device, 1, &fence);
 
     // NOTE(v.matushkin): VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT ?
@@ -405,8 +416,8 @@ void VKBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
         .renderPass      = m_renderPass,
         .framebuffer     = m_framebuffers[m_currentBackBufferIndex],
         .renderArea      = vkRenderArea,
-        .clearValueCount = 1,
-        .pClearValues    = &m_clearValue,
+        .clearValueCount = ARRAYSIZE(m_clearValues),
+        .pClearValues    = m_clearValues, // NOTE(v.matushkin): The order should should be identical to the order of attachments
     };
 
     // NOTE(v.matushkin): Just make a m_currentCommandBuffer member?
@@ -1286,7 +1297,7 @@ void VKBackend::CreateSwapchain()
         .preTransform          = vkPreTransform,
         .compositeAlpha        = vkCompositeAlpha, // NOTE(v.matushkin): Blending with other windows
         .presentMode           = vkPresentMode,
-        .clipped               = VK_TRUE, // Don't care about pixels that are obscured (e.g. other window is in front of them)
+        .clipped               = true,    // Don't care about pixels that are obscured (e.g. other window is in front of them)
         .oldSwapchain          = nullptr, // TODO(v.matushkin): Use for swapchain recreation
     };
     vkCreateSwapchainKHR(m_device, &vkSwapchainInfo, nullptr, &m_swapchain);
@@ -1328,23 +1339,110 @@ void VKBackend::CreateSwapchain()
     }
 }
 
+void VKBackend::CreateDepthBuffer()
+{
+    // NOTE(v.matushkin): Check for depth formats support with vkGetPhysicalDeviceFormatProperties ?
+
+    //- Create VkImage
+    {
+        VkImageCreateInfo vkImageInfo = {
+            .sType                 = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .pNext                 = nullptr,
+            .flags                 = 0,
+            .imageType             = VK_IMAGE_TYPE_2D,
+            .format                = k_DepthStencilFormat,
+            .extent                = {m_swapchainExtent.width, m_swapchainExtent.height, 1},
+            .mipLevels             = 1,
+            .arrayLayers           = 1,
+            .samples               = VK_SAMPLE_COUNT_1_BIT,
+            .tiling                = VK_IMAGE_TILING_OPTIMAL,
+            .usage                 = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices   = nullptr,
+            .initialLayout         = VK_IMAGE_LAYOUT_UNDEFINED,
+        };
+        vkCreateImage(m_device, &vkImageInfo, nullptr, &m_depthImage);
+
+        // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
+        VkMemoryRequirements vkMemoryRequirements;
+        vkGetImageMemoryRequirements(m_device, m_depthImage, &vkMemoryRequirements);
+
+        //- Allocate VkDeviceMemory
+        VkMemoryAllocateInfo vkAllocateInfo = {
+            .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext           = nullptr,
+            .allocationSize  = vkMemoryRequirements.size,
+            .memoryTypeIndex = m_bufferMemoryTypeIndex.GPUTexture,
+        };
+        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &m_depthImageMemory);
+
+        //- Bind VkDeviceMemory to VkImage
+        // NOTE(v.matushkin): vkBindImageMemory2 ?
+        vkBindImageMemory(m_device, m_depthImage, m_depthImageMemory, 0);
+    }
+    //- Create VkImageView
+    {
+        VkComponentMapping vkComponentMappingMapping = {
+            .r = VK_COMPONENT_SWIZZLE_R,
+            .g = VK_COMPONENT_SWIZZLE_G,
+            .b = VK_COMPONENT_SWIZZLE_B,
+            .a = VK_COMPONENT_SWIZZLE_A,
+        };
+        VkImageSubresourceRange vkImageSubresourceRange = {
+            .aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        };
+        VkImageViewCreateInfo vkImageViewInfo = {
+            .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .pNext            = nullptr,
+            .flags            = 0,
+            .image            = m_depthImage,
+            .viewType         = VK_IMAGE_VIEW_TYPE_2D,
+            .format           = k_DepthStencilFormat,
+            .components       = vkComponentMappingMapping,
+            .subresourceRange = vkImageSubresourceRange,
+        };
+        vkCreateImageView(m_device, &vkImageViewInfo, nullptr, &m_depthImageView);
+    }
+}
+
 void VKBackend::CreateRenderPass()
 {
-    VkAttachmentDescription2 vkColorAttachmentDescription = {
-        .sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
-        .pNext          = nullptr, // NOTE(v.matushkin): Can be used for some additional shit
-        .flags          = 0,
-        .format         = k_SwapchainFormat,
-        .samples        = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    VkAttachmentDescription2 vkAttachmentDescriptions[] = {
+        // Color
+        {
+            .sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+            .pNext          = nullptr, // NOTE(v.matushkin): Can be used for some additional shit
+            .flags          = 0,
+            .format         = k_SwapchainFormat,
+            .samples        = VK_SAMPLE_COUNT_1_BIT,
+            .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
+            .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
+            .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        },
+        // Depth
+        {
+            .sType          = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+            .pNext          = nullptr,
+            .flags          = 0,
+            .format         = k_DepthStencilFormat,
+            .samples        = VK_SAMPLE_COUNT_1_BIT,
+            .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
+            .finalLayout    = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        }
     };
 
-    // NOTE(v.matushkin): separateDepthStencilLayouts ?
     VkAttachmentReference2 vkColorAttachmentRef = {
         .sType      = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
         .pNext      = nullptr,
@@ -1352,6 +1450,15 @@ void VKBackend::CreateRenderPass()
         .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         // .aspectMask = , // NOTE(v.matushkin): The fuck is this?
     };
+    // NOTE(v.matushkin): separateDepthStencilLayouts ?
+    VkAttachmentReference2 vkDepthAttachmentRef = {
+        .sType      = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+        .pNext      = nullptr,
+        .attachment = 1,
+        .layout     = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        // .aspectMask = , // NOTE(v.matushkin): The fuck is this?
+    };
+
     VkSubpassDescription2 vkSubpassDescription = {
         .sType                   = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
         // NOTE(v.matushkin): VkFragmentShadingRateAttachmentInfoKHR, VkSubpassDescriptionDepthStencilResolve
@@ -1364,7 +1471,7 @@ void VKBackend::CreateRenderPass()
         .colorAttachmentCount    = 1,
         .pColorAttachments       = &vkColorAttachmentRef,
         // .pResolveAttachments     = ,
-        // .pDepthStencilAttachment = ,
+        .pDepthStencilAttachment = &vkDepthAttachmentRef,
         // .preserveAttachmentCount = ,
         // .pPreserveAttachments    = ,
     };
@@ -1374,10 +1481,10 @@ void VKBackend::CreateRenderPass()
         .pNext           = nullptr,
         .srcSubpass      = VK_SUBPASS_EXTERNAL,
         .dstSubpass      = 0,
-        .srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+        .dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
         .srcAccessMask   = 0,
-        .dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
         // .dependencyFlags = ,
         // .viewOffset      = ,
     };
@@ -1386,8 +1493,8 @@ void VKBackend::CreateRenderPass()
         .sType                   = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
         .pNext                   = nullptr,
         .flags                   = 0,
-        .attachmentCount         = 1,
-        .pAttachments            = &vkColorAttachmentDescription,
+        .attachmentCount         = 2,
+        .pAttachments            = vkAttachmentDescriptions,
         .subpassCount            = 1,
         .pSubpasses              = &vkSubpassDescription,
         .dependencyCount         = 1,
@@ -1400,12 +1507,15 @@ void VKBackend::CreateRenderPass()
 
 void VKBackend::CreateFramebuffers()
 {
+    VkImageView vkAttachments[2];
+    vkAttachments[1] = m_depthImageView;
+
     VkFramebufferCreateInfo vkFramebufferInfo = {
         .sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
         .pNext           = nullptr,
         .flags           = 0,
         .renderPass      = m_renderPass,
-        .attachmentCount = 1,
+        .attachmentCount = ARRAYSIZE(vkAttachments),
         .width           = m_swapchainExtent.width,
         .height          = m_swapchainExtent.height,
         .layers          = 1,
@@ -1413,7 +1523,8 @@ void VKBackend::CreateFramebuffers()
 
     for (ui32 i = 0; i < k_BackBufferFrames; ++i)
     {
-        vkFramebufferInfo.pAttachments = &m_backBuffers[i];
+        vkAttachments[0] = m_backBuffers[i];
+        vkFramebufferInfo.pAttachments = vkAttachments;
         vkCreateFramebuffer(m_device, &vkFramebufferInfo, nullptr, &m_framebuffers[i]);
     }
 }
@@ -1560,7 +1671,7 @@ void VKBackend::CreatePipeline()
         .pNext                  = nullptr,
         .flags                  = 0, // SPEC: reserved for future use
         .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        .primitiveRestartEnable = VK_FALSE,
+        .primitiveRestartEnable = false,
     };
 
     //- Viewport
@@ -1591,12 +1702,12 @@ void VKBackend::CreatePipeline()
         .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .pNext                   = nullptr,
         .flags                   = 0, // SPEC: reserved for future use
-        .depthClampEnable        = VK_FALSE,
-        .rasterizerDiscardEnable = VK_FALSE,
+        .depthClampEnable        = false,
+        .rasterizerDiscardEnable = false,
         .polygonMode             = VK_POLYGON_MODE_FILL,
         .cullMode                = VK_CULL_MODE_BACK_BIT,
         .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-        .depthBiasEnable         = VK_FALSE,
+        .depthBiasEnable         = false,
         .depthBiasConstantFactor = 0.0f,
         .depthBiasClamp          = 0.0f,
         .depthBiasSlopeFactor    = 0.0f,
@@ -1609,33 +1720,33 @@ void VKBackend::CreatePipeline()
         .pNext                 = nullptr,
         .flags                 = 0, // SPEC: reserved for future use
         .rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT,
-        .sampleShadingEnable   = VK_FALSE,
+        .sampleShadingEnable   = false,
         .minSampleShading      = 1.0f,
         .pSampleMask           = nullptr,
-        .alphaToCoverageEnable = VK_FALSE,
-        .alphaToOneEnable      = VK_FALSE,
+        .alphaToCoverageEnable = false,
+        .alphaToOneEnable      = false,
     };
 
     //- Depth/Stencil
-    // VkPipelineDepthStencilStateCreateInfo vkDepthStencilState = {
-    //     .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-    //     .pNext                 = nullptr,
-    //     .flags                 = 0, // SPEC: reserved for future use
-    //     .depthTestEnable       = ,
-    //     .depthWriteEnable      = ,
-    //     .depthCompareOp        = ,
-    //     .depthBoundsTestEnable = ,
-    //     .stencilTestEnable     = ,
-    //     .front                 = ,
-    //     .back                  = ,
-    //     .minDepthBounds        = ,
-    //     .maxDepthBounds        = ,
-    // };
+    VkPipelineDepthStencilStateCreateInfo vkDepthStencilState = {
+        .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .pNext                 = nullptr,
+        .flags                 = 0, // SPEC: reserved for future use
+        .depthTestEnable       = true,
+        .depthWriteEnable      = true,
+        .depthCompareOp        = VK_COMPARE_OP_LESS,
+        .depthBoundsTestEnable = false,
+        .stencilTestEnable     = false,
+        // .front                 = ,     // for stencilTestEnable=true
+        // .back                  = ,     // for stencilTestEnable=true
+        // .minDepthBounds        = 0.0f, // for depthBoundsTestEnable=true
+        // .maxDepthBounds        = 1.0f, // for depthBoundsTestEnable=true
+    };
 
     //- ColorBlend
     // NOTE(v.matushkin): VkPipelineColorBlendAttachmentState - per framebuffer, VkPipelineColorBlendStateCreateInfo - global
     VkPipelineColorBlendAttachmentState vkColorBlendAttachment = {
-        .blendEnable         = VK_FALSE,
+        .blendEnable         = false,
         .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
         .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
         .colorBlendOp        = VK_BLEND_OP_ADD,
@@ -1648,7 +1759,7 @@ void VKBackend::CreatePipeline()
         .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .pNext           = nullptr,
         .flags           = 0, // SPEC: reserved for future use
-        .logicOpEnable   = VK_FALSE,
+        .logicOpEnable   = false,
         .logicOp         = VK_LOGIC_OP_COPY,
         .attachmentCount = 1,
         .pAttachments    = &vkColorBlendAttachment,
@@ -1685,7 +1796,7 @@ void VKBackend::CreatePipeline()
         .pViewportState      = &vkViewportState,
         .pRasterizationState = &vkRasterizationState,
         .pMultisampleState   = &vkMultisampleState,
-        .pDepthStencilState  = nullptr,
+        .pDepthStencilState  = &vkDepthStencilState,
         .pColorBlendState    = &vkColorBlendState,
         .pDynamicState       = nullptr,
         .layout              = m_pipelineLayout,
