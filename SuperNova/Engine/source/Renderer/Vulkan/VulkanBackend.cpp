@@ -1,6 +1,6 @@
-#include <Engine/Renderer/Vulkan/VKBackend.hpp>
+#include <Engine/Renderer/Vulkan/VulkanBackend.hpp>
 #include <Engine/Core/Assert.hpp>
-#include <Engine/Renderer/Vulkan/VKShaderCompiler.hpp>
+#include <Engine/Renderer/Vulkan/VulkanShaderCompiler.hpp>
 
 #ifdef SNV_PLATFORM_WINDOWS
     #define NOMINMAX
@@ -232,13 +232,13 @@ static VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
 namespace snv
 {
 
-VKBackend::VKBackend()
+VulkanBackend::VulkanBackend()
     : m_currentFrame(0)
 {
     m_clearValues[0].color        = {.float32 = {1.0f, 0.0f, 0.0f, 0.0f}};
     m_clearValues[1].depthStencil = {.depth = k_DepthClearValue, .stencil = 0};
 
-    VKShaderCompiler::Init();
+    VulkanShaderCompiler::Init();
 
     CreateInstance();
 #ifdef SNV_GPU_API_DEBUG_ENABLED
@@ -263,9 +263,9 @@ VKBackend::VKBackend()
     CreateDescriptorSets();
 }
 
-VKBackend::~VKBackend()
+VulkanBackend::~VulkanBackend()
 {
-    VKShaderCompiler::Shutdown();
+    VulkanShaderCompiler::Shutdown();
 
     vkQueueWaitIdle(m_graphicsQueue);
 
@@ -358,32 +358,36 @@ VKBackend::~VKBackend()
 }
 
 
-void VKBackend::EnableBlend()
+void VulkanBackend::EnableBlend()
 {}
 
-void VKBackend::EnableDepthTest()
+void VulkanBackend::EnableDepthTest()
 {}
 
-void VKBackend::SetBlendFunction(BlendFactor source, BlendFactor destination)
+void VulkanBackend::SetBlendFunction(BlendFactor source, BlendFactor destination)
 {}
 
-void VKBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
+void VulkanBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
 {
     m_clearValues[0].color = {.float32 = {r, g, b, a}};
 }
 
-void VKBackend::SetDepthFunction(DepthFunction depthFunction)
+void VulkanBackend::SetDepthFunction(DepthFunction depthFunction)
 {}
 
-void VKBackend::SetViewport(i32 x, i32 y, i32 width, i32 height)
-{}
-
-
-void VKBackend::Clear(BufferBit bufferBitMask)
+void VulkanBackend::SetViewport(i32 x, i32 y, i32 width, i32 height)
 {}
 
 
-void VKBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
+void VulkanBackend::Clear(BufferBit bufferBitMask)
+{}
+
+
+void VulkanBackend::BeginFrame(
+    const glm::mat4x4& localToWorld,
+    const glm::mat4x4& cameraView,
+    const glm::mat4x4& cameraProjection
+)
 {
     // TODO(v.matushkin): <RenderGraph>
     if (g_IsPipelineInitialized == false)
@@ -465,7 +469,7 @@ void VKBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
     );
 }
 
-void VKBackend::EndFrame()
+void VulkanBackend::EndFrame()
 {
     auto commandBuffer = m_commandBuffers[m_currentBackBufferIndex];
     vkCmdEndRenderPass(commandBuffer);
@@ -504,7 +508,7 @@ void VKBackend::EndFrame()
     m_currentFrame = (m_currentFrame + 1) % k_BackBufferFrames;
 }
 
-void VKBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
+void VulkanBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
     auto commandBuffer = m_commandBuffers[m_currentBackBufferIndex];
 
@@ -532,14 +536,14 @@ void VKBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandl
     vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
 }
 
-void VKBackend::DrawArrays(i32 count)
+void VulkanBackend::DrawArrays(i32 count)
 {}
 
-void VKBackend::DrawElements(i32 count)
+void VulkanBackend::DrawElements(i32 count)
 {}
 
 
-BufferHandle VKBackend::CreateBuffer(
+BufferHandle VulkanBackend::CreateBuffer(
     std::span<const std::byte>              indexData,
     std::span<const std::byte>              vertexData,
     const std::vector<VertexAttributeDesc>& vertexLayout
@@ -548,17 +552,17 @@ BufferHandle VKBackend::CreateBuffer(
     // NOTE(v.matushkin): It almost like it got slower after moving VkBuffer
     // from VISIBLE|COHERENT to DEVICE LOCAL, it can't be, right?
 
-    VKBuffer buffer;
+    VulkanBuffer vulkanBuffer;
 
     VkBuffer* vkBuffers[] = {
-        &buffer.Position,
-        &buffer.Normal,
-        &buffer.TexCoord0,
+        &vulkanBuffer.Position,
+        &vulkanBuffer.Normal,
+        &vulkanBuffer.TexCoord0,
     };
     VkDeviceMemory* vkBuffersMemory[] = {
-        &buffer.PositionMemory,
-        &buffer.NormalMemory,
-        &buffer.TexCoord0Memory,
+        &vulkanBuffer.PositionMemory,
+        &vulkanBuffer.NormalMemory,
+        &vulkanBuffer.TexCoord0Memory,
     };
 
     VkBuffer       vkStagingBuffers[4];
@@ -726,11 +730,11 @@ BufferHandle VKBackend::CreateBuffer(
             .queueFamilyIndexCount = 0, // NOTE(v.matushkin): This is for VK_SHARING_MODE_CONCURRENT ?
             .pQueueFamilyIndices   = nullptr,
         };
-        vkCreateBuffer(m_device, &vkStagingBufferInfo, nullptr, &buffer.Index);
+        vkCreateBuffer(m_device, &vkStagingBufferInfo, nullptr, &vulkanBuffer.Index);
 
         // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
         VkMemoryRequirements vkMemoryRequirements;
-        vkGetBufferMemoryRequirements(m_device, buffer.Index, &vkMemoryRequirements);
+        vkGetBufferMemoryRequirements(m_device, vulkanBuffer.Index, &vkMemoryRequirements);
 
         //--- Allocate VkDeviceMemory
         VkMemoryAllocateInfo vkAllocateInfo = {
@@ -739,15 +743,15 @@ BufferHandle VKBackend::CreateBuffer(
             .allocationSize  = vkMemoryRequirements.size,
             .memoryTypeIndex = m_bufferMemoryTypeIndex.GPUVertex,
         };
-        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &buffer.IndexMemory);
+        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &vulkanBuffer.IndexMemory);
 
         //--- Bind VkDeviceMemory to VkBuffer
         // NOTE(v.matushkin): Use vkBindBufferMemory2 to bind multiple buffers at once?
-        vkBindBufferMemory(m_device, buffer.Index, buffer.IndexMemory, 0);
+        vkBindBufferMemory(m_device, vulkanBuffer.Index, vulkanBuffer.IndexMemory, 0);
     }
 
     vkBufferCopyRegion.size = indexData.size_bytes();
-    vkCmdCopyBuffer(vkCommandBuffer, vkStagingBuffers[3], buffer.Index, 1, &vkBufferCopyRegion);
+    vkCmdCopyBuffer(vkCommandBuffer, vkStagingBuffers[3], vulkanBuffer.Index, 1, &vkBufferCopyRegion);
 
     //- Copy vertex data from staging buffers to GPU
     vkEndCommandBuffer(vkCommandBuffer);
@@ -771,12 +775,12 @@ BufferHandle VKBackend::CreateBuffer(
     static ui32 buffer_handle_workaround = 0;
     auto        bufferHandle     = static_cast<BufferHandle>(buffer_handle_workaround++);
 
-    m_buffers[bufferHandle] = buffer;
+    m_buffers[bufferHandle] = vulkanBuffer;
 
     return bufferHandle;
 }
 
-TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
+TextureHandle VulkanBackend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
     // TODO(v.matushkin): Assuming texture format is RGBA8888. Shouldn't be hardcoded
     //  Seems like there was no need to know the actual texture data size in another backends, which is strange.
@@ -788,7 +792,7 @@ TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
 
     const auto vkTextureFormat = vk_TextureFormat[static_cast<ui8>(textureDesc.Format)];
 
-    VKTexture texture;
+    VulkanTexture vulkanTexture;
 
     //- Create staging texture VkBuffer
     VkBuffer vkTextureStagingBuffer;
@@ -848,11 +852,11 @@ TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
             .pQueueFamilyIndices   = nullptr, // TODO(v.matushkin): The fuck is this?
             .initialLayout         = VK_IMAGE_LAYOUT_UNDEFINED,
         };
-        vkCreateImage(m_device, &vkImageInfo, nullptr, &texture.Image);
+        vkCreateImage(m_device, &vkImageInfo, nullptr, &vulkanTexture.Image);
 
         // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
         VkMemoryRequirements vkMemoryRequirements;
-        vkGetImageMemoryRequirements(m_device, texture.Image, &vkMemoryRequirements);
+        vkGetImageMemoryRequirements(m_device, vulkanTexture.Image, &vkMemoryRequirements);
 
         //-- Allocate VkDeviceMemory
         VkMemoryAllocateInfo vkAllocateInfo = {
@@ -861,11 +865,11 @@ TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
             .allocationSize  = vkMemoryRequirements.size,
             .memoryTypeIndex = m_bufferMemoryTypeIndex.GPUTexture,
         };
-        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &texture.Memory);
+        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &vulkanTexture.Memory);
 
         //-- Bind VkDeviceMemory to VkImage
         // NOTE(v.matushkin): vkBindImageMemory2 ?
-        vkBindImageMemory(m_device, texture.Image, texture.Memory, 0);
+        vkBindImageMemory(m_device, vulkanTexture.Image, vulkanTexture.Memory, 0);
     }
     //- Transfer texture from CPU to GPU
     {
@@ -903,7 +907,7 @@ TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
             .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image               = texture.Image,
+            .image               = vulkanTexture.Image,
             .subresourceRange    = vkImageSubresourceRange,
         };
         // TODO(v.matushkin): vkCmdPipelineBarrier2KHR?
@@ -935,7 +939,7 @@ TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
         vkCmdCopyBufferToImage(
             vkCommandBuffer,
             vkTextureStagingBuffer,
-            texture.Image,
+            vulkanTexture.Image,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1,
             &vkBufferImageCopy
@@ -990,19 +994,19 @@ TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
             .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .pNext            = nullptr,
             .flags            = 0,
-            .image            = texture.Image,
+            .image            = vulkanTexture.Image,
             .viewType         = VK_IMAGE_VIEW_TYPE_2D,
             .format           = vkTextureFormat,
             .components       = vkComponentMappingMapping,
             .subresourceRange = vkImageSubresourceRange,
         };
-        vkCreateImageView(m_device, &vkImageViewInfo, nullptr, &texture.View);
+        vkCreateImageView(m_device, &vkImageViewInfo, nullptr, &vulkanTexture.View);
     }
 
     static ui32 texture_handle_workaround = 0;
 
     //- Create Texture descriptor
-    texture.DescriptorSetIndex = texture_handle_workaround;
+    vulkanTexture.DescriptorSetIndex = texture_handle_workaround;
     {
         //-- Allocate DescriptorSet
         VkDescriptorSetAllocateInfo vkDescriptorSetInfo = {
@@ -1016,7 +1020,7 @@ TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
         //-- Write to DescriptorSet
         VkDescriptorImageInfo vkDescriptorImageInfo = {
             .sampler     = nullptr, // NOTE(v.matushkin): What to set when using immutable sampler?
-            .imageView   = texture.View,
+            .imageView   = vulkanTexture.View,
             .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
         VkWriteDescriptorSet vkWriteDescriptorSet = {
@@ -1036,17 +1040,17 @@ TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
 
     auto textureHandle = static_cast<TextureHandle>(texture_handle_workaround++);
 
-    m_textures[textureHandle] = texture;
+    m_textures[textureHandle] = vulkanTexture;
 
     return textureHandle;
 }
 
-ShaderHandle VKBackend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
+ShaderHandle VulkanBackend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
 {
-    const auto vertexBytecode   = VKShaderCompiler::CompileShader(VKShaderCompiler::ShaderType::Vertex, vertexSource);
-    const auto fragmentBytecode = VKShaderCompiler::CompileShader(VKShaderCompiler::ShaderType::Fragment, fragmentSource);
+    const auto vertexBytecode   = VulkanShaderCompiler::CompileShader(VulkanShaderCompiler::ShaderType::Vertex, vertexSource);
+    const auto fragmentBytecode = VulkanShaderCompiler::CompileShader(VulkanShaderCompiler::ShaderType::Fragment, fragmentSource);
 
-    VKShader shader;
+    VulkanShader vulkanShader;
 
     VkShaderModuleCreateInfo vkVertexShaderInfo = {
        .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -1055,7 +1059,7 @@ ShaderHandle VKBackend::CreateShader(std::span<const char> vertexSource, std::sp
        .codeSize = vertexBytecode.size() * sizeof(ui32),
        .pCode    = vertexBytecode.data(),
     };
-    vkCreateShaderModule(m_device, &vkVertexShaderInfo, nullptr, &shader.Vertex);
+    vkCreateShaderModule(m_device, &vkVertexShaderInfo, nullptr, &vulkanShader.Vertex);
 
     VkShaderModuleCreateInfo vkFragmentShaderInfo = {
         .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -1064,18 +1068,18 @@ ShaderHandle VKBackend::CreateShader(std::span<const char> vertexSource, std::sp
         .codeSize = fragmentBytecode.size() * sizeof(ui32),
         .pCode    = fragmentBytecode.data(),
     };
-    vkCreateShaderModule(m_device, &vkFragmentShaderInfo, nullptr, &shader.Fragment);
+    vkCreateShaderModule(m_device, &vkFragmentShaderInfo, nullptr, &vulkanShader.Fragment);
 
     static ui32 shader_handle_workaround = 0;
     auto        shaderHandle             = static_cast<ShaderHandle>(shader_handle_workaround++);
 
-    m_shaders[shaderHandle] = shader;
+    m_shaders[shaderHandle] = vulkanShader;
 
     return shaderHandle;
 }
 
 
-void VKBackend::CreateInstance()
+void VulkanBackend::CreateInstance()
 {
     VkApplicationInfo vkApplicationInfo = {
         .sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -1125,7 +1129,7 @@ void VKBackend::CreateInstance()
     vkCreateInstance(&vkInstanceInfo, nullptr, &m_instance);
 }
 
-void VKBackend::CreateSurface()
+void VulkanBackend::CreateSurface()
 {
 #ifdef SNV_PLATFORM_WINDOWS
     VkWin32SurfaceCreateInfoKHR vkWin32SurfaceInfo = {
@@ -1139,7 +1143,7 @@ void VKBackend::CreateSurface()
 #endif // SNV_PLATFORM_WINDOWS
 }
 
-void VKBackend::CreateDevice()
+void VulkanBackend::CreateDevice()
 {
     //- Enumerate Physical Devices
     ui32 vkPhysicalDeviceCount = 0;
@@ -1198,7 +1202,7 @@ void VKBackend::CreateDevice()
     vkGetDeviceQueue(m_device, m_graphicsQueueFamily, 0, &m_graphicsQueue);
 }
 
-void VKBackend::CreateSwapchain()
+void VulkanBackend::CreateSwapchain()
 {
     //- Surface format
     // TODO(v.matushkin): <SwapchainCreation/Format>
@@ -1339,7 +1343,7 @@ void VKBackend::CreateSwapchain()
     }
 }
 
-void VKBackend::CreateDepthBuffer()
+void VulkanBackend::CreateDepthBuffer()
 {
     // NOTE(v.matushkin): Check for depth formats support with vkGetPhysicalDeviceFormatProperties ?
 
@@ -1410,7 +1414,7 @@ void VKBackend::CreateDepthBuffer()
     }
 }
 
-void VKBackend::CreateRenderPass()
+void VulkanBackend::CreateRenderPass()
 {
     VkAttachmentDescription2 vkAttachmentDescriptions[] = {
         // Color
@@ -1505,7 +1509,7 @@ void VKBackend::CreateRenderPass()
     vkCreateRenderPass2(m_device, &vkRenderPassInfo, nullptr, &m_renderPass);
 }
 
-void VKBackend::CreateFramebuffers()
+void VulkanBackend::CreateFramebuffers()
 {
     VkImageView vkAttachments[2];
     vkAttachments[1] = m_depthImageView;
@@ -1529,7 +1533,7 @@ void VKBackend::CreateFramebuffers()
     }
 }
 
-void VKBackend::CreateDescriptorSetLayouts()
+void VulkanBackend::CreateDescriptorSetLayouts()
 {
     //- Set 0
     {
@@ -1589,7 +1593,7 @@ void VKBackend::CreateDescriptorSetLayouts()
 
 }
 
-void VKBackend::CreatePipeline()
+void VulkanBackend::CreatePipeline()
 {
     //- ShaderStages
     auto& shader = m_shaders.begin()->second;
@@ -1809,7 +1813,7 @@ void VKBackend::CreatePipeline()
     vkCreateGraphicsPipelines(m_device, nullptr, 1, &vkGraphicsPipelineInfo, nullptr, &m_graphicsPipeline);
 }
 
-void VKBackend::CreateTextureSampler()
+void VulkanBackend::CreateTextureSampler()
 {
     VkSamplerCreateInfo vkSamplerInfo = {
         .sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -1836,7 +1840,7 @@ void VKBackend::CreateTextureSampler()
     vkCreateSampler(m_device, &vkSamplerInfo, nullptr, &m_sampler);
 }
 
-void VKBackend::CreateUniformBuffers()
+void VulkanBackend::CreateUniformBuffers()
 {
     VkBufferCreateInfo vkStagingBufferInfo = {
         .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -1890,7 +1894,7 @@ void VKBackend::CreateUniformBuffers()
     }
 }
 
-void VKBackend::CreateDescriptorPool()
+void VulkanBackend::CreateDescriptorPool()
 {
     // TODO(v.matushkin): <DescriptorSet>
     VkDescriptorPoolSize vkDescriptorPoolSizes[] = {
@@ -1916,7 +1920,7 @@ void VKBackend::CreateDescriptorPool()
     vkCreateDescriptorPool(m_device, &vkDescriptorPoolInfo, nullptr, &m_descriptorPool);
 }
 
-void VKBackend::CreateDescriptorSets()
+void VulkanBackend::CreateDescriptorSets()
 {
     // TODO(v.matushkin): <DescriptorSet>
     //- Allocate DescriptorSets
@@ -1986,7 +1990,7 @@ void VKBackend::CreateDescriptorSets()
     vkUpdateDescriptorSets(m_device, ARRAYSIZE(vkWriteDescriptorSets), vkWriteDescriptorSets, 0, nullptr);
 }
 
-void VKBackend::CreateCommandPool()
+void VulkanBackend::CreateCommandPool()
 {
     // NOTE(v.matushkin): VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT ?
     //  what do they use un Vulkan-Samples ?
@@ -1999,7 +2003,7 @@ void VKBackend::CreateCommandPool()
     vkCreateCommandPool(m_device, &vkCommandPoolInfo, nullptr, &m_commandPool);
 }
 
-void VKBackend::FindMemoryTypeIndices()
+void VulkanBackend::FindMemoryTypeIndices()
 {
     // NOTE(v.matushkin): VkPhysicalDeviceMemoryProperties2 ?
     VkPhysicalDeviceMemoryProperties vkMemoryProperties;
@@ -2045,7 +2049,7 @@ void VKBackend::FindMemoryTypeIndices()
     );
 }
 
-void VKBackend::CreateCommandBuffers()
+void VulkanBackend::CreateCommandBuffers()
 {
     VkCommandBufferAllocateInfo vkCommandBufferInfo = {
         .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -2057,7 +2061,7 @@ void VKBackend::CreateCommandBuffers()
     vkAllocateCommandBuffers(m_device, &vkCommandBufferInfo, m_commandBuffers);
 }
 
-void VKBackend::CreateSyncronizationObjects()
+void VulkanBackend::CreateSyncronizationObjects()
 {
     VkSemaphoreCreateInfo vkSemaphoreInfo = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -2081,7 +2085,7 @@ void VKBackend::CreateSyncronizationObjects()
 
 
 #ifdef SNV_GPU_API_DEBUG_ENABLED
-VkDebugUtilsMessengerCreateInfoEXT VKBackend::CreateDebugUtilsMessengerInfo()
+VkDebugUtilsMessengerCreateInfoEXT VulkanBackend::CreateDebugUtilsMessengerInfo()
 {
     VkDebugUtilsMessageSeverityFlagsEXT vkSeverityFlags = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
                                                         | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
@@ -2104,7 +2108,7 @@ VkDebugUtilsMessengerCreateInfoEXT VKBackend::CreateDebugUtilsMessengerInfo()
     return vkDebugUtilsMessengerInfo;
 }
 
-void VKBackend::CreateDebugUtilsMessenger()
+void VulkanBackend::CreateDebugUtilsMessenger()
 {
     const auto vkDebugUtilsMessengerInfo = CreateDebugUtilsMessengerInfo();
     vkCreateDebugUtilsMessengerEXT(m_instance, &vkDebugUtilsMessengerInfo, nullptr, &m_debugMessenger);
@@ -2113,7 +2117,7 @@ void VKBackend::CreateDebugUtilsMessenger()
 
 
 // NOTE(v.matushkin): Check for device extensions support?
-bool VKBackend::IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& graphicsQueueFamily)
+bool VulkanBackend::IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& graphicsQueueFamily)
 {
     VkPhysicalDeviceProperties vkDeviceProperties;
     //VkPhysicalDeviceFeatures   vkDeviceFeatures;
@@ -2165,7 +2169,7 @@ bool VKBackend::IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& 
     return true;
 }
 
-//void VKBackend::EnumerateInstanceLayerProperties()
+//void VulkanBackend::EnumerateInstanceLayerProperties()
 //{
 //    ui32 vkLayerCount;
 //    vkEnumerateInstanceLayerProperties(&vkLayerCount, nullptr);
@@ -2179,7 +2183,7 @@ bool VKBackend::IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& 
 //    delete[] vkLayerProperties;
 //}
 
-//void VKBackend::EnumerateInstanceExtensionProperties()
+//void VulkanBackend::EnumerateInstanceExtensionProperties()
 //{
 //    ui32 vkExtensionCount;
 //    vkEnumerateInstanceExtensionProperties(nullptr, &vkExtensionCount, nullptr);
@@ -2193,7 +2197,7 @@ bool VKBackend::IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& 
 //    delete[] vkExtensionProperties;
 //}
 
-//void VKBackend::CheckDeviceExtensionsSupport(VkPhysicalDevice physicalDevice)
+//void VulkanBackend::CheckDeviceExtensionsSupport(VkPhysicalDevice physicalDevice)
 //{
 //    ui32 vkDeviceExtensionsCount;
 //    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &vkDeviceExtensionsCount, nullptr);
@@ -2207,7 +2211,7 @@ bool VKBackend::IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& 
 //    delete[] vkDeviceExtensions;
 //}
 
-ui32 VKBackend::FindBufferMemoryTypeIndex(
+ui32 VulkanBackend::FindBufferMemoryTypeIndex(
     VkBufferUsageFlags                      vkUsageFlags,
     VkMemoryPropertyFlags                   vkPropertyFlags,
     const VkPhysicalDeviceMemoryProperties& vkMemoryProperties
@@ -2248,7 +2252,7 @@ ui32 VKBackend::FindBufferMemoryTypeIndex(
     SNV_ASSERT(false, "Couldn't find required VkBuffer memory type");
 }
 
-ui32 VKBackend::FindImageMemoryTypeIndex(
+ui32 VulkanBackend::FindImageMemoryTypeIndex(
     VkImageUsageFlags                       vkUsageFlags,
     VkMemoryPropertyFlags                   vkPropertyFlags,
     const VkPhysicalDeviceMemoryProperties& vkMemoryProperties

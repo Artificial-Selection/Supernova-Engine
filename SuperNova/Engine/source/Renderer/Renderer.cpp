@@ -2,7 +2,7 @@
 
 #include <Engine/Renderer/IRendererBackend.hpp>
 #include <Engine/Renderer/OpenGL/GLBackend.hpp>
-#include <Engine/Renderer/Vulkan/VKBackend.hpp>
+#include <Engine/Renderer/Vulkan/VulkanBackend.hpp>
 #ifdef SNV_PLATFORM_WINDOWS
     #include <Engine/Renderer/Directx11/DX11Backend.hpp>
     #include <Engine/Renderer/Directx12/DX12Backend.hpp>
@@ -31,7 +31,7 @@ void Renderer::Init(GraphicsApi graphicsApi)
         s_rendererBackend = new GLBackend();
         break;
     case GraphicsApi::Vulkan:
-        s_rendererBackend = new VKBackend();
+        s_rendererBackend = new VulkanBackend();
         break;
 #ifdef SNV_PLATFORM_WINDOWS
     case GraphicsApi::DirectX11:

@@ -6,7 +6,7 @@
 #include <vector>
 
 
-namespace snv::VKShaderCompiler
+namespace snv::VulkanShaderCompiler
 {
 
 // Values corresponds to EShLanguage
@@ -22,4 +22,4 @@ void Shutdown();
 
 std::vector<ui32> CompileShader(ShaderType shaderType, std::span<const char> shaderSource);
 
-} // namespace snv::VKShaderCompiler
+} // namespace snv::VulkanShaderCompiler

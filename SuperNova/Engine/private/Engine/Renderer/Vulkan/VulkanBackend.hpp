@@ -12,13 +12,13 @@
 namespace snv
 {
 
-class VKBackend final : public IRendererBackend
+class VulkanBackend final : public IRendererBackend
 {
     static const ui32 k_BackBufferFrames      = 3;
     static const ui32 k_MaxTextureDescriptors = 300;
 
 
-    struct VKBuffer
+    struct VulkanBuffer
     {
         VkBuffer Index;
         VkBuffer Position;
@@ -31,7 +31,7 @@ class VKBackend final : public IRendererBackend
         VkDeviceMemory TexCoord0Memory;
     };
 
-    struct VKTexture
+    struct VulkanTexture
     {
         VkImageView    View;
         VkImage        Image;
@@ -40,7 +40,7 @@ class VKBackend final : public IRendererBackend
         ui32 DescriptorSetIndex;
     };
 
-    struct VKShader
+    struct VulkanShader
     {
         VkShaderModule Vertex;
         VkShaderModule Fragment;
@@ -60,7 +60,7 @@ class VKBackend final : public IRendererBackend
 
 
     // TODO(v.matushkin): Is this shit even valid?
-    struct VKBufferMemoryTypeIndex
+    struct VulkanMemoryTypeIndex
     {
         ui32 CPU;
         ui32 CPUtoGPU;
@@ -71,8 +71,8 @@ class VKBackend final : public IRendererBackend
 
 
 public:
-    VKBackend();
-    ~VKBackend() override;
+    VulkanBackend();
+    ~VulkanBackend() override;
 
     void EnableBlend() override;
     void EnableDepthTest() override;
@@ -189,7 +189,7 @@ private:
     VkDebugUtilsMessengerEXT m_debugMessenger;
 #endif
 
-    VKBufferMemoryTypeIndex  m_bufferMemoryTypeIndex;
+    VulkanMemoryTypeIndex    m_bufferMemoryTypeIndex;
 
     VkSampler                m_sampler;
 
@@ -201,9 +201,9 @@ private:
 
     VkClearValue             m_clearValues[2]; // 0 - color, 1 - depth
 
-    std::unordered_map<BufferHandle,  VKBuffer>  m_buffers;
-    std::unordered_map<TextureHandle, VKTexture> m_textures;
-    std::unordered_map<ShaderHandle,  VKShader>  m_shaders;
+    std::unordered_map<BufferHandle,  VulkanBuffer>  m_buffers;
+    std::unordered_map<TextureHandle, VulkanTexture> m_textures;
+    std::unordered_map<ShaderHandle,  VulkanShader>  m_shaders;
 };
 
 } // namespace snv

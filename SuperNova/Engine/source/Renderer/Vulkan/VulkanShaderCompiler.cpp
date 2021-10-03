@@ -1,4 +1,4 @@
-#include <Engine/Renderer/Vulkan/VKShaderCompiler.hpp>
+#include <Engine/Renderer/Vulkan/VulkanShaderCompiler.hpp>
 #include <Engine/Core/Log.hpp>
 
 #include <glslang/SPIRV/GlslangToSpv.h>
@@ -106,7 +106,7 @@ const TBuiltInResource k_Resource = {
 };
 
 
-namespace snv::VKShaderCompiler
+namespace snv::VulkanShaderCompiler
 {
 
 void Init()
@@ -183,4 +183,4 @@ std::vector<ui32> CompileShader(ShaderType shaderType, std::span<const char> sha
     return spirvBytecode;
 }
 
-} // namespace snv::VKShaderCompiler
+} // namespace snv::VulkanShaderCompiler
