@@ -1,6 +1,8 @@
 #version 460 core
 
-// layout(binding = 0) uniform sampler2D _DiffuseTexture;
+layout(set = 0, binding = 2) uniform sampler   s_Sampler;
+layout(set = 1, binding = 0) uniform texture2D _BaseColorMap;
+
 
 layout(location = 0) in vec3 in_PositionWS;
 layout(location = 1) in vec3 in_NormalWS;
@@ -13,5 +15,7 @@ void main()
 {
     vec3 normalWS = normalize(in_NormalWS);
 
-    out_FragColor = vec4(normalWS, 1);
+    vec4 baseColor = texture(sampler2D(_BaseColorMap, s_Sampler), in_TexCoord0);
+
+    out_FragColor = baseColor; //vec4(normalWS, 1);
 }

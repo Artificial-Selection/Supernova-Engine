@@ -55,8 +55,9 @@
 //     - other relevant flags?
 //
 // - <UniformBuffers>
-//   - Do not use 'alignas(256)' and query minUniformBufferOffsetAlignment with VkPhysicalDeviceProperties?
-//     Or member alignment and minimus uniform buffer size is a different things?
+//   - Should I use 'alignas(256)' ?
+//   - Query minUniformBufferOffsetAlignment with VkPhysicalDeviceProperties to align individual uniform buffer members?
+//     GLM_FORCE_DEFAULT_ALIGNED_GENTYPES ?
 //   - Place all UniformBuffers in one VkDeviceMemory?
 //   - Always mapped?
 //   [LINKS]
@@ -70,10 +71,57 @@
 //     - VkDescriptorPoolCreateInfo::maxSets
 //     - VkDescriptorSetAllocateInfo::descriptorSetCount
 //   should be?
+//
+// - <BufferAndImageCreation>
+//   - There is a lot of code repetition in creating VkBuffer/VkImage and allocating memory for them
+//   - There is even more code repetition in CreateMesh/CreateTexture
+//   - There is a code repetition in FindImageMemoryTypeIndex and FindBufferMemoryTypeIndex
 
 
 // NOTE(v.matushkin): Just use c++17 std::size() or c++20 std::ssize() ?
 #define ARRAYSIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+
+
+const VkFormat vk_TextureFormat[] = {
+    VK_FORMAT_R8_UINT,
+    VK_FORMAT_R16_UINT,
+    VK_FORMAT_R16_SFLOAT,
+    VK_FORMAT_R32_SFLOAT,
+    VK_FORMAT_R8G8_UINT,
+    VK_FORMAT_R16G16_UINT,
+    // VK_FORMAT_R8G8B8A8_UNORM,     // RGB8
+    // VK_FORMAT_R16G16B16A16_UINT,  // RGB16
+    VK_FORMAT_R8G8B8A8_UNORM,
+    VK_FORMAT_R16G16B16A16_SFLOAT,
+    VK_FORMAT_D16_UNORM,
+    // VK_FORMAT_D24_UNORM_S8_UINT,  // DEPTH24
+    VK_FORMAT_D24_UNORM_S8_UINT, // DEPTH32
+    VK_FORMAT_D32_SFLOAT
+};
+
+namespace ShaderSet
+{
+    const ui32 Camera   = 0;
+    const ui32 Material = 1;
+}
+namespace ShaderBinding
+{
+    //- Set 0
+    const ui32 ubPerFrame    = 0;
+    const ui32 ubPerDraw     = 1;
+    const ui32 sSampler      = 2;
+    //- Set 1
+    const ui32 tBaseColorMap = 0;
+} // namespace ShaderBinding
+
+const VkFormat k_SwapchainFormat    = VK_FORMAT_B8G8R8A8_UNORM;
+
+// NOTE(v.mnatushkin): 0.04s, this will break for FPS <30, I'm sure I'm doing this acquire/present thing wrong
+const ui64 k_Timeout = 40'000'000;
+
+// TODO(v.matushkin): <RenderGraph>
+static bool g_IsPipelineInitialized = false;
+
 
 // NOTE(v.matushkin): The are other validation layers
 // NOTE(v.matushkin): Layers can be configured, options are listed in <layer>.json, but do I need to?
@@ -93,25 +141,13 @@ const char* vk_InstanceExtensions[] = {
 #ifdef SNV_GPU_API_DEBUG_ENABLED
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
     VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME,
-    // VK_EXT_DEBUG_MARKER_EXTENSION_NAME
+// VK_EXT_DEBUG_MARKER_EXTENSION_NAME
 #endif
 };
 
 const char* vk_DeviceExtensions[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
-
-namespace ShaderBinding
-{
-    const ui32 PerFrame = 0;
-    const ui32 PerDraw  = 1;
-} // namespace ShaderBinding
-
-const VkFormat k_SwapchainFormat    = VK_FORMAT_B8G8R8A8_UNORM;
-// NOTE(v.mnatushkin): 0.04s, this will break for FPS <30, I'm sure I'm doing this acquire/present thing wrong
-const ui64 k_Timeout                = 40'000'000;
-// TODO(v.matushkin): <RenderGraph>
-static bool g_IsPipelineInitialized = false;
 
 
 #ifdef SNV_GPU_API_DEBUG_ENABLED
@@ -208,8 +244,9 @@ VKBackend::VKBackend()
     CreateSyncronizationObjects();
 
     CreateUniformBuffers();
+    CreateTextureSampler();
     CreateDescriptorPool();
-    CreateDescriptorSetLayout();
+    CreateDescriptorSetLayouts();
     CreateDescriptorSets();
 }
 
@@ -244,6 +281,17 @@ VKBackend::~VKBackend()
         vkFreeMemory(m_device, buffer.NormalMemory, nullptr);
         vkFreeMemory(m_device, buffer.TexCoord0Memory, nullptr);
     }
+    //-- Textures
+    vkDestroySampler(m_device, m_sampler, nullptr);
+
+    for (auto& handleAndTexture : m_textures)
+    {
+        auto& texture = handleAndTexture.second;
+
+        vkDestroyImageView(m_device, texture.View, nullptr);
+        vkDestroyImage(m_device, texture.Image, nullptr);
+        vkFreeMemory(m_device, texture.Memory, nullptr);
+    }
     //-- Shaders
     // NOTE(v.matushkin): Delete them afetr pipeline creation?
     for (auto& handleAndShader : m_shaders)
@@ -253,6 +301,11 @@ VKBackend::~VKBackend()
         vkDestroyShaderModule(m_device, shader.Vertex, nullptr);
         vkDestroyShaderModule(m_device, shader.Fragment, nullptr);
     }
+
+    //-- Descriptors
+    vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayoutCamera, nullptr);
+    vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayourMaterial, nullptr);
 
     //- Vulkan
     //-- Syncronization Objects
@@ -266,8 +319,6 @@ VKBackend::~VKBackend()
 
     vkDestroyCommandPool(m_device, m_commandPool, nullptr);
 
-    vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
-
     for (ui32 i = 0; i < k_BackBufferFrames; ++i)
     {
         vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
@@ -275,7 +326,6 @@ VKBackend::~VKBackend()
 
     //-- Graphics Pipeline
     vkDestroyPipeline(m_device, m_graphicsPipeline, nullptr);
-    vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
     vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
     vkDestroyRenderPass(m_device, m_renderPass, nullptr);
     //-- Swapchain
@@ -396,7 +446,7 @@ void VKBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         m_pipelineLayout,
-        0,
+        ShaderSet::Camera,
         1,
         &m_descriptorSets[m_currentBackBufferIndex],
         0,
@@ -446,13 +496,28 @@ void VKBackend::EndFrame()
 void VKBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
     auto commandBuffer = m_commandBuffers[m_currentBackBufferIndex];
-    const auto& buffer = m_buffers[bufferHandle];
 
+    //- Set Index/Vertex buffers
+    const auto& buffer = m_buffers[bufferHandle];
     VkBuffer     vkVertexBuffers[] = {buffer.Position, buffer.Normal, buffer.TexCoord0};
     VkDeviceSize vkOffsets[]       = {0, 0, 0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 3, vkVertexBuffers, vkOffsets);
     // TODO(v.matushkin): Vertex type shouldn't be hardcoded
     vkCmdBindIndexBuffer(commandBuffer, buffer.Index, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 3, vkVertexBuffers, vkOffsets);
+    
+    //- Set Material Texture
+    const auto& texture = m_textures[textureHandle];
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_pipelineLayout,
+        ShaderSet::Material,
+        1,
+        &m_descriptorSetMaterials[texture.DescriptorSetIndex],
+        0,
+        nullptr
+    );
+
     vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
 }
 
@@ -488,21 +553,23 @@ BufferHandle VKBackend::CreateBuffer(
     VkBuffer       vkStagingBuffers[4];
     VkDeviceMemory vkStagingBuffersMemory[4];
 
-    //- Create transfer VkCommnadBuffer
-    VkCommandBufferAllocateInfo vkCommandBufferInfo = {
-        .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool        = m_commandPool,
-        .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
+    //- Create CPU->GPU buffer transfer VkCommnadBuffer
     VkCommandBuffer vkCommandBuffer;
-    vkAllocateCommandBuffers(m_device, &vkCommandBufferInfo, &vkCommandBuffer);
+    {
+        VkCommandBufferAllocateInfo vkCommandBufferInfo = {
+            .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool        = m_commandPool,
+            .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1,
+        };
+        vkAllocateCommandBuffers(m_device, &vkCommandBufferInfo, &vkCommandBuffer);
 
-    VkCommandBufferBeginInfo vkCommandBufferBeginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-    vkBeginCommandBuffer(vkCommandBuffer, &vkCommandBufferBeginInfo);
+        VkCommandBufferBeginInfo vkCommandBufferBeginInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        };
+        vkBeginCommandBuffer(vkCommandBuffer, &vkCommandBufferBeginInfo);
+    }
 
     VkBufferCopy vkBufferCopyRegion = {
         .srcOffset = 0,
@@ -582,7 +649,7 @@ BufferHandle VKBackend::CreateBuffer(
                 .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
                 .pNext           = nullptr,
                 .allocationSize  = vkMemoryRequirements.size,
-                .memoryTypeIndex = m_bufferMemoryTypeIndex.VertexGPU,
+                .memoryTypeIndex = m_bufferMemoryTypeIndex.GPUVertex,
             };
             vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, vkBufferMemory);
 
@@ -659,7 +726,7 @@ BufferHandle VKBackend::CreateBuffer(
             .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .pNext           = nullptr,
             .allocationSize  = vkMemoryRequirements.size,
-            .memoryTypeIndex = m_bufferMemoryTypeIndex.VertexGPU,
+            .memoryTypeIndex = m_bufferMemoryTypeIndex.GPUVertex,
         };
         vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &buffer.IndexMemory);
 
@@ -700,7 +767,267 @@ BufferHandle VKBackend::CreateBuffer(
 
 TextureHandle VKBackend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
-    return TextureHandle();
+    // TODO(v.matushkin): Assuming texture format is RGBA8888. Shouldn't be hardcoded
+    //  Seems like there was no need to know the actual texture data size in another backends, which is strange.
+    //  But here I need it.
+    //  Pass textureData as std::span? Add size member to TextureDesc? Convert texture format to pixel size?
+    //  May be if I used VkImage as a staging buffer instead of VkBuffer, texture width/height/format would be enough.
+    //  But here - https://developer.nvidia.com/vulkan-memory-management, the say that it is better to use VkBuffer.
+    const auto textureSize = textureDesc.Width * textureDesc.Height * sizeof(ui8) * 4;
+
+    const auto vkTextureFormat = vk_TextureFormat[static_cast<ui8>(textureDesc.Format)];
+
+    VKTexture texture;
+
+    //- Create staging texture VkBuffer
+    VkBuffer vkTextureStagingBuffer;
+    VkDeviceMemory vkTextureStagingBufferMemory;
+    {
+        VkBufferCreateInfo vkBufferInfo = {
+            .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .pNext                 = nullptr,
+            .flags                 = 0,
+            .size                  = textureSize,
+            .usage                 = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0, // NOTE(v.matushkin): This is for VK_SHARING_MODE_CONCURRENT ?
+            .pQueueFamilyIndices   = nullptr,
+        };
+        vkCreateBuffer(m_device, &vkBufferInfo, nullptr, &vkTextureStagingBuffer);
+
+        // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
+        VkMemoryRequirements vkMemoryRequirements;
+        vkGetBufferMemoryRequirements(m_device, vkTextureStagingBuffer, &vkMemoryRequirements);
+
+        //-- Allocate VkDeviceMemory
+        VkMemoryAllocateInfo vkAllocateInfo = {
+            .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext           = nullptr,
+            .allocationSize  = vkMemoryRequirements.size,
+            .memoryTypeIndex = m_bufferMemoryTypeIndex.CPUtoGPU,
+        };
+        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &vkTextureStagingBufferMemory);
+
+        //-- Bind VkDeviceMemory to VkBuffer
+        // NOTE(v.matushkin): Use vkBindBufferMemory2 to bind multiple buffers at once?
+        vkBindBufferMemory(m_device, vkTextureStagingBuffer, vkTextureStagingBufferMemory, 0);
+
+        //-- Copy texture data to VkDeviceMemory
+        void* data;
+        vkMapMemory(m_device, vkTextureStagingBufferMemory, 0, textureSize, 0, &data);
+        std::memcpy(data, textureData, textureSize);
+        vkUnmapMemory(m_device, vkTextureStagingBufferMemory);
+    }
+    //- Create VkImage
+    {
+        VkImageCreateInfo vkImageInfo = {
+            .sType                 = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .pNext                 = nullptr,
+            .flags                 = 0,
+            .imageType             = VK_IMAGE_TYPE_2D,
+            .format                = vkTextureFormat,
+            .extent                = {textureDesc.Width, textureDesc.Height, 1},
+            .mipLevels             = 1,
+            .arrayLayers           = 1,
+            .samples               = VK_SAMPLE_COUNT_1_BIT,
+            .tiling                = VK_IMAGE_TILING_OPTIMAL,
+            .usage                 = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0,       // TODO(v.matushkin): The fuck is this?
+            .pQueueFamilyIndices   = nullptr, // TODO(v.matushkin): The fuck is this?
+            .initialLayout         = VK_IMAGE_LAYOUT_UNDEFINED,
+        };
+        vkCreateImage(m_device, &vkImageInfo, nullptr, &texture.Image);
+
+        // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
+        VkMemoryRequirements vkMemoryRequirements;
+        vkGetImageMemoryRequirements(m_device, texture.Image, &vkMemoryRequirements);
+
+        //-- Allocate VkDeviceMemory
+        VkMemoryAllocateInfo vkAllocateInfo = {
+            .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext           = nullptr,
+            .allocationSize  = vkMemoryRequirements.size,
+            .memoryTypeIndex = m_bufferMemoryTypeIndex.GPUTexture,
+        };
+        vkAllocateMemory(m_device, &vkAllocateInfo, nullptr, &texture.Memory);
+
+        //-- Bind VkDeviceMemory to VkImage
+        // NOTE(v.matushkin): vkBindImageMemory2 ?
+        vkBindImageMemory(m_device, texture.Image, texture.Memory, 0);
+    }
+    //- Transfer texture from CPU to GPU
+    {
+        VkCommandBuffer vkCommandBuffer;
+
+        //- Allocate
+        VkCommandBufferAllocateInfo vkCommandBufferInfo = {
+            .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool        = m_commandPool,
+            .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1,
+        };
+        vkAllocateCommandBuffers(m_device, &vkCommandBufferInfo, &vkCommandBuffer);
+        //- Begin
+        VkCommandBufferBeginInfo vkCommandBufferBeginInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        };
+        vkBeginCommandBuffer(vkCommandBuffer, &vkCommandBufferBeginInfo);
+        //- VkImage Memory Barrier UNDEFINED->DST_OPTIMAL
+        VkImageSubresourceRange vkImageSubresourceRange = {
+            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        };
+        // TODO(v.matushkin): VkImageMemoryBarrier2KHR
+        VkImageMemoryBarrier vkImageMemoryBarrier = {
+            .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext               = nullptr,
+            .srcAccessMask       = 0,
+            .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image               = texture.Image,
+            .subresourceRange    = vkImageSubresourceRange,
+        };
+        // TODO(v.matushkin): vkCmdPipelineBarrier2KHR?
+        vkCmdPipelineBarrier(
+            vkCommandBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, // NOTE(v.matushkin): ???
+            0, nullptr,
+            0, nullptr,
+            1, &vkImageMemoryBarrier
+        );
+        //- Copy VkBuffer to VkImage
+        VkImageSubresourceLayers vkImageSubresourceLayers = {
+            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel       = 0,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        };
+        // NOTE(v.matushkin): VkBufferImageCopy2KHR?
+        VkBufferImageCopy vkBufferImageCopy = {
+            .bufferOffset      = 0,
+            .bufferRowLength   = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource  = vkImageSubresourceLayers,
+            .imageOffset       = {0, 0, 0},
+            .imageExtent       = {textureDesc.Width, textureDesc.Height, 1},
+        };
+        vkCmdCopyBufferToImage(
+            vkCommandBuffer,
+            vkTextureStagingBuffer,
+            texture.Image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &vkBufferImageCopy
+        );
+        //- VkImage Memory Barrier DST_OPTIMAL->SHADER_READ_ONLY_OPTIMAL
+        vkImageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        vkImageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkImageMemoryBarrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        vkImageMemoryBarrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        vkCmdPipelineBarrier(
+            vkCommandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0, // NOTE(v.matushkin): ???
+            0, nullptr,
+            0, nullptr,
+            1, &vkImageMemoryBarrier
+        );
+
+        //- Submit
+        vkEndCommandBuffer(vkCommandBuffer);
+
+        VkSubmitInfo vkSubmitInfo = {
+            .sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers    = &vkCommandBuffer,
+        };
+        vkQueueSubmit(m_graphicsQueue, 1, &vkSubmitInfo, nullptr);
+        vkQueueWaitIdle(m_graphicsQueue);
+
+        vkFreeCommandBuffers(m_device, m_commandPool, 1, &vkCommandBuffer);
+    }
+    vkDestroyBuffer(m_device, vkTextureStagingBuffer, nullptr);
+    vkFreeMemory(m_device, vkTextureStagingBufferMemory, nullptr);
+
+    //- Create VkImageView
+    {
+        VkComponentMapping vkComponentMappingMapping = {
+            .r = VK_COMPONENT_SWIZZLE_R,
+            .g = VK_COMPONENT_SWIZZLE_G,
+            .b = VK_COMPONENT_SWIZZLE_B,
+            .a = VK_COMPONENT_SWIZZLE_A,
+        };
+        VkImageSubresourceRange vkImageSubresourceRange = {
+            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        };
+        VkImageViewCreateInfo vkImageViewInfo = {
+            .sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .pNext            = nullptr,
+            .flags            = 0,
+            .image            = texture.Image,
+            .viewType         = VK_IMAGE_VIEW_TYPE_2D,
+            .format           = vkTextureFormat,
+            .components       = vkComponentMappingMapping,
+            .subresourceRange = vkImageSubresourceRange,
+        };
+        vkCreateImageView(m_device, &vkImageViewInfo, nullptr, &texture.View);
+    }
+
+    static ui32 texture_handle_workaround = 0;
+
+    //- Create Texture descriptor
+    texture.DescriptorSetIndex = texture_handle_workaround;
+    {
+        //-- Allocate DescriptorSet
+        VkDescriptorSetAllocateInfo vkDescriptorSetInfo = {
+            .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .pNext              = nullptr,
+            .descriptorPool     = m_descriptorPool,
+            .descriptorSetCount = 1,
+            .pSetLayouts        = &m_descriptorSetLayourMaterial,
+        };
+        vkAllocateDescriptorSets(m_device, &vkDescriptorSetInfo, &m_descriptorSetMaterials[texture_handle_workaround]);
+        //-- Write to DescriptorSet
+        VkDescriptorImageInfo vkDescriptorImageInfo = {
+            .sampler     = nullptr, // NOTE(v.matushkin): What to set when using immutable sampler?
+            .imageView   = texture.View,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
+        VkWriteDescriptorSet vkWriteDescriptorSet = {
+            .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext            = nullptr,
+            .dstSet           = m_descriptorSetMaterials[texture_handle_workaround],
+            .dstBinding       = ShaderBinding::tBaseColorMap,
+            .dstArrayElement  = 0,
+            .descriptorCount  = 1,
+            .descriptorType   = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .pImageInfo       = &vkDescriptorImageInfo,
+            .pBufferInfo      = nullptr,
+            .pTexelBufferView = nullptr,
+        };
+        vkUpdateDescriptorSets(m_device, 1, &vkWriteDescriptorSet, 0, nullptr);
+    }
+
+    auto textureHandle = static_cast<TextureHandle>(texture_handle_workaround++);
+
+    m_textures[textureHandle] = texture;
+
+    return textureHandle;
 }
 
 ShaderHandle VKBackend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
@@ -779,7 +1106,7 @@ void VKBackend::CreateInstance()
 
     //- Create Instance Debug Messenger
     auto vkDebugUtilsMessengerInfo  = CreateDebugUtilsMessengerInfo();
-    //vkDebugUtilsMessengerInfo.pNext = &vkValidationFeatures;
+    // vkDebugUtilsMessengerInfo.pNext = &vkValidationFeatures;
 
     vkInstanceInfo.pNext = &vkDebugUtilsMessengerInfo;
 #endif
@@ -954,8 +1281,8 @@ void VKBackend::CreateSwapchain()
         .imageArrayLayers      = 1, // This is always 1 unless you are developing a stereoscopic 3D application
         .imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, // NOTE(v.matushkin): When to use VK_IMAGE_USAGE_TRANSFER_DST_BIT?
         .imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE, // NOTE(v.matushkin): <PresentQueue>
-        .queueFamilyIndexCount = 0,
-        .pQueueFamilyIndices   = nullptr,
+        .queueFamilyIndexCount = 0,       // TODO(v.matushkin): The fuck is this?
+        .pQueueFamilyIndices   = nullptr, // TODO(v.matushkin): The fuck is this?
         .preTransform          = vkPreTransform,
         .compositeAlpha        = vkCompositeAlpha, // NOTE(v.matushkin): Blending with other windows
         .presentMode           = vkPresentMode,
@@ -1091,35 +1418,64 @@ void VKBackend::CreateFramebuffers()
     }
 }
 
-void VKBackend::CreateDescriptorSetLayout()
+void VKBackend::CreateDescriptorSetLayouts()
 {
-    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBindings[] = {
-        // PerFrame
-        {
-            .binding            = ShaderBinding::PerFrame,
-            .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    //- Set 0
+    {
+        VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBindings[] = {
+            // PerFrame
+            {
+                .binding            = ShaderBinding::ubPerFrame,
+                .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount    = 1,
+                .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
+                .pImmutableSamplers = nullptr,
+            },
+            // PerDraw
+            {
+                .binding            = ShaderBinding::ubPerDraw,
+                .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount    = 1,
+                .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
+                .pImmutableSamplers = nullptr,
+            },
+            // Texture Sampler
+            {
+                .binding            = ShaderBinding::sSampler,
+                .descriptorType     = VK_DESCRIPTOR_TYPE_SAMPLER,
+                .descriptorCount    = 1,
+                .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT,
+                .pImmutableSamplers = &m_sampler,
+            }
+        };
+        VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutInfo = {
+            .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext        = nullptr,
+            .flags        = 0,
+            .bindingCount = ARRAYSIZE(vkDescriptorSetLayoutBindings),
+            .pBindings    = vkDescriptorSetLayoutBindings,
+        };
+        vkCreateDescriptorSetLayout(m_device, &vkDescriptorSetLayoutInfo, nullptr, &m_descriptorSetLayoutCamera);
+    }
+    //- Set 1
+    {
+        VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding = {
+            .binding            = ShaderBinding::tBaseColorMap,
+            .descriptorType     = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
             .descriptorCount    = 1,
-            .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
+            .stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT,
             .pImmutableSamplers = nullptr,
-        },
-        // PerDraw
-        {
-            .binding            = ShaderBinding::PerDraw,
-            .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount    = 1,
-            .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
-            .pImmutableSamplers = nullptr,
-        },
-    };
+        };
+        VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutInfo = {
+            .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext        = nullptr,
+            .flags        = 0,
+            .bindingCount = 1,
+            .pBindings    = &vkDescriptorSetLayoutBinding,
+        };
+        vkCreateDescriptorSetLayout(m_device, &vkDescriptorSetLayoutInfo, nullptr, &m_descriptorSetLayourMaterial);
+    }
 
-    VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutInfo = {
-        .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext        = nullptr,
-        .flags        = 0,
-        .bindingCount = ARRAYSIZE(vkDescriptorSetLayoutBindings),
-        .pBindings    = vkDescriptorSetLayoutBindings,
-    };
-    vkCreateDescriptorSetLayout(m_device, &vkDescriptorSetLayoutInfo, nullptr, &m_descriptorSetLayout);
 }
 
 void VKBackend::CreatePipeline()
@@ -1304,12 +1660,13 @@ void VKBackend::CreatePipeline()
     // VkPipelineDynamicStateCreateInfo vkDynamicStateInfo;
 
     //- Create VkPipelineLayout
+    VkDescriptorSetLayout      vkDescriptorSetLayouts[] = {m_descriptorSetLayoutCamera, m_descriptorSetLayourMaterial};
     VkPipelineLayoutCreateInfo vkPipelineLayoutInfo = {
         .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext                  = nullptr,
         .flags                  = 0, // SPEC: reserved for future use
-        .setLayoutCount         = 1,
-        .pSetLayouts            = &m_descriptorSetLayout,
+        .setLayoutCount         = ARRAYSIZE(vkDescriptorSetLayouts),
+        .pSetLayouts            = vkDescriptorSetLayouts,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges    = nullptr,
     };
@@ -1339,6 +1696,33 @@ void VKBackend::CreatePipeline()
     };
     // NOTE(v.matushkin): VkPipelineCache ?
     vkCreateGraphicsPipelines(m_device, nullptr, 1, &vkGraphicsPipelineInfo, nullptr, &m_graphicsPipeline);
+}
+
+void VKBackend::CreateTextureSampler()
+{
+    VkSamplerCreateInfo vkSamplerInfo = {
+        .sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .pNext                   = nullptr,
+        .flags                   = 0,
+        .magFilter               = VK_FILTER_NEAREST,
+        .minFilter               = VK_FILTER_NEAREST,
+        .mipmapMode              = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+        .addressModeU            = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeV            = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeW            = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .mipLodBias              = 0.0f,
+        // NOTE(v.matushkin): To use anisotropy, set VkPhysicalDeviceFeatures::samplerAnisotropy = true
+        //  and query its support with vkGetPhysicalDeviceFeatures
+        .anisotropyEnable        = false,
+        .maxAnisotropy           = 1.0f, // NOTE(v.matushkin): Query VkPhysicalDeviceProperties for limits.maxSamplerAnisotropy
+        .compareEnable           = false, // ???
+        .compareOp               = VK_COMPARE_OP_ALWAYS,
+        .minLod                  = 0.0f,
+        .maxLod                  = 0.0f,
+        .borderColor             = VK_BORDER_COLOR_INT_OPAQUE_BLACK, // NOTE(v.matushkin): Only used for ADDRESS_MODE_CLAMP_TO_BORDER
+        .unnormalizedCoordinates = false, // false - uv[0, 1) | true - uv[0, width) [0, height)
+    };
+    vkCreateSampler(m_device, &vkSamplerInfo, nullptr, &m_sampler);
 }
 
 void VKBackend::CreateUniformBuffers()
@@ -1398,9 +1782,15 @@ void VKBackend::CreateUniformBuffers()
 void VKBackend::CreateDescriptorPool()
 {
     // TODO(v.matushkin): <DescriptorSet>
-    VkDescriptorPoolSize vkDescriptorPoolSize = {
-        .type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = k_BackBufferFrames * 2, // (PerFrame and PerDraw) * k_BackBufferFrames
+    VkDescriptorPoolSize vkDescriptorPoolSizes[] = {
+        {
+            .type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = k_BackBufferFrames * 2, // (PerFrame and PerDraw) * k_BackBufferFrames
+        },
+        {
+            .type            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .descriptorCount = k_MaxTextureDescriptors,
+        }
     };
 
     // NOTE(v.matushkin): Flags?
@@ -1408,9 +1798,9 @@ void VKBackend::CreateDescriptorPool()
         .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext         = nullptr,
         .flags         = 0,
-        .maxSets       = k_BackBufferFrames,
-        .poolSizeCount = 1,
-        .pPoolSizes    = &vkDescriptorPoolSize,
+        .maxSets       = k_BackBufferFrames + k_MaxTextureDescriptors,
+        .poolSizeCount = ARRAYSIZE(vkDescriptorPoolSizes),
+        .pPoolSizes    = vkDescriptorPoolSizes,
     };
     vkCreateDescriptorPool(m_device, &vkDescriptorPoolInfo, nullptr, &m_descriptorPool);
 }
@@ -1419,13 +1809,17 @@ void VKBackend::CreateDescriptorSets()
 {
     // TODO(v.matushkin): <DescriptorSet>
     //- Allocate DescriptorSets
-    const VkDescriptorSetLayout descriptorSetLayouts[] = {m_descriptorSetLayout, m_descriptorSetLayout, m_descriptorSetLayout};
+    const VkDescriptorSetLayout descriptorSetLayouts[] = {
+        m_descriptorSetLayoutCamera,
+        m_descriptorSetLayoutCamera,
+        m_descriptorSetLayoutCamera
+    };
 
     VkDescriptorSetAllocateInfo vkDescriptorSetInfo = {
         .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext              = nullptr,
         .descriptorPool     = m_descriptorPool,
-        .descriptorSetCount = k_BackBufferFrames,
+        .descriptorSetCount = ARRAYSIZE(descriptorSetLayouts),
         .pSetLayouts        = descriptorSetLayouts,
     };
     vkAllocateDescriptorSets(m_device, &vkDescriptorSetInfo, m_descriptorSets);
@@ -1446,7 +1840,7 @@ void VKBackend::CreateDescriptorSets()
             .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext            = nullptr,
             .dstSet           = m_descriptorSets[i],
-            .dstBinding       = ShaderBinding::PerFrame,
+            .dstBinding       = ShaderBinding::ubPerFrame,
             .dstArrayElement  = 0,
             .descriptorCount  = 1,
             .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1466,7 +1860,7 @@ void VKBackend::CreateDescriptorSets()
             .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext            = nullptr,
             .dstSet           = m_descriptorSets[i],
-            .dstBinding       = ShaderBinding::PerDraw,
+            .dstBinding       = ShaderBinding::ubPerDraw,
             .dstArrayElement  = 0,
             .descriptorCount  = 1,
             .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1501,33 +1895,42 @@ void VKBackend::FindMemoryTypeIndices()
     vkGetPhysicalDeviceMemoryProperties(m_physiacalDevice, &vkMemoryProperties);
 
     //- CPU
-    m_bufferMemoryTypeIndex.CPU = FindMemoryTypeIndex(
+    m_bufferMemoryTypeIndex.CPU = FindBufferMemoryTypeIndex(
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         vkMemoryProperties
     );
     //- CPUtoGPU
-    m_bufferMemoryTypeIndex.CPUtoGPU = FindMemoryTypeIndex(
+    m_bufferMemoryTypeIndex.CPUtoGPU = FindBufferMemoryTypeIndex(
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         vkMemoryProperties
     );
     //- GPU
-    //-- Index
-    m_bufferMemoryTypeIndex.IndexGPU = FindMemoryTypeIndex(
+    //-- Index Buffer
+    m_bufferMemoryTypeIndex.GPUIndex = FindBufferMemoryTypeIndex(
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         vkMemoryProperties);
-    //-- Vertex
-    m_bufferMemoryTypeIndex.VertexGPU = FindMemoryTypeIndex(
+    //-- Vertex Buffer
+    m_bufferMemoryTypeIndex.GPUVertex = FindBufferMemoryTypeIndex(
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        vkMemoryProperties
+    );
+    //-- Texture
+    m_bufferMemoryTypeIndex.GPUTexture = FindImageMemoryTypeIndex(
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         vkMemoryProperties
     );
 
     LOG_INFO(
-        "CPUtoGPU: {} | IndexGPU: {} | VertexGPU: {}",
-        m_bufferMemoryTypeIndex.CPUtoGPU, m_bufferMemoryTypeIndex.IndexGPU, m_bufferMemoryTypeIndex.VertexGPU
+        "Memory Type Indices:\n\tCPUtoGPU: {}\n\tGPUIndex: {}\n\tGPUVertex: {}\n\tGPUTexture: {}",
+        m_bufferMemoryTypeIndex.CPUtoGPU,
+        m_bufferMemoryTypeIndex.GPUIndex,
+        m_bufferMemoryTypeIndex.GPUVertex,
+        m_bufferMemoryTypeIndex.GPUTexture
     );
 }
 
@@ -1693,7 +2096,7 @@ bool VKBackend::IsPhysicalDeviceSuitable(VkPhysicalDevice physicalDevice, ui32& 
 //    delete[] vkDeviceExtensions;
 //}
 
-ui32 VKBackend::FindMemoryTypeIndex(
+ui32 VKBackend::FindBufferMemoryTypeIndex(
     VkBufferUsageFlags                      vkUsageFlags,
     VkMemoryPropertyFlags                   vkPropertyFlags,
     const VkPhysicalDeviceMemoryProperties& vkMemoryProperties
@@ -1707,7 +2110,7 @@ ui32 VKBackend::FindMemoryTypeIndex(
         .size                  = 20,
         .usage                 = vkUsageFlags,
         .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 0, // NOTE(v.matushkin): This is for VK_SHARING_MODE_CONCURRENT ?
+        .queueFamilyIndexCount = 0, // TODO(v.matushkin): This is for VK_SHARING_MODE_CONCURRENT ?
         .pQueueFamilyIndices   = nullptr,
     };
     VkBuffer vkBuffer;
@@ -1731,7 +2134,59 @@ ui32 VKBackend::FindMemoryTypeIndex(
         }
     }
 
-    SNV_ASSERT(false, "Couldn't find required memory type");
+    SNV_ASSERT(false, "Couldn't find required VkBuffer memory type");
+}
+
+ui32 VKBackend::FindImageMemoryTypeIndex(
+    VkImageUsageFlags                       vkUsageFlags,
+    VkMemoryPropertyFlags                   vkPropertyFlags,
+    const VkPhysicalDeviceMemoryProperties& vkMemoryProperties
+)
+{
+    //- Create dummy VkImage
+    VkImageCreateInfo vkImageInfo = {
+        .sType                 = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .pNext                 = nullptr,
+        .flags                 = 0,
+        .imageType             = VK_IMAGE_TYPE_2D,
+        .format                = VK_FORMAT_R8G8B8A8_UNORM,
+        .extent                = {
+            .width  = 4,
+            .height = 4,
+            .depth  = 1,
+        },
+        .mipLevels             = 1,
+        .arrayLayers           = 1,
+        .samples               = VK_SAMPLE_COUNT_1_BIT,
+        .tiling                = VK_IMAGE_TILING_OPTIMAL,
+        .usage                 = vkUsageFlags,
+        .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,       // TODO(v.matushkin): The fuck is this?
+        .pQueueFamilyIndices   = nullptr, // TODO(v.matushkin): The fuck is this?
+        .initialLayout         = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    VkImage vkImage;
+    vkCreateImage(m_device, &vkImageInfo, nullptr, &vkImage);
+
+    // NOTE(v.matushkin): VkMemoryRequirements2, VkMemoryDedicatedRequirements ?
+    VkMemoryRequirements vkMemoryRequirements;
+    vkGetImageMemoryRequirements(m_device, vkImage, &vkMemoryRequirements);
+    vkDestroyImage(m_device, vkImage, nullptr);
+
+    const auto memoryTypeBits = vkMemoryRequirements.memoryTypeBits;
+    //- Find suitable memory type index
+    for (ui32 i = 0; i < vkMemoryProperties.memoryTypeCount; ++i)
+    {
+        const auto propertyFlags         = vkMemoryProperties.memoryTypes[i].propertyFlags;
+        const auto isRequiredMemoryType  = memoryTypeBits & (1 << i);
+        const auto hasRequiredProperties = (propertyFlags & vkPropertyFlags) == vkPropertyFlags;
+        if (isRequiredMemoryType && hasRequiredProperties)
+        {
+            return i;
+        }
+    }
+
+    SNV_ASSERT(false, "Couldn't find required VkImage memory type");
 }
 
 } // namespace snv

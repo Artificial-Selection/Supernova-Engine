@@ -14,7 +14,8 @@ namespace snv
 
 class VKBackend final : public IRendererBackend
 {
-    static const ui32 k_BackBufferFrames = 3;
+    static const ui32 k_BackBufferFrames      = 3;
+    static const ui32 k_MaxTextureDescriptors = 300;
 
 
     struct VKBuffer
@@ -28,6 +29,15 @@ class VKBackend final : public IRendererBackend
         VkDeviceMemory PositionMemory;
         VkDeviceMemory NormalMemory;
         VkDeviceMemory TexCoord0Memory;
+    };
+
+    struct VKTexture
+    {
+        VkImageView    View;
+        VkImage        Image;
+        VkDeviceMemory Memory;
+
+        ui32 DescriptorSetIndex;
     };
 
     struct VKShader
@@ -49,14 +59,14 @@ class VKBackend final : public IRendererBackend
     };
 
 
+    // TODO(v.matushkin): Is this shit even valid?
     struct VKBufferMemoryTypeIndex
     {
         ui32 CPU;
-
         ui32 CPUtoGPU;
-
-        ui32 VertexGPU;
-        ui32 IndexGPU; // NOTE(v.matushkin): This can't be different from VertexGPU, right?
+        ui32 GPUVertex;
+        ui32 GPUIndex;   // NOTE(v.matushkin): This can't be different from VertexGPU, right?
+        ui32 GPUTexture; // NOTE(v.matushkin): Will this be different from VkBuffer ?
     };
 
 
@@ -95,12 +105,14 @@ private:
     void CreateSwapchain();
     void CreateRenderPass();
     void CreateFramebuffers();
-    void CreateDescriptorSetLayout();
-    void CreatePipeline();
 
     void CreateUniformBuffers();
+    void CreateTextureSampler(); // TODO(v.matushkin): This should be removed. Textures should have individual samplers
     void CreateDescriptorPool();
+    void CreateDescriptorSetLayouts();
     void CreateDescriptorSets();
+
+    void CreatePipeline();
 
     void CreateCommandPool();
     void FindMemoryTypeIndices();
@@ -118,49 +130,61 @@ private:
     // void EnumerateInstanceLayerProperties();
     // void EnumerateInstanceExtensionProperties();
     // void CheckDeviceExtensionsSupport(VkPhysicalDevice physicalDevice);
-    ui32 FindMemoryTypeIndex(
+    ui32 FindBufferMemoryTypeIndex(
         VkBufferUsageFlags                      vkUsageFlags,
+        VkMemoryPropertyFlags                   vkPropertyFlags,
+        const VkPhysicalDeviceMemoryProperties& vkMemoryProperties
+    );
+    ui32 FindImageMemoryTypeIndex(
+        VkImageUsageFlags                       vkUsageFlags,
         VkMemoryPropertyFlags                   vkPropertyFlags,
         const VkPhysicalDeviceMemoryProperties& vkMemoryProperties
     );
 
 private:
+    //- Vulkan
     VkInstance               m_instance;
     VkPhysicalDevice         m_physiacalDevice;
     VkDevice                 m_device;
     VkQueue                  m_graphicsQueue;
     ui32                     m_graphicsQueueFamily;
-
+    //-- Surface
     VkSurfaceKHR             m_surface;
     VkSwapchainKHR           m_swapchain;
     VkExtent2D               m_swapchainExtent;
     VkImageView              m_backBuffers[k_BackBufferFrames];
     VkFramebuffer            m_framebuffers[k_BackBufferFrames];
     ui32                     m_currentBackBufferIndex;
-
+    //-- Pipeline
     // TODO(v.matushkin): Useless VkDescriptorSetLayout, VkPipelineLayout members? Why have them?
     //  They're only used to create VkPipeline. To reuse them?
-    VkDescriptorSetLayout    m_descriptorSetLayout;
     VkPipelineLayout         m_pipelineLayout;
     VkRenderPass             m_renderPass;
     VkPipeline               m_graphicsPipeline;
-
+    //-- Command Buffers
     VkCommandPool            m_commandPool;
     VkCommandBuffer          m_commandBuffers[k_BackBufferFrames];
-
+    //-- Syncronization Objects
     VkSemaphore              m_semaphoreImageAvailable[k_BackBufferFrames];
     VkSemaphore              m_semaphoreRenderFinished[k_BackBufferFrames];
     VkFence                  m_fences[k_BackBufferFrames];
     ui32                     m_currentFrame;
+    //-- Descriptors
+    VkDescriptorSetLayout    m_descriptorSetLayoutCamera;
+    VkDescriptorSetLayout    m_descriptorSetLayourMaterial;
 
     VkDescriptorPool         m_descriptorPool;
+
     VkDescriptorSet          m_descriptorSets[k_BackBufferFrames];
+    VkDescriptorSet          m_descriptorSetMaterials[k_MaxTextureDescriptors];
 
 #ifdef SNV_GPU_API_DEBUG_ENABLED
     VkDebugUtilsMessengerEXT m_debugMessenger;
 #endif
 
     VKBufferMemoryTypeIndex  m_bufferMemoryTypeIndex;
+
+    VkSampler                m_sampler;
 
     VkBuffer                 m_ubPerFrame[k_BackBufferFrames];
     VkBuffer                 m_ubPerDraw[k_BackBufferFrames];
@@ -170,8 +194,9 @@ private:
 
     VkClearValue             m_clearValue; // NOTE(v.matushkin): Different from other backends, default initialized
 
-    std::unordered_map<BufferHandle, VKBuffer> m_buffers;
-    std::unordered_map<ShaderHandle, VKShader> m_shaders;
+    std::unordered_map<BufferHandle,  VKBuffer>  m_buffers;
+    std::unordered_map<TextureHandle, VKTexture> m_textures;
+    std::unordered_map<ShaderHandle,  VKShader>  m_shaders;
 };
 
 } // namespace snv

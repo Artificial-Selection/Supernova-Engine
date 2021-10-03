@@ -161,9 +161,9 @@ private:
 
     f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f};
 
-    std::unordered_map<BufferHandle, DX12Buffer>   m_buffers;
+    std::unordered_map<BufferHandle,  DX12Buffer>  m_buffers;
     std::unordered_map<TextureHandle, DX12Texture> m_textures;
-    std::unordered_map<ShaderHandle, DX12Shader>   m_shaders;
+    std::unordered_map<ShaderHandle,  DX12Shader>  m_shaders;
 };
 
 } // namespace snv

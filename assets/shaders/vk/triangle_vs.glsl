@@ -1,12 +1,12 @@
 #version 460 core
 
-layout(binding = 0) uniform PerFrame
+layout(set = 0, binding = 0) uniform PerFrame
 {
     mat4x4 View;
     mat4x4 Projection;
 } ub_Camera;
 
-layout(binding = 1) uniform PerDraw
+layout(set = 0, binding = 1) uniform PerDraw
 {
     mat4x4 ObjectToWorld;
 } ub_Model;

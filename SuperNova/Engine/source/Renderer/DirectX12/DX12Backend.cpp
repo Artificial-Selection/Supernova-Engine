@@ -123,7 +123,7 @@ namespace ShaderRegister
 {
     const ui32 bPerFrame      = 0;
     const ui32 bPerDraw       = 1;
-    const ui32 tTextureAlbedo = 0;
+    const ui32 tBaseColorMap  = 0;
     const ui32 sStatic        = 0;
 }
 
@@ -519,7 +519,7 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
         // .SamplerFeedbackMipRegion = ,
     };
 
-    //- Create texture on the GPU
+    //- Create texture to the GPU
     // TODO(v.matushkin): <HeapPropertiesUnknown>
     D3D12_HEAP_PROPERTIES d3dHeapProperties = {
         .Type                 = D3D12_HEAP_TYPE_DEFAULT,
@@ -981,7 +981,7 @@ void DX12Backend::CreateRootSignature()
     D3D12_DESCRIPTOR_RANGE1 d3dTexturesDescriptorRange = {
         .RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
         .NumDescriptors                    = 1,
-        .BaseShaderRegister                = ShaderRegister::tTextureAlbedo,
+        .BaseShaderRegister                = ShaderRegister::tBaseColorMap,
         .RegisterSpace                     = 0,
         .Flags                             = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE, // TODO(v.matushkin): What should I use?
         .OffsetInDescriptorsFromTableStart = 0, // NOTE(v.matushkin): Don't know
