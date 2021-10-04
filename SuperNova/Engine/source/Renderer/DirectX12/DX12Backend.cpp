@@ -48,10 +48,10 @@
 //
 //  - <TextureCreation>
 //    - <Upload>
-//        Right now I just memcpy texture data to UPLOAD(CPU) heap. Things will get more complicated with mipmaps, texture arrays.
-//        [LINKS]:
-//          - http://alextardif.com/D3D11To12P3.html
-//          - https://mynameismjp.wordpress.com/2016/03/25/bindless-texturing-for-deferred-rendering-and-decals/
+//      Right now I just memcpy texture data to UPLOAD(CPU) heap. Things will get more complicated with mipmaps, texture arrays.
+//      [LINKS]:
+//        - http://alextardif.com/D3D11To12P3.html
+//        - https://mynameismjp.wordpress.com/2016/03/25/bindless-texturing-for-deferred-rendering-and-decals/
 //
 //  - <WindowSize>
 //    Window size is hardcoded (k_WindowWidth/k_WindowHeight), pass this values in costructor, or get them from window (first one is better I think).
@@ -123,7 +123,7 @@ namespace ShaderRegister
 {
     const ui32 bPerFrame      = 0;
     const ui32 bPerDraw       = 1;
-    const ui32 tTextureAlbedo = 0;
+    const ui32 tBaseColorMap  = 0;
     const ui32 sStatic        = 0;
 }
 
@@ -131,7 +131,7 @@ const DXGI_FORMAT k_DepthStencilFormat = DXGI_FORMAT_D32_FLOAT;
 const f32 k_DepthClearValue = 1.0f;
 
 // TODO(v.matushkin): <RenderGraph>
-bool g_IsPipelineInitialized = false;
+static bool g_IsPipelineInitialized = false;
 
 // TODO(v.matushkin): <DynamicTextureDescriptorHeap>
 const ui32 k_MaxTextureDescriptors = 300;
@@ -258,6 +258,7 @@ void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
     // TODO(v.matushkin): <RenderGraph>
     if (g_IsPipelineInitialized == false)
     {
+        g_IsPipelineInitialized = true;
         CreatePipeline();
     }
 
@@ -488,7 +489,7 @@ BufferHandle DX12Backend::CreateBuffer(
     static ui32 buffer_handle_workaround = 0;
     auto        graphicsBufferHandle     = static_cast<BufferHandle>(buffer_handle_workaround++);
 
-    m_buffers[graphicsBufferHandle] = dx12Buffer;
+    m_buffers[graphicsBufferHandle] = std::move(dx12Buffer);
 
     return graphicsBufferHandle;
 }
@@ -518,7 +519,7 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
         // .SamplerFeedbackMipRegion = ,
     };
 
-    //- Create texture on the GPU
+    //- Create texture to the GPU
     // TODO(v.matushkin): <HeapPropertiesUnknown>
     D3D12_HEAP_PROPERTIES d3dHeapProperties = {
         .Type                 = D3D12_HEAP_TYPE_DEFAULT,
@@ -646,7 +647,7 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
     m_device->CreateShaderResourceView(dx12Texture.Texture.Get(), &d3dTextureSRVDesc, srvDescriptorHandle);
 
     auto textureHandle = static_cast<TextureHandle>(texture_handle_workaround++);
-    m_textures[textureHandle] = dx12Texture;
+    m_textures[textureHandle] = std::move(dx12Texture);
 
     WaitForPreviousFrame();
 
@@ -754,7 +755,7 @@ void DX12Backend::CreateSwapChain()
     DXGI_SWAP_CHAIN_DESC1 dxgiSwapChainDesc = {
         // .Width,                                      // NOTE(v.matushkin): Specify Width/Height explicitly?
         // .Height
-        .Format      = DXGI_FORMAT_R8G8B8A8_UNORM,      // TODO(v.matushkin): Shouldn't be hardcoded
+        .Format      = DXGI_FORMAT_R8G8B8A8_UNORM,      // TODO(v.matushkin): <SwapchainCreation/Format>
         .Stereo      = false,
         .SampleDesc  = dxgiSwapChainSampleDesc,
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
@@ -949,7 +950,7 @@ void DX12Backend::CreateConstantBuffer(ID3D12Resource2** constantBuffer, ui32 si
         // .SamplerFeedbackMipRegion = ,
     };
 
-    auto hr = m_device->CreateCommittedResource2(
+    m_device->CreateCommittedResource2(
         &d3dHeapProperties,
         D3D12_HEAP_FLAG_NONE,
         &d3dResourceDesc,
@@ -980,7 +981,7 @@ void DX12Backend::CreateRootSignature()
     D3D12_DESCRIPTOR_RANGE1 d3dTexturesDescriptorRange = {
         .RangeType                         = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
         .NumDescriptors                    = 1,
-        .BaseShaderRegister                = ShaderRegister::tTextureAlbedo,
+        .BaseShaderRegister                = ShaderRegister::tBaseColorMap,
         .RegisterSpace                     = 0,
         .Flags                             = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE, // TODO(v.matushkin): What should I use?
         .OffsetInDescriptorsFromTableStart = 0, // NOTE(v.matushkin): Don't know
@@ -1153,10 +1154,7 @@ void DX12Backend::CreatePipeline()
     };
     d3dGraphicsPipelineDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-    auto hr = m_device->CreateGraphicsPipelineState(&d3dGraphicsPipelineDesc, IID_PPV_ARGS(m_graphicsPipeline.GetAddressOf()));
-
-    // TODO(v.matushkin): <RenderGraph>
-    g_IsPipelineInitialized = true;
+    m_device->CreateGraphicsPipelineState(&d3dGraphicsPipelineDesc, IID_PPV_ARGS(m_graphicsPipeline.GetAddressOf()));
 }
 
 

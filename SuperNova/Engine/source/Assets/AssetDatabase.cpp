@@ -73,6 +73,20 @@ namespace snv
 std::vector<std::shared_ptr<Material>> GetAssimpMaterials(const aiScene* scene, ShaderPtr shader);
 
 
+void AssetDatabase::Init(std::string assetDirectory)
+{
+    // NOTE(v.matushkin): Assuming that assetDirectory ends with '/'
+    m_assetDir = std::move(assetDirectory);
+    m_modelDir = m_assetDir + "models/";
+
+    const std::string shaderDir = m_assetDir + "shaders/";
+
+    m_glShaderDir = shaderDir + "gl/";
+    m_vkShaderDir = shaderDir + "vk/";
+    m_dxShaderDir = shaderDir + "dx/";
+}
+
+
 // TODO(v.matushkin): Heterogeneous lookup for string_view assetPath?
 // TODO(v.matushkin): I think assets shouldn't have *::LoadAsset() method,
 //   but coding asset importers is complicated, leave it like this for now
@@ -112,8 +126,10 @@ ShaderPtr AssetDatabase::LoadAsset(const std::string& assetPath)
 }
 
 
-Model AssetDatabase::LoadModel(const char* modelPath)
+Model AssetDatabase::LoadModel(const std::string& modelName)
 {
+    const auto modelPath = m_modelDir + modelName;
+
     Assimp::Importer assimpImporter;
     // TODO(v.matushkin): Learn more about aiPostProcessSteps
     const aiScene* scene = assimpImporter.ReadFile(
@@ -281,9 +297,23 @@ Texture AssetDatabase::LoadTexture(const std::string& texturePath)
 // TODO(v.matushkin): Improve this shit with passes/loading(don't know what did I mean by that)
 //  Thats why there should be only one shader language I guess
 //  Or at least there should some static AppSettings class or something, so there is no need to access Renderer
-Shader AssetDatabase::LoadShader(const std::string& shaderPath)
+Shader AssetDatabase::LoadShader(const std::string& shaderName)
 {
-    const std::string shaderExtension(Renderer::GetGraphicsApi() == GraphicsApi::OpenGL ? ".glsl" : ".hlsl");
+    const auto graphicsApi = Renderer::GetGraphicsApi();
+
+    std::string shaderPath;
+    std::string shaderExtension;
+    if (graphicsApi == GraphicsApi::DirectX11 || graphicsApi == GraphicsApi::DirectX12)
+    {
+        shaderExtension = ".hlsl";
+        shaderPath      = m_dxShaderDir;
+    }
+    else
+    {
+        shaderExtension = ".glsl";
+        shaderPath      = graphicsApi == GraphicsApi::OpenGL ? m_glShaderDir : m_vkShaderDir;
+    }
+    shaderPath += shaderName;
 
     // Get Vertex Shader
     const std::string vertexPath(shaderPath + "_vs" + shaderExtension);

@@ -9,7 +9,7 @@
 const ui32 k_WindowWidth  = 1100;
 const ui32 k_WindowHeight = 800;
 // TODO(v.matushkin): Remove k_GraphicsApi duplication in Engine.cpp
-const snv::GraphicsApi k_GraphicsApi = snv::GraphicsApi::DirectX12;
+const snv::GraphicsApi k_GraphicsApi = snv::GraphicsApi::Vulkan;
 
 
 void ProcessInput()

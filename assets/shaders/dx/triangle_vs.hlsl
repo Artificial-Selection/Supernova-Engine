@@ -25,15 +25,15 @@ struct Varyings
 };
 
 
-Varyings main(Attributes input)
+Varyings main(Attributes IN)
 {
-    Varyings output;
+    Varyings OUT;
 
-    float4 positionWS = mul(_ObjectToWorld, float4(input.positionOS, 1.0f));
-    output.positionCS = mul(_CameraProjection, mul(_CameraView, positionWS));
-    output.positionWS = positionWS.xyz;
-    output.normalWS   = mul((float3x3)_ObjectToWorld, input.normalOS);
-    output.texCoord0  = input.texCoord0.xy;
+    float4 positionWS = mul(_ObjectToWorld, float4(IN.positionOS, 1.0f));
+    OUT.positionCS = mul(_CameraProjection, mul(_CameraView, positionWS));
+    OUT.positionWS = positionWS.xyz;
+    OUT.normalWS   = mul((float3x3)_ObjectToWorld, IN.normalOS);
+    OUT.texCoord0  = IN.texCoord0.xy;
 
-    return output;
+    return OUT;
 }

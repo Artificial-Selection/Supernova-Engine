@@ -7,44 +7,81 @@
     },
     "configurePresets": [
         {
-            "name": "msvc_Debug",
-            "displayName": "windows-msvc-Debug",
-            "description": "Windows x64, MSVC, Debug",
-            "generator": "Ninja",
+            "name": "binary-dir",
             "binaryDir": "${sourceDir}/build/${presetName}",
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
+            "hidden": true
+        },
+        {
+            "name": "build-debug",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "hidden": true
+        },
+        {
+            "name": "build-release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            },
+            "hidden": true
+        },
+        {
+            "name": "compiler-msvc",
+            "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "cl"
             },
+            "hidden": true
+        },
+        {
+            "name": "generator-ninja",
+            "generator": "Ninja",
+            "architecture": {
+                "strategy": "external",
+                "value": "x64"
+            },
+            "hidden": true
+        },
+        {
+            "name": "generator-vs",
+            "generator": "Visual Studio 17 2022",
+            "architecture": {
+                "strategy": "set",
+                "value": "x64"
+            },
+            "hidden": true
+        },
+        {
+            "name": "vs-settings",
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {
                     "enableMicrosoftCodeAnalysis": true
                 }
-            }
+            },
+            "hidden": true
+        },
+
+
+        {
+            "name": "msvc_Debug",
+            "displayName": "windows-msvc-Debug",
+            "description": "Windows x64, MSVC, Debug",
+            "inherits": [ "binary-dir", "build-debug", "compiler-msvc", "generator-ninja", "vs-settings" ]
         },
         {
             "name": "msvc_Release",
             "displayName": "windows-msvc-Release",
             "description": "Windows x64, MSVC, Release",
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
+            "inherits": [ "binary-dir", "build-release", "compiler-msvc", "generator-ninja", "vs-settings" ]
+        },
+
+        {
+            "name": "visual-studio",
+            "displayName": "Visual Studio",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_CXX_COMPILER": "cl"
+                "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
             },
-            "vendor": {
-                "microsoft.com/VisualStudioSettings/CMake/1.0": {
-                    "enableMicrosoftCodeAnalysis": true
-                }
-            }
+            "inherits": [ "binary-dir", "compiler-msvc", "generator-vs", "vs-settings" ]
         }
     ],
     "buildPresets": [
@@ -57,6 +94,12 @@
             "name": "msvc_Release",
             "displayName": "windows-msvc-Release",
             "configurePreset": "msvc_Release"
+        },
+
+        {
+            "name": "visual-studio",
+            "displayName": "Visual Studio",
+            "configurePreset": "visual-studio"
         }
     ]
 }

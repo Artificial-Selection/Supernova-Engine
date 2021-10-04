@@ -9,6 +9,7 @@ namespace snv
 enum class GraphicsApi : ui8
 {
     OpenGL,
+    Vulkan,
 #ifdef SNV_PLATFORM_WINDOWS
     DirectX11,
     DirectX12

@@ -2,6 +2,7 @@
 
 #include <Engine/Renderer/IRendererBackend.hpp>
 #include <Engine/Renderer/OpenGL/GLBackend.hpp>
+#include <Engine/Renderer/Vulkan/VulkanBackend.hpp>
 #ifdef SNV_PLATFORM_WINDOWS
     #include <Engine/Renderer/Directx11/DX11Backend.hpp>
     #include <Engine/Renderer/Directx12/DX12Backend.hpp>
@@ -26,14 +27,17 @@ void Renderer::Init(GraphicsApi graphicsApi)
 {
     switch (graphicsApi)
     {
-    case snv::GraphicsApi::OpenGL:
+    case GraphicsApi::OpenGL:
         s_rendererBackend = new GLBackend();
         break;
+    case GraphicsApi::Vulkan:
+        s_rendererBackend = new VulkanBackend();
+        break;
 #ifdef SNV_PLATFORM_WINDOWS
-    case snv::GraphicsApi::DirectX11:
+    case GraphicsApi::DirectX11:
         s_rendererBackend = new DX11Backend();
         break;
-    case snv::GraphicsApi::DirectX12:
+    case GraphicsApi::DirectX12:
         s_rendererBackend = new DX12Backend();
         break;
 #endif

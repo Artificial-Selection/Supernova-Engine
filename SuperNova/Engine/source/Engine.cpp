@@ -16,10 +16,11 @@
 const f32 k_MovementSpeed = 2.0f;
 const f32 k_MovementBoost = 5.0f;
 
-const char* k_SponzaObjPath = "../../assets/models/Sponza/sponza.obj";
-const char* k_ShaderPath    = "../../assets/shaders/triangle";
+const char* k_AssetDir      = "../../assets/";
+const char* k_SponzaObjPath = "Sponza/sponza.obj";
+const char* k_ShaderName    = "triangle";
 
-const snv::GraphicsApi k_GraphicsApi = snv::GraphicsApi::DirectX12;
+const snv::GraphicsApi k_GraphicsApi = snv::GraphicsApi::Vulkan;
 
 
 namespace snv
@@ -40,8 +41,9 @@ void Engine::OnCreate()
     Renderer::EnableDepthTest();
     Renderer::SetDepthFunction(DepthFunction::Less);
 
+    AssetDatabase::Init(k_AssetDir);
 
-    (void) AssetDatabase::LoadAsset<Shader>(k_ShaderPath);
+    (void) AssetDatabase::LoadAsset<Shader>(k_ShaderName);
 
     const auto sponzaLoadStart = std::chrono::high_resolution_clock::now();
     m_sponzaModel              = AssetDatabase::LoadAsset<Model>(k_SponzaObjPath);

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.21 FATAL_ERROR)
 project(SuperNova CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -27,10 +27,15 @@ if(MSVC)
 endif()
 
 
-set(BUILD_DIR     ${PROJECT_SOURCE_DIR}/build)
-set(LIBS_DIR      ${PROJECT_SOURCE_DIR}/libs)
-set(SuperNova_DIR ${PROJECT_SOURCE_DIR}/SuperNova)
-set(CONAN_DIR     ${BUILD_DIR}/conan)
+set(BUILD_DIR         ${PROJECT_SOURCE_DIR}/build)
+set(CMAKE_MODULES_DIR ${PROJECT_SOURCE_DIR}/cmake)
+set(LIBS_DIR          ${PROJECT_SOURCE_DIR}/libs)
+set(SuperNova_DIR     ${PROJECT_SOURCE_DIR}/SuperNova)
+set(CONAN_DIR         ${BUILD_DIR}/conan)
+
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_MODULES_DIR})
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${CONAN_DIR})
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -38,32 +43,23 @@ set(CONAN_DIR     ${BUILD_DIR}/conan)
 # ----------------------------------------------------------------------------------------------------
 set(ENV{CONAN_USER_HOME} ${PROJECT_SOURCE_DIR})
 
-set(CONAN_DIR ${BUILD_DIR}/conan)
-set(CONAN_BUILD_INFO_FILE ${CONAN_DIR}/conanbuildinfo.txt)
+include(${CMAKE_MODULES_DIR}/conan.cmake)
 
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
-    message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
-    file(DOWNLOAD "https://raw.githubusercontent.com/conan-io/cmake-conan/v0.16.1/conan.cmake"
-                  "${CONAN_DIR}/conan.cmake"
-                  EXPECTED_HASH SHA256=396e16d0f5eabdc6a14afddbcfff62a54a7ee75c6da23f32f7a31bc85db23484
-                  TLS_VERIFY ON)
+if("${CMAKE_CONFIGURATION_TYPES}" STREQUAL "")
+    set(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE})
 endif()
-
-include(${CONAN_DIR}/conan.cmake)
-conan_cmake_autodetect(settings)
-conan_cmake_run(
-    CONANFILE ${PROJECT_SOURCE_DIR}/conanfile.py
-    CMAKE_TARGETS
-    INSTALL_FOLDER ${CONAN_DIR}
-    BUILD missing
-)
-
-if(EXISTS ${CONAN_BUILD_INFO_FILE})
-    set(CMAKE_MODULE_PATH ${CONAN_DIR} ${CMAKE_MODULE_PATH})
-    set(CMAKE_PREFIX_PATH ${CONAN_DIR} ${CMAKE_PREFIX_PATH})
-else()
-    message(FATAL_ERROR "The file ${CONAN_BUILD_INFO_FILE} doesn't exist, you're fucked, comrade")
-endif()
+# NOTE(v.matushkin): CMakePresets.json:
+#  conan-cmake cries about CMAKE_BUILD_TYPE being not set when using visual studio generator is there a way to fix it?
+# NOTE(v.matushkin): How does this work for single configuration types?
+foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
+    conan_cmake_autodetect(settings BUILD_TYPE ${TYPE})
+    conan_cmake_run(
+        CONANFILE ${PROJECT_SOURCE_DIR}/conanfile.py
+        CMAKE_TARGETS
+        INSTALL_FOLDER ${CONAN_DIR}
+        BUILD missing
+    )
+endforeach()
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -92,6 +88,26 @@ find_package(imgui  REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(stb    REQUIRED)
 
+# -------------------------- Vulkan --------------------------
+# NOTE(v.matushkin): FindVulkan also finds glslc and glslangValidator(CMake 3.21)
+#  - https://cmake.org/cmake/help/latest/module/FindVulkan.html
+find_package(Vulkan  REQUIRED)
+find_package(glslang REQUIRED) # Requires $ENV{VULKAN_SDK} to be defined
+
+set(glslang_LIBS
+    glslang::glslang
+    glslang::MachineIndependent
+    glslang::OSDEPENDENT
+    glslang::OGLCompiler
+    glslang::GenericCodeGen
+    glslang::SPIRV
+    glslang::SPIRV-Tools
+    glslang::SPIRV-Tools-opt
+)
+set(Vulkan_LIBS
+    Vulkan::Vulkan
+    ${glslang_LIBS}
+)
 
 # --------------------- SuperNova-Engine ---------------------
 set(SuperNovaEngine_LIBS_PUBLIC
@@ -104,6 +120,7 @@ set(SuperNovaEngine_LIBS_PRIVATE
     glm::glm
     spdlog::spdlog
     stb::stb
+    ${Vulkan_LIBS}
 )
 
 if(SNV_PLATFORM_WINDOWS)
@@ -259,6 +276,18 @@ set(OpenGL_INC_PRIVATE
     ${OpenGL_INC_PRIVATE_DIR}/GLTexture.hpp
 )
 
+# ------------ Vulkan ------------
+set(Vulkan_SRC_DIR ${Renderer_SRC_DIR}/Vulkan)
+set(Vulkan_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/Vulkan)
+set(Vulkan_SRC
+    ${Vulkan_SRC_DIR}/VulkanBackend.cpp
+    ${Vulkan_SRC_DIR}/VulkanShaderCompiler.cpp
+)
+set(Vulkan_INC_PRIVATE
+    ${Vulkan_INC_DIR_PRIVATE}/VulkanBackend.hpp
+    ${Vulkan_INC_DIR_PRIVATE}/VulkanShaderCompiler.hpp
+)
+
 # ---------- DirectX 11 ----------
 set(DirectX11_SRC_DIR ${Renderer_SRC_DIR}/DirectX11)
 set(DirectX11_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/DirectX11)
@@ -285,6 +314,7 @@ set(DirectX12_INC_PRIVATE
 set(Renderer_SRC
     ${Renderer_SRC_DIR}/Renderer.cpp
     ${OpenGL_SRC}
+    ${Vulkan_SRC}
 )
 set(Renderer_INC_PUBLIC
     ${Renderer_INC_PUBLIC_DIR}/IRendererBackend.hpp
@@ -293,6 +323,7 @@ set(Renderer_INC_PUBLIC
 )
 set(Renderer_INC_PRIVATE
     ${OpenGL_INC_PRIVATE}
+    ${Vulkan_INC_PRIVATE}
 )
 
 if(SNV_PLATFORM_WINDOWS)
