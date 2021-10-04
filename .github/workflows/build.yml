@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           curl -O https://sdk.lunarg.com/sdk/download/${{ env.VULKAN_VERSION }}/windows/vulkan_sdk.exe
-          vulkan_sdk.exe --accept-licenses --default-answer --confirm-command install
+          ./vulkan_sdk.exe --accept-licenses --default-answer --confirm-command install
 
       - name: Setup VisualStudio Environment
         uses: egor-tensin/vs-shell@v2
