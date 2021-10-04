@@ -1184,10 +1184,16 @@ void VulkanBackend::CreateDevice()
         .pQueuePriorities = &k_QueuePriority,
     };
     VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures{};
+    // NOTE(v.matushkin): Check for SeparateDepthStencilLayoutsFeatures support?
+    VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures vkSeparateDepthStencilLayout = {
+        .sType                       = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES,
+        .pNext                       = nullptr,
+        .separateDepthStencilLayouts = true,
+    };
     VkDeviceCreateInfo vkDeviceInfo = {
         .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext                   = nullptr,
-        //.flags                   =,
+        .pNext                   = &vkSeparateDepthStencilLayout,
+        .flags                   = 0,
         .queueCreateInfoCount    = 1,
         .pQueueCreateInfos       = &vkDeviceQueueInfo,
         .enabledLayerCount       = 0,
