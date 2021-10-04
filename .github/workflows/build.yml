@@ -7,7 +7,7 @@ on:
 env:
   VULKAN_VERSION: "1.2.189.2"
   VULKAN_SDK: "C:/VulkanSDK/1.2.189.2/"
-  PYTHON_VERSION: "3.9.6"
+  PYTHON_VERSION: "3.9.7"
 
 jobs:
   build:
@@ -29,11 +29,18 @@ jobs:
         with:
           lfs: true
 
-      - name: Install Vulkan SDK
+      - name: Download Vulkan SDK
         shell: bash
         run: |
           curl -O https://sdk.lunarg.com/sdk/download/${{ env.VULKAN_VERSION }}/windows/vulkan_sdk.exe
-          ./vulkan_sdk.exe --accept-licenses --default-answer --confirm-command install
+
+      - name: Install Vulkan SDK (Debug)
+        if: matrix.build_type == 'Debug'
+        run: ./vulkan_sdk.exe --accept-licenses --default-answer --confirm-command install com.lunarg.vulkan.debug
+
+      - name: Install Vulkan SDK (Release)
+        if: matrix.build_type == 'Release'
+        run: ./vulkan_sdk.exe --accept-licenses --default-answer --confirm-command install
 
       - name: Setup VisualStudio Environment
         uses: egor-tensin/vs-shell@v2
