@@ -4,6 +4,11 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  VULKAN_VERSION: "1.2.189.2"
+  VULKAN_SDK: "C:/VulkanSDK/1.2.189.2/"
+  PYTHON_VERSION: "3.9.6"
+
 jobs:
   build:
 
@@ -24,6 +29,12 @@ jobs:
         with:
           lfs: true
 
+      - name: Install Vulkan SDK
+        shell: bash
+        run: |
+          curl -O https://sdk.lunarg.com/sdk/download/${{ env.VULKAN_VERSION }}/windows/vulkan_sdk.exe
+          vulkan_sdk.exe --accept-licenses --default-answer --confirm-command install
+
       - name: Setup VisualStudio Environment
         uses: egor-tensin/vs-shell@v2
         with:
@@ -35,7 +46,7 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.9.6'
+          python-version: ${{ env.PYTHON_VERSION }}
           architecture: 'x64'
 
       - name: Install conan
@@ -44,7 +55,6 @@ jobs:
           pip install conan
 
       - name: Run conan-init.ps1
-
         shell: powershell
         run: ./conan-init.ps1
 
