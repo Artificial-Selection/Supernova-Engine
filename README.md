@@ -4,8 +4,8 @@
 
 Requirements:
 - [Python 3.9.7](https://www.python.org/downloads/)
-  - Conan 1.40
-- [CMake 3.21](https://cmake.org/download/)
+  - Conan 1.41.0
+- [CMake 3.21.3](https://cmake.org/download/)
 - [Ninja 1.10.2](https://github.com/ninja-build/ninja/releases)
 - [Vulkan SDK 1.2.189.2](https://vulkan.lunarg.com/sdk/home)  
   Select "(Optional) Debuggable Shader API Libraries - 64 bit" during installation
