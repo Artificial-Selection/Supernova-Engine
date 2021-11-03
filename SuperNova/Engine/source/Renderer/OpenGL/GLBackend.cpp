@@ -309,17 +309,6 @@ void GLBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandl
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
 }
 
-void GLBackend::DrawArrays(i32 count)
-{
-    glDrawArrays(GL_TRIANGLES, 0, count);
-}
-
-void GLBackend::DrawElements(i32 count)
-{
-    LOG_ERROR("GLBackend::DrawElements() is not implemented");
-    // glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, )
-}
-
 
 GraphicsState GLBackend::CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc)
 {

@@ -169,12 +169,6 @@ void DX11Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHan
     m_deviceContext->DrawIndexed(indexCount, 0, 0);
 }
 
-void DX11Backend::DrawArrays(i32 count)
-{}
-
-void DX11Backend::DrawElements(i32 count)
-{}
-
 
 BufferHandle DX11Backend::CreateBuffer(
     std::span<const std::byte>              indexData,

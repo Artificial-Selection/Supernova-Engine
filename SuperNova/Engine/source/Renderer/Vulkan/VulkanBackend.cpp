@@ -537,12 +537,6 @@ void VulkanBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferH
     vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
 }
 
-void VulkanBackend::DrawArrays(i32 count)
-{}
-
-void VulkanBackend::DrawElements(i32 count)
-{}
-
 
 BufferHandle VulkanBackend::CreateBuffer(
     std::span<const std::byte>              indexData,

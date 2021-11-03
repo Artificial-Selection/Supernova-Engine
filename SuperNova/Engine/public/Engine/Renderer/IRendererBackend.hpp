@@ -36,8 +36,6 @@ public:
 
     // NOTE(v.matushkin): Questionable method
     virtual void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) = 0;
-    virtual void DrawArrays(i32 count) = 0;
-    virtual void DrawElements(i32 count) = 0;
 
     virtual [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) = 0;
 

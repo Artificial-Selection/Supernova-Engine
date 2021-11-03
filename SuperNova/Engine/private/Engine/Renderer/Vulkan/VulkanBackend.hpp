@@ -91,8 +91,6 @@ public:
     void EndFrame() override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
-    void DrawArrays(i32 count) override;
-    void DrawElements(i32 count) override;
 
     [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) override { return {}; }
     [[nodiscard]] BufferHandle  CreateBuffer(

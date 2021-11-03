@@ -381,12 +381,6 @@ void DX12Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHan
     m_graphicsCommandList->DrawIndexedInstanced(indexCount, 1, 0, 0, 0);
 }
 
-void DX12Backend::DrawArrays(i32 count)
-{}
-
-void DX12Backend::DrawElements(i32 count)
-{}
-
 
 // TODO(v.matushkin): Upload index buffer, better memory managment
 BufferHandle DX12Backend::CreateBuffer(
