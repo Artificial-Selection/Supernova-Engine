@@ -1,15 +1,9 @@
 #include <Engine/Application/Application.hpp>
-
+#include <Engine/Application/IApplicationLayer.hpp>
 #include <Engine/Application/Window.hpp>
+
 #include <Engine/Input/Keyboard.hpp>
 #include <Engine/Input/Mouse.hpp>
-#include <Engine/Renderer/Renderer.hpp>
-
-
-const ui32 k_WindowWidth  = 1100;
-const ui32 k_WindowHeight = 800;
-// TODO(v.matushkin): Remove k_GraphicsApi duplication in Engine.cpp
-const snv::GraphicsApi k_GraphicsApi = snv::GraphicsApi::Vulkan;
 
 
 void ProcessInput()
@@ -28,7 +22,7 @@ namespace snv
 
 Application::Application()
 {
-    Window::Init(k_WindowWidth, k_WindowHeight, "SuperNova-Engine", k_GraphicsApi);
+    Window::Init();
     Window::SetKeyCallback(Input::Keyboard::KeyCallback);
     Window::SetMouseButtonCallback(Input::Mouse::ButtonCallback);
     Window::SetMousePositionCallback(Input::Mouse::PositionCallback);

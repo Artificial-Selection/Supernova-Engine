@@ -1,4 +1,10 @@
 #include <Engine/Renderer/Renderer.hpp>
+#include <Engine/Renderer/RenderContext.hpp>
+#include <Engine/Renderer/RenderGraph.hpp>
+#include <Engine/Renderer/RenderGraphBuilder.hpp>
+
+#include <Engine/Renderer/RenderPasses/EngineRenderPass.hpp>
+#include <Engine/Renderer/RenderPasses/ImGuiRenderPass.hpp>
 
 #include <Engine/Renderer/IRendererBackend.hpp>
 #include <Engine/Renderer/OpenGL/GLBackend.hpp>
@@ -8,23 +14,26 @@
     #include <Engine/Renderer/Directx12/DX12Backend.hpp>
 #endif
 
+#include <Engine/EngineSettings.hpp>
 #include <Engine/Core/Assert.hpp>
-
-#include <Engine/Assets/Material.hpp>
-#include <Engine/Assets/Mesh.hpp>
-#include <Engine/Assets/Texture.hpp>
 
 #include <Engine/Components/ComponentFactory.hpp>
 #include <Engine/Components/Camera.hpp>
-#include <Engine/Components/MeshRenderer.hpp>
 #include <Engine/Components/Transform.hpp>
+
+
+// TODO(v.matushkin):
+//  - <RenderGraphBuild>
+//    There should be some way to build RenderGraph after all RenderPasses has been added, but before rendering starts
 
 
 namespace snv
 {
 
-void Renderer::Init(GraphicsApi graphicsApi)
+void Renderer::Init()
 {
+    const auto graphicsApi = EngineSettings::GraphicsSettings.GraphicsApi;
+
     switch (graphicsApi)
     {
     case GraphicsApi::OpenGL:
@@ -41,16 +50,20 @@ void Renderer::Init(GraphicsApi graphicsApi)
         s_rendererBackend = new DX12Backend();
         break;
 #endif
-    default:
-        SNV_ASSERT(false, "Will this ever happen?");
-        break;
     }
 
-    s_graphicsApi = graphicsApi;
+    s_renderGraphBuilder = new RenderGraphBuilder();
+    s_renderGraphBuilder->AddRenderPass<EngineRenderPass>();
+    s_renderGraphBuilder->AddRenderPass<ImGuiRenderPass>();
+
+    // TODO(v.matushkin): <RenderGraphBuild>
+    s_renderGraph = nullptr;
 }
 
 void Renderer::Shutdown()
 {
+    delete s_renderGraph;
+    delete s_renderGraphBuilder;
     delete s_rendererBackend;
 }
 
@@ -63,6 +76,12 @@ void Renderer::EnableBlend()
 void Renderer::EnableDepthTest()
 {
     s_rendererBackend->EnableDepthTest();
+}
+
+
+void* Renderer::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
+{
+    return s_rendererBackend->GetNativeRenderTexture(renderTextureHandle);
 }
 
 
@@ -96,9 +115,14 @@ void Renderer::Clear(BufferBit bufferBitMask)
 //   use global localToWorld
 void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
 {
+    // TODO(v.matushkin): <RenderGraphBuild>
+    if (s_renderGraph == nullptr)
+    {
+        s_renderGraph = s_renderGraphBuilder->Build();
+    }
+
     const auto cameraView = ComponentFactory::GetView<const Camera>();
     SNV_ASSERT(cameraView.size() == 1, "The scene must have at least and only 1 camera");
-    const auto meshRendererView = ComponentFactory::GetView<const MeshRenderer>();
 
     for (const auto [entity, camera] : cameraView.each())
     {
@@ -106,25 +130,18 @@ void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
         const auto& cameraTranformForReal = ComponentFactory::GetComponent<Transform>(entity);
         //const auto& cameraTransform = cameraView.get<Transform>(entity);
 
+        // NOTE(v.matushkin): With the current architecture of render backends it is wrong to call [Begin/End]Frame per camera?
         s_rendererBackend->BeginFrame(localToWorld, cameraTranformForReal.GetMatrix(), camera.GetProjectionMatrix());
-
-        for (const auto [entity, meshRenderer] : meshRendererView.each())
-        {
-            const auto material      = meshRenderer.GetMaterial();
-            const auto textureHandle = material->GetBaseColorMap()->GetTextureHandle();
-
-            const auto mesh        = meshRenderer.GetMesh();
-            const auto meshHandle  = mesh->GetHandle();
-            const auto indexCount  = mesh->GetIndexCount();
-            const auto vertexCount = mesh->GetVertexCount();
-
-            s_rendererBackend->DrawBuffer(textureHandle, meshHandle, indexCount, vertexCount);
-        }
-
+        s_renderGraph->Execute(RenderContext(s_rendererBackend));
         s_rendererBackend->EndFrame();
     }
 }
 
+
+GraphicsState Renderer::CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc)
+{
+    return s_rendererBackend->CreateGraphicsState(graphicsStateDesc);
+}
 
 BufferHandle Renderer::CreateBuffer(
     std::span<const std::byte>              indexData,

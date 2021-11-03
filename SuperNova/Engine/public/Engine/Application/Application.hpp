@@ -1,12 +1,13 @@
 #pragma once
 
-#include <Engine/Application/IApplicationLayer.hpp>
-
 #include <vector>
 
 
 namespace snv
 {
+
+class IApplicationLayer;
+
 
 class Application
 {

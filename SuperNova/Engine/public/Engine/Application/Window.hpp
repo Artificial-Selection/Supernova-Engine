@@ -5,7 +5,7 @@
 #include <functional>
 
 
-class GLFWwindow;
+struct GLFWwindow;
 #ifdef SNV_PLATFORM_WINDOWS
     struct HWND__;
     typedef HWND__* HWND;
@@ -19,7 +19,6 @@ namespace Input
 {
     enum class CursorMode : ui8;
 }
-enum class GraphicsApi : ui8;
 
 
 class Window
@@ -31,7 +30,7 @@ public:
     using MouseWheelCallback    = std::function<void(f64 yoffset)>;
 
 public:
-    static void Init(i32 width, i32 height, const char* title, GraphicsApi graphicsApi);
+    static void Init();
     static void Shutdown();
 
     [[nodiscard]] static i32 GetWidth()  { return m_width; }
@@ -49,8 +48,11 @@ public:
     static void SetMousePositionCallback(MousePositionCallback mousePositionCallback);
     static void SetMouseWheelCallback(MouseWheelCallback mouseWheelCallback);
 
-    // TODO(v.matushkin): only accessible by snv::Input::Cursor?
+    // TODO(v.matushkin): Only accessible by snv::Input::Cursor?
     static void SetCursorMode(Input::CursorMode cursorMode);
+    // NOTE(v.matushkin): Only needed by ImGui OpenGL backend when viewports enabled, can I somehow make it work without it?
+    //  May be if I created OpenGL context myself, instead of relying on GLFW
+    static void MakeContextCurrent();
 
     static void Close();
     static void PollEvents();

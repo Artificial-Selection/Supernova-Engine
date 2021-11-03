@@ -2,19 +2,19 @@
 
 #include <Engine/Core/Core.hpp>
 
+#include <vector>
+
 
 namespace snv
 {
 
-enum class GraphicsApi : ui8
-{
-    OpenGL,
-    Vulkan,
-#ifdef SNV_PLATFORM_WINDOWS
-    DirectX11,
-    DirectX12
-#endif
-};
+constexpr ui32 k_InvalidHandle = -1;
+
+enum class BufferHandle        : ui32 { InvalidHandle = k_InvalidHandle };
+enum class FramebufferHandle   : ui32 { InvalidHandle = k_InvalidHandle };
+enum class RenderTextureHandle : ui32 { InvalidHandle = k_InvalidHandle };
+enum class TextureHandle       : ui32 { InvalidHandle = k_InvalidHandle };
+enum class ShaderHandle        : ui32 { InvalidHandle = k_InvalidHandle };
 
 
 enum class BlendFactor : ui32
@@ -22,6 +22,16 @@ enum class BlendFactor : ui32
     One,
     SrcAlpha,
     OneMinusSrcAlpha
+};
+
+// TODO(v.matushkin): Bring back enum class?
+// Or use something from this https://walbourn.github.io/modern-c++-bitmask-types/
+enum BufferBit : ui32
+{
+    Color   = 1 << 0,
+    Depth   = 1 << 1,
+    // Accum = 0x00000200,
+    Stencil = 1 << 2
 };
 
 enum class DepthFunction : ui32
@@ -36,23 +46,14 @@ enum class DepthFunction : ui32
     Always
 };
 
-// TODO(v.matushkin): Bring back enum class?
-// Or use something from this https://walbourn.github.io/modern-c++-bitmask-types/
-enum BufferBit : ui32
+// NOTE(v.matushkin): Not sure about this enum
+enum class FramebufferDepthStencilType : ui8
 {
-    Color   = 1 << 0,
-    Depth   = 1 << 1,
-    //Accum = 0x00000200,
-    Stencil = 1 << 2
+    None,
+    Depth,
+    Stencil,
+    DepthStencil
 };
-
-
-constexpr ui32 k_InvalidHandle = -1;
-
-enum class BufferHandle  : ui32 { InvalidHandle = k_InvalidHandle };
-enum class TextureHandle : ui32 { InvalidHandle = k_InvalidHandle };
-enum class ShaderHandle  : ui32 { InvalidHandle = k_InvalidHandle };
-
 
 enum class VertexAttribute : ui8
 {
@@ -74,12 +75,18 @@ enum class VertexAttributeFormat : ui8
     Float64
 };
 
-struct VertexAttributeDesc
+enum class RenderTextureLoadAction : ui8
 {
-    VertexAttribute       Attribute;
-    VertexAttributeFormat Format;
-    ui8                   Dimension;
-    ui32                  Offset;
+    Clear,
+    DontCare,
+    Load
+};
+
+// TODO(v.matushkin): Add Default color/depth formats that depends on the current platform
+enum class RenderTextureFormat : ui8
+{
+    BGRA32,
+    Depth32
 };
 
 enum class TextureFormat : ui8
@@ -109,12 +116,91 @@ enum class TextureWrapMode : ui8
     Repeat
 };
 
+
+struct ClearColorValue
+{
+    f32 Value[4];
+
+    // Black color
+    ClearColorValue() = default;
+
+    ClearColorValue(f32 r, f32 g, f32 b, f32 a = 0)
+        : Value{r, g, b, a}
+    {}
+};
+
+struct ClearDepthStencilValue
+{
+    f32 Depth;
+    i32 Stencil;
+
+    // Depth = 1, Stencil = 0
+    ClearDepthStencilValue()
+        : ClearDepthStencilValue(1)
+    {}
+
+    ClearDepthStencilValue(f32 depth, i32 stencil = 0)
+        : Depth(depth)
+        , Stencil(stencil)
+    {}
+};
+
+union RenderTextureClearValue
+{
+    ClearColorValue        Color;
+    ClearDepthStencilValue DepthStencil;
+
+    // Sets black color
+    RenderTextureClearValue()
+        : Color()
+    {}
+
+    RenderTextureClearValue(const ClearColorValue& color)
+        : Color(color)
+    {}
+
+    RenderTextureClearValue(const ClearDepthStencilValue& depthStencil)
+        : DepthStencil(depthStencil)
+    {}
+};
+
+struct RenderTextureDesc
+{
+    RenderTextureClearValue ClearValue;
+    ui32                    Width;
+    ui32                    Height;
+    RenderTextureFormat     Format;
+    RenderTextureLoadAction LoadAction;
+};
+
 struct TextureDesc
 {
     ui32            Width;
     ui32            Height;
     TextureFormat   Format;
     TextureWrapMode WrapMode;
+};
+
+struct VertexAttributeDesc
+{
+    VertexAttribute       Attribute;
+    VertexAttributeFormat Format;
+    ui8                   Dimension;
+    ui32                  Offset;
+};
+
+struct GraphicsStateDesc
+{
+    std::vector<RenderTextureDesc> ColorAttachments;
+    RenderTextureDesc              DepthStencilAttachment;
+    FramebufferDepthStencilType    DepthStencilType;
+};
+
+struct GraphicsState
+{
+    std::vector<RenderTextureHandle> ColorAttachments;
+    RenderTextureHandle              DepthStencilAttachment;
+    FramebufferHandle                Framebuffer;
 };
 
 } // namespace snv

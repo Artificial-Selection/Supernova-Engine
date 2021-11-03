@@ -40,7 +40,7 @@ GLTexture::GLTexture() noexcept
 
 GLTexture::GLTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
-    glGenTextures(1, &m_textureID);
+    glGenTextures(1, &m_textureID); // TODO(v.matushkin): glCreateTextures
     glBindTexture(GL_TEXTURE_2D, m_textureID);
 
     const auto glWrapMode = gl_TextureWrapMode[static_cast<ui8>(textureDesc.WrapMode)];

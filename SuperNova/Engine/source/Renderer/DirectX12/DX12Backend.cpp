@@ -362,6 +362,7 @@ void DX12Backend::EndFrame()
     WaitForPreviousFrame();
 }
 
+
 // NOTE(v.matushkin): Useless vertexCount?
 void DX12Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {

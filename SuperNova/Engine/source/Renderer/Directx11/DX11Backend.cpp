@@ -149,6 +149,7 @@ void DX11Backend::EndFrame()
     m_swapChain->Present(1, 0);
 }
 
+
 void DX11Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
     // TODO(v.matushkin): Rename, there is no GraphicsBuffer anymore

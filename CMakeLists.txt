@@ -112,6 +112,7 @@ set(Vulkan_LIBS
 # --------------------- SuperNova-Engine ---------------------
 set(SuperNovaEngine_LIBS_PUBLIC
     EnTT::EnTT
+    imgui::imgui
 )
 set(SuperNovaEngine_LIBS_PRIVATE
     assimp::assimp
@@ -135,9 +136,9 @@ if(SNV_PLATFORM_WINDOWS)
 endif()
 
 # --------------------- SuperNova-Editor ---------------------
-set(SuperNovaEditor_LIBS_PRIVATE
-    imgui::imgui
-)
+# set(SuperNovaEditor_LIBS_PRIVATE
+#     
+# )
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -225,6 +226,7 @@ set(Engine_SRC
 )
 set(Engine_INC_PUBLIC
     ${SuperNovaEngine_INC_PUBLIC_DIR}/Engine.hpp
+    ${SuperNovaEngine_INC_PUBLIC_DIR}/EngineSettings.hpp
 )
 
 # -------------------------- Entity --------------------------
@@ -261,7 +263,7 @@ set(Renderer_INC_PUBLIC_DIR  ${SuperNovaEngine_INC_PUBLIC_DIR}/Renderer)
 set(Renderer_INC_PRIVATE_DIR ${SuperNovaEngine_INC_PRIVATE_DIR}/Renderer)
 
 # ------------ OpenGL ------------
-set(OpenGL_SRC_DIR ${Renderer_SRC_DIR}/OpenGL)
+set(OpenGL_SRC_DIR         ${Renderer_SRC_DIR}/OpenGL)
 set(OpenGL_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/OpenGL)
 set(OpenGL_SRC
     ${OpenGL_SRC_DIR}/GLBackend.cpp
@@ -277,51 +279,77 @@ set(OpenGL_INC_PRIVATE
 )
 
 # ------------ Vulkan ------------
-set(Vulkan_SRC_DIR ${Renderer_SRC_DIR}/Vulkan)
-set(Vulkan_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/Vulkan)
+set(Vulkan_SRC_DIR         ${Renderer_SRC_DIR}/Vulkan)
+set(Vulkan_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/Vulkan)
 set(Vulkan_SRC
     ${Vulkan_SRC_DIR}/VulkanBackend.cpp
     ${Vulkan_SRC_DIR}/VulkanShaderCompiler.cpp
 )
 set(Vulkan_INC_PRIVATE
-    ${Vulkan_INC_DIR_PRIVATE}/VulkanBackend.hpp
-    ${Vulkan_INC_DIR_PRIVATE}/VulkanShaderCompiler.hpp
+    ${Vulkan_INC_PRIVATE_DIR}/VulkanBackend.hpp
+    ${Vulkan_INC_PRIVATE_DIR}/VulkanShaderCompiler.hpp
 )
 
 # ---------- DirectX 11 ----------
-set(DirectX11_SRC_DIR ${Renderer_SRC_DIR}/DirectX11)
-set(DirectX11_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/DirectX11)
+set(DirectX11_SRC_DIR         ${Renderer_SRC_DIR}/DirectX11)
+set(DirectX11_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/DirectX11)
 set(DirectX11_SRC
     ${DirectX11_SRC_DIR}/DX11Backend.cpp
 )
 set(DirectX11_INC_PRIVATE
-    ${DirectX11_INC_DIR_PRIVATE}/DX11Backend.hpp
+    ${DirectX11_INC_PRIVATE_DIR}/DX11Backend.hpp
 )
 
 # ---------- DirectX 12 ----------
-set(DirectX12_SRC_DIR ${Renderer_SRC_DIR}/DirectX12)
-set(DirectX12_INC_DIR_PRIVATE ${Renderer_INC_PRIVATE_DIR}/DirectX12)
+set(DirectX12_SRC_DIR         ${Renderer_SRC_DIR}/DirectX12)
+set(DirectX12_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/DirectX12)
 set(DirectX12_SRC
     ${DirectX12_SRC_DIR}/DX12Backend.cpp
     ${DirectX12_SRC_DIR}/DX12ShaderCompiler.cpp
 )
 set(DirectX12_INC_PRIVATE
-    ${DirectX12_INC_DIR_PRIVATE}/DX12Backend.hpp
-    ${DirectX12_INC_DIR_PRIVATE}/DX12ShaderCompiler.hpp
+    ${DirectX12_INC_PRIVATE_DIR}/DX12Backend.hpp
+    ${DirectX12_INC_PRIVATE_DIR}/DX12ShaderCompiler.hpp
+)
+
+# --------- RenderPasses ---------
+set(RenderPasses_SRC_DIR         ${Renderer_SRC_DIR}/RenderPasses)
+set(RenderPasses_INC_PUBLIC_DIR  ${Renderer_INC_PUBLIC_DIR}/RenderPasses)
+set(RenderPasses_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/RenderPasses)
+set(RenderPasses_SRC
+    ${RenderPasses_SRC_DIR}/EngineRenderPass.cpp
+    ${RenderPasses_SRC_DIR}/ImGuiRenderPass.cpp
+)
+set(RenderPasses_INC_PUBLIC
+    ${RenderPasses_INC_PUBLIC_DIR}/ResourceNames.hpp
+)
+set(RenderPasses_INC_PRIVATE
+    ${RenderPasses_INC_PRIVATE_DIR}/EngineRenderPass.hpp
+    ${RenderPasses_INC_PRIVATE_DIR}/ImGuiRenderPass.hpp
 )
 
 
 set(Renderer_SRC
+    ${Renderer_SRC_DIR}/RenderContext.cpp
     ${Renderer_SRC_DIR}/Renderer.cpp
+    ${Renderer_SRC_DIR}/RenderGraph.cpp
+    ${Renderer_SRC_DIR}/RenderGraphBuilder.cpp
+    ${RenderPasses_SRC}
     ${OpenGL_SRC}
     ${Vulkan_SRC}
 )
 set(Renderer_INC_PUBLIC
     ${Renderer_INC_PUBLIC_DIR}/IRendererBackend.hpp
+    ${Renderer_INC_PUBLIC_DIR}/IRenderPass.hpp
+    ${Renderer_INC_PUBLIC_DIR}/RenderContext.hpp
     ${Renderer_INC_PUBLIC_DIR}/Renderer.hpp
+    ${Renderer_INC_PUBLIC_DIR}/RenderGraph.hpp
+    ${Renderer_INC_PUBLIC_DIR}/RenderGraphBuilder.hpp
     ${Renderer_INC_PUBLIC_DIR}/RenderTypes.hpp
+    ${RenderPasses_INC_PUBLIC}
 )
 set(Renderer_INC_PRIVATE
+    ${RenderPasses_INC_PRIVATE}
     ${OpenGL_INC_PRIVATE}
     ${Vulkan_INC_PRIVATE}
 )
@@ -436,7 +464,7 @@ add_executable(SuperNovaEditor
 target_link_libraries(SuperNovaEditor
     PRIVATE
         SuperNovaEngine
-        ${SuperNovaEditor_LIBS_PRIVATE}
+        # ${SuperNovaEditor_LIBS_PRIVATE}
 )
 target_include_directories(SuperNovaEditor
     PRIVATE

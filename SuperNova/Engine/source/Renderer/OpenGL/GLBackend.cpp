@@ -6,16 +6,30 @@
 #include <glad/glad.h>
 
 
-namespace snv
-{
+// TODO(v.matushkin):
+//  - <ContextCreation>
+//    The fact that GLFW is managing OpenGL context gives me a lot of headache
+//    - <SwapBuffers>
+//  - <GLFramebuffer>
+//    - What to do with the default screen framebuffer?
+//    - BeginFrame() clears the default screen framebuffer, this shouldn't be in here?
+//      Clearing should be done in RenderPass API
 
-constexpr ui32 gl_BlendFactor[] = {
+
+const ui32 gl_BlendFactor[] = {
     GL_ONE,                // BlendFactor::One
     GL_SRC_ALPHA,          // BlendFactor::SrcAlpha
     GL_ONE_MINUS_SRC_ALPHA // BlendFactor::OneMinusSrcAlpha
 };
 
-constexpr ui32 gl_DepthFunction[] = {
+const ui32 gl_BufferBit[] = {
+    GL_COLOR_BUFFER_BIT, // BufferBit::Color
+    GL_DEPTH_BUFFER_BIT, // BufferBit::Depth
+    // GL_ACCUM_BUFFER_BIT,  // BufferBit::Accum
+    GL_STENCIL_BUFFER_BIT // BufferBit::Stencil
+};
+
+const ui32 gl_DepthFunction[] = {
     GL_NEVER,    // DepthFunction::Never
     GL_LESS,     // DepthFunction::Less
     GL_EQUAL,    // DepthFunction::Equal
@@ -26,13 +40,30 @@ constexpr ui32 gl_DepthFunction[] = {
     GL_ALWAYS    // DepthFunction::Always
 };
 
-constexpr ui32 gl_BufferBit[] = {
-    GL_COLOR_BUFFER_BIT,  // BufferBit::Color
-    GL_DEPTH_BUFFER_BIT,  // BufferBit::Depth
-    // GL_ACCUM_BUFFER_BIT,  // BufferBit::Accum
-    GL_STENCIL_BUFFER_BIT // BufferBit::Stencil
+// NOTE(v.matushkin): GL_NONE will be never used in gl_DepthStencilAttachment and gl_DepthStencilType
+//  it serves just as a padding for FramebufferDepthStencilType::None
+const ui32 gl_DepthStencilAttachment[] = {
+    GL_NONE,
+    GL_DEPTH_ATTACHMENT,
+    GL_STENCIL_ATTACHMENT,
+    GL_DEPTH_STENCIL_ATTACHMENT
 };
 
+const ui32 gl_DepthStencilType[] = {
+    GL_NONE,
+    GL_DEPTH,
+    GL_STENCIL,
+    GL_DEPTH_STENCIL
+};
+
+const ui32 gl_RenderTextureFormat[] = {
+    GL_RGBA8, // TODO(v.matushkin): The fuck am I supposed to do with this RGBA/BGRA shit, I cannot specify BGRA in OpenGL
+    GL_DEPTH_COMPONENT32F
+};
+
+
+namespace snv
+{
 
 #ifdef SNV_ENABLE_DEBUG
 void APIENTRY openGLMessageCallback(
@@ -128,6 +159,12 @@ GLBackend::GLBackend()
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+
+    // TODO(v.matushkin): <GLFramebuffer>
+    m_framebuffers[static_cast<FramebufferHandle>(0)] = GLFramebuffer{
+        .ID               = 0,
+        .DepthStencilType = GL_NONE,
+    };
 }
 
 
@@ -139,6 +176,12 @@ void GLBackend::EnableBlend()
 void GLBackend::EnableDepthTest()
 {
     glEnable(GL_DEPTH_TEST);
+}
+
+
+void* GLBackend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
+{
+    return reinterpret_cast<void*>(m_renderTextures[renderTextureHandle].ID);
 }
 
 
@@ -190,8 +233,9 @@ void GLBackend::Clear(BufferBit bufferBitMask)
 void GLBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
     // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
-    const auto cleaFlags = snv::BufferBit::Color | snv::BufferBit::Depth | snv::BufferBit::Stencil;
-    Clear(static_cast<snv::BufferBit>(cleaFlags));
+    // TODO(v.matushkin): <GLFramebuffer>
+    const auto cleaFlags = BufferBit::Color | BufferBit::Depth | BufferBit::Stencil;
+    Clear(static_cast<BufferBit>(cleaFlags));
 
     // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
     // const auto& shader = m_shaders[shaderHandle];
@@ -203,11 +247,56 @@ void GLBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
     shader.Bind();
 }
 
+void GLBackend::BeginRenderPass(FramebufferHandle framebufferHandle)
+{
+    const auto& framebuffer = m_framebuffers[framebufferHandle];
+
+    const auto glFramebufferID = framebuffer.ID;
+    glBindFramebuffer(GL_FRAMEBUFFER, glFramebufferID);
+
+    //- Clear Color attachments
+    const auto& colorAttachments = framebuffer.ColorAttachments;
+
+    for (ui32 i = 0; i < colorAttachments.size(); ++i)
+    {
+        const auto& colorAttachment = colorAttachments[i];
+        if (colorAttachment.LoadAction == RenderTextureLoadAction::Clear)
+        {
+            const auto clearColorValue = colorAttachment.ClearValue.Color.Value;
+            // NOTE(v.matushkin): Why the fuck it doesn't work with GL_DRAW_BUFFER0 + i ?
+            glClearNamedFramebufferfv(glFramebufferID, GL_COLOR, i, clearColorValue);
+        }
+    }
+
+    //- Clear DepthStencil attachment
+    // NOTE(v.matushkin): Is it an UB if I get the address of ClearValue.DepthStencil when depthStencilType == GL_NONE ?
+    const auto& depthStencilAttachment = framebuffer.DepthStenscilAttachment;
+    const auto& depthStencilClearValue = depthStencilAttachment.ClearValue.DepthStencil;
+    const auto  depthStencilType       = framebuffer.DepthStencilType;
+
+    if (depthStencilType != GL_NONE && depthStencilAttachment.LoadAction == RenderTextureLoadAction::Clear)
+    {
+        if (depthStencilType == GL_DEPTH)
+        {
+            glClearNamedFramebufferfv(glFramebufferID, GL_DEPTH, 0, &depthStencilClearValue.Depth);
+        }
+        else if (depthStencilType == GL_STENCIL)
+        {
+            glClearNamedFramebufferiv(glFramebufferID, GL_STENCIL, 0, &depthStencilClearValue.Stencil);
+        }
+        else if (depthStencilType == GL_DEPTH_STENCIL)
+        {
+            glClearNamedFramebufferfi(glFramebufferID, GL_DEPTH_STENCIL, 0, depthStencilClearValue.Depth, depthStencilClearValue.Stencil);
+        }
+    }
+}
+
 void GLBackend::EndFrame()
 {
-    // TODO(v.matushkin): Workaround, GLBackend should manage its context, but it's not worthy rn
+    // TODO(v.matushkin): <ContextCreation/SwapBuffers>
     Window::SwapBuffers();
 }
+
 
 void GLBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
@@ -231,6 +320,88 @@ void GLBackend::DrawElements(i32 count)
     // glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, )
 }
 
+
+GraphicsState GLBackend::CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc)
+{
+    //- Create Framebuffer
+    GLFramebuffer framebuffer;
+    glCreateFramebuffers(1, &framebuffer.ID);
+
+    GraphicsState graphicsState;
+
+    //- Create Color Attachments
+    const auto& colorAttachmentsDesc = graphicsStateDesc.ColorAttachments;
+
+    for (ui32 i = 0; i < colorAttachmentsDesc.size(); ++i)
+    {
+        const auto renderTextureDesc     = colorAttachmentsDesc[i];
+        //-- Create RenderTexture
+        const auto glRenderTextureFormat = gl_RenderTextureFormat[static_cast<ui32>(renderTextureDesc.Format)];
+
+        ui32 glRenderTextureID;
+        glCreateTextures(GL_TEXTURE_2D, 1, &glRenderTextureID);
+        glTextureStorage2D(glRenderTextureID, 1, glRenderTextureFormat, renderTextureDesc.Width, renderTextureDesc.Height);
+
+        GLRenderTexture glRenderTexture = {
+            .ID         = glRenderTextureID,
+            .ClearValue = renderTextureDesc.ClearValue,
+            .LoadAction = renderTextureDesc.LoadAction,
+        };
+
+        //-- Bind RenderTexture to Framebuffer
+        glNamedFramebufferTexture(framebuffer.ID, GL_COLOR_ATTACHMENT0 + i, glRenderTexture.ID, 0);
+
+        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(m_renderTextures.size());
+        m_renderTextures[renderTextureHandle] = glRenderTexture;
+        graphicsState.ColorAttachments.push_back(renderTextureHandle);
+
+        framebuffer.ColorAttachments.push_back(glRenderTexture);
+    }
+
+    //- Create Depth Stencil Attachment
+    const auto& depthStencilAttachmentDesc = graphicsStateDesc.DepthStencilAttachment;
+    const auto  descDepthStencilType       = graphicsStateDesc.DepthStencilType;
+
+    if (descDepthStencilType != FramebufferDepthStencilType::None)
+    {
+        auto& depthStenscilAttachment = framebuffer.DepthStenscilAttachment;
+    
+        depthStenscilAttachment.ClearValue = depthStencilAttachmentDesc.ClearValue;
+        depthStenscilAttachment.LoadAction = depthStencilAttachmentDesc.LoadAction;
+    
+        const auto glRenderTextureFormat    = gl_RenderTextureFormat[static_cast<ui8>(depthStencilAttachmentDesc.Format)];
+        const auto glDepthStencilAttachment = gl_DepthStencilAttachment[static_cast<ui8>(descDepthStencilType)];
+        const auto glDepthStencilType       = gl_DepthStencilType[static_cast<ui8>(descDepthStencilType)];
+    
+        framebuffer.DepthStencilType = glDepthStencilType;
+    
+        //-- Create RenderBuffer
+        glCreateRenderbuffers(1, &depthStenscilAttachment.ID);
+        glNamedRenderbufferStorage(
+            depthStenscilAttachment.ID,
+            glRenderTextureFormat,
+            depthStencilAttachmentDesc.Width,
+            depthStencilAttachmentDesc.Height
+        );
+    
+        //-- Bind RenderBuffer to Framebuffer
+        glNamedFramebufferRenderbuffer(framebuffer.ID, glDepthStencilAttachment, GL_RENDERBUFFER, depthStenscilAttachment.ID);
+    
+        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(m_renderTextures.size());
+        m_renderTextures[renderTextureHandle] = depthStenscilAttachment;
+        graphicsState.DepthStencilAttachment  = renderTextureHandle;
+    }
+    else
+    {
+        framebuffer.DepthStencilType = GL_NONE;
+    }
+
+    const auto framebufferHandle      = static_cast<FramebufferHandle>(m_framebuffers.size());
+    graphicsState.Framebuffer         = framebufferHandle;
+    m_framebuffers[framebufferHandle] = std::move(framebuffer);
+
+    return graphicsState;
+}
 
 BufferHandle GLBackend::CreateBuffer(
     std::span<const std::byte>              indexData,

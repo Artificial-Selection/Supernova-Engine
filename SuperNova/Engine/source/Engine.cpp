@@ -1,6 +1,6 @@
 #include <Engine/Engine.hpp>
+#include <Engine/EngineSettings.hpp>
 
-#include <Engine/Application/Window.hpp>
 #include <Engine/Assets/AssetDatabase.hpp>
 #include <Engine/Assets/Shader.hpp>
 #include <Engine/Components/Camera.hpp>
@@ -20,8 +20,6 @@ const char* k_AssetDir      = "../../assets/";
 const char* k_SponzaObjPath = "Sponza/sponza.obj";
 const char* k_ShaderName    = "triangle";
 
-const snv::GraphicsApi k_GraphicsApi = snv::GraphicsApi::Vulkan;
-
 
 namespace snv
 {
@@ -32,11 +30,11 @@ void Engine::OnCreate()
     LOG_TRACE("SuperNova-Engine Init");
     Time::Init();
 
-    const auto windowWidth  = Window::GetWidth();
-    const auto windowHeight = Window::GetHeight();
+    const auto renderWidth  = EngineSettings::GraphicsSettings.RenderWidth;
+    const auto renderHeight = EngineSettings::GraphicsSettings.RenderHeight;
 
-    Renderer::Init(k_GraphicsApi);
-    Renderer::SetViewport(0, 0, windowWidth, windowHeight);
+    Renderer::Init();
+    Renderer::SetViewport(0, 0, renderWidth, renderHeight);
     Renderer::SetClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     Renderer::EnableDepthTest();
     Renderer::SetDepthFunction(DepthFunction::Less);
@@ -52,7 +50,7 @@ void Engine::OnCreate()
 
     m_sponzaGO.GetComponent<Transform>().SetScale(0.005f);
 
-    m_camera.AddComponent<Camera>(90.0f, f32(windowWidth) / windowHeight, 0.1f, 100.0f);
+    m_camera.AddComponent<Camera>(90.0f, f32(renderWidth) / renderHeight, 0.1f, 100.0f);
     auto& cameraController = m_camera.AddComponent<CameraController>(k_MovementSpeed, k_MovementBoost);
 }
 

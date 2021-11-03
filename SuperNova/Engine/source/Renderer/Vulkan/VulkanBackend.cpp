@@ -508,6 +508,7 @@ void VulkanBackend::EndFrame()
     m_currentFrame = (m_currentFrame + 1) % k_BackBufferFrames;
 }
 
+
 void VulkanBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
     auto commandBuffer = m_commandBuffers[m_currentBackBufferIndex];
@@ -1811,7 +1812,7 @@ void VulkanBackend::CreatePipeline()
         .pDynamicState       = nullptr,
         .layout              = m_pipelineLayout,
         .renderPass          = m_renderPass,
-        .subpass             = 0,
+        .subpass             = 0, // NOTE(v.matushkin): What's this?
         .basePipelineHandle  = nullptr, // NOTE(v.matushkin): create a new graphics pipeline by deriving from an existing pipeline
         .basePipelineIndex   = -1,
     };

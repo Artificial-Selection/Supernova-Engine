@@ -8,7 +8,8 @@
 #include <Engine/Components/MeshRenderer.hpp>
 #include <Engine/Core/Assert.hpp>
 #include <Engine/Entity/GameObject.hpp>
-#include <Engine/Renderer/Renderer.hpp>
+
+#include <Engine/EngineSettings.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -299,7 +300,7 @@ Texture AssetDatabase::LoadTexture(const std::string& texturePath)
 //  Or at least there should some static AppSettings class or something, so there is no need to access Renderer
 Shader AssetDatabase::LoadShader(const std::string& shaderName)
 {
-    const auto graphicsApi = Renderer::GetGraphicsApi();
+    const auto graphicsApi = EngineSettings::GraphicsSettings.GraphicsApi;
 
     std::string shaderPath;
     std::string shaderExtension;
