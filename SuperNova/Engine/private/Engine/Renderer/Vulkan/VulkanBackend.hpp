@@ -92,6 +92,8 @@ public:
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
 
+    [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() override { return nullptr; }
+
     [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) override { return {}; }
     [[nodiscard]] BufferHandle  CreateBuffer(
         std::span<const std::byte>              indexData,

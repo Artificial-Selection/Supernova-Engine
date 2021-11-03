@@ -32,9 +32,7 @@ namespace snv
 
 void Renderer::Init()
 {
-    const auto graphicsApi = EngineSettings::GraphicsSettings.GraphicsApi;
-
-    switch (graphicsApi)
+    switch (EngineSettings::GraphicsSettings.GraphicsApi)
     {
     case GraphicsApi::OpenGL:
         s_rendererBackend = new GLBackend();
@@ -135,6 +133,12 @@ void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
         s_renderGraph->Execute(RenderContext(s_rendererBackend));
         s_rendererBackend->EndFrame();
     }
+}
+
+
+IImGuiRenderContext* Renderer::CreateImGuiRenderContext()
+{
+    return s_rendererBackend->CreateImGuiRenderContext();
 }
 
 

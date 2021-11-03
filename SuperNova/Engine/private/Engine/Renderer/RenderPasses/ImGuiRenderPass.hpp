@@ -6,6 +6,7 @@
 namespace snv
 {
 
+class ImGuiContext;
 class RenderGraph;
 class RenderContext;
 
@@ -21,7 +22,9 @@ public:
     void OnRender(const RenderContext& renderContext) const override;
 
 private:
-    void* m_engineOutput;
+    ImGuiContext* m_imguiContext;
+
+    void* m_engineOutputRenderTexture;
 };
 
 } // namespace snv

@@ -1,4 +1,5 @@
 #include <Engine/Renderer/OpenGL/GLBackend.hpp>
+#include <Engine/Renderer/OpenGL/GLImGuiRenderContext.hpp>
 
 #include <Engine/Application/Window.hpp>
 #include <Engine/Core/Log.hpp>
@@ -307,6 +308,13 @@ void GLBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandl
     graphicsBuffer.Bind();
 
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+}
+
+
+IImGuiRenderContext* GLBackend::CreateImGuiRenderContext()
+{
+    // NOTE(v.matushkin): I don't know if render backend should manage imgui context lifetime
+    return new GLImGuiRenderContext();
 }
 
 

@@ -12,6 +12,9 @@
 namespace snv
 {
 
+struct IImGuiRenderContext;
+
+
 class IRendererBackend
 {
 public:
@@ -37,8 +40,9 @@ public:
     // NOTE(v.matushkin): Questionable method
     virtual void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) = 0;
 
-    virtual [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) = 0;
+    virtual [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() = 0;
 
+    virtual [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) = 0;
     virtual [[nodiscard]] BufferHandle  CreateBuffer(
         std::span<const std::byte>              indexData,
         std::span<const std::byte>              vertexData,

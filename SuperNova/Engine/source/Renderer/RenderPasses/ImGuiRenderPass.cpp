@@ -5,56 +5,30 @@
 
 #include <Engine/EngineSettings.hpp>
 #include <Engine/Application/Window.hpp>
+#include <Engine/UI/ImGuiContext.hpp>
 
 #include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
-
-
-// TODO(v.matushkin): ImGui context management
 
 
 namespace snv
 {
 
 ImGuiRenderPass::ImGuiRenderPass()
-{
-}
+    : m_imguiContext(nullptr)
+    , m_engineOutputRenderTexture(nullptr)
+{}
 
 ImGuiRenderPass::~ImGuiRenderPass()
 {
-    // NOTE(v.matushkin): ImGui context initialization is in OnCreate(), but shutdown is in destructor
-    //  which works for now, but gonna break later, when I introduce RenderPass culling
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    delete m_imguiContext; // NOTE(v.matushkin): May be put this in OnDestroy() (if I make this method)
 }
 
 
 void ImGuiRenderPass::OnCreate(RenderGraph& renderGraph)
 {
-    m_engineOutput = renderGraph.GetNativeRenderTexture(ResourceNames::EngineColor);
+    m_engineOutputRenderTexture = renderGraph.GetNativeRenderTexture(ResourceNames::EngineColor);
 
-    //- Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    auto& io = ImGui::GetIO();
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
-    //- Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-
-    // When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
-    auto& style                       = ImGui::GetStyle();
-    style.WindowRounding              = 0.0f;
-    style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-
-    //- Setup Platform/Renderer backends
-    auto glfwWindow = Window::GetGlfwWindow();
-    ImGui_ImplGlfw_InitForOpenGL(glfwWindow, false);
-    ImGui_ImplOpenGL3_Init("#version 460");
+    m_imguiContext = new ImGuiContext();
 }
 
 void ImGuiRenderPass::OnRender(const RenderContext& renderContext) const
@@ -62,9 +36,7 @@ void ImGuiRenderPass::OnRender(const RenderContext& renderContext) const
     // TODO(v.matushkin): Hack
     renderContext.BeginRenderPass(static_cast<FramebufferHandle>(0));
 
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
+    m_imguiContext->BeginFrame();
 
     // static bool showDemoWindow = true;
     // if (showDemoWindow)
@@ -111,7 +83,7 @@ void ImGuiRenderPass::OnRender(const RenderContext& renderContext) const
             const auto& graphicsSettings = EngineSettings::GraphicsSettings;
             ImVec2      engineOutputDimensions(graphicsSettings.RenderWidth, graphicsSettings.RenderHeight);
     
-            ImGui::Image(m_engineOutput, engineOutputDimensions, ImVec2(0, 1), ImVec2(1, 0));
+            ImGui::Image(m_engineOutputRenderTexture, engineOutputDimensions, ImVec2(0, 1), ImVec2(1, 0));
 
             ImGui::EndChild();
         }
@@ -128,14 +100,7 @@ void ImGuiRenderPass::OnRender(const RenderContext& renderContext) const
         ImGui::End();
     }
 
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-    // Update and Render additional Platform Windows
-    // (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere)
-    ImGui::UpdatePlatformWindows();
-    ImGui::RenderPlatformWindowsDefault();
-    Window::MakeContextCurrent();
+    m_imguiContext->EndFrame();
 }
 
 } // namespace snv

@@ -268,12 +268,14 @@ set(OpenGL_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/OpenGL)
 set(OpenGL_SRC
     ${OpenGL_SRC_DIR}/GLBackend.cpp
     ${OpenGL_SRC_DIR}/GLBuffer.cpp
+    ${OpenGL_SRC_DIR}/GLImGuiRenderContext.cpp
     ${OpenGL_SRC_DIR}/GLShader.cpp
     ${OpenGL_SRC_DIR}/GLTexture.cpp
 )
 set(OpenGL_INC_PRIVATE
     ${OpenGL_INC_PRIVATE_DIR}/GLBackend.hpp
     ${OpenGL_INC_PRIVATE_DIR}/GLBuffer.hpp
+    ${OpenGL_INC_PRIVATE_DIR}/GLImGuiRenderContext.hpp
     ${OpenGL_INC_PRIVATE_DIR}/GLShader.hpp
     ${OpenGL_INC_PRIVATE_DIR}/GLTexture.hpp
 )
@@ -349,6 +351,7 @@ set(Renderer_INC_PUBLIC
     ${RenderPasses_INC_PUBLIC}
 )
 set(Renderer_INC_PRIVATE
+    ${Renderer_INC_PRIVATE_DIR}/IImGuiRenderContext.hpp
     ${RenderPasses_INC_PRIVATE}
     ${OpenGL_INC_PRIVATE}
     ${Vulkan_INC_PRIVATE}
@@ -364,6 +367,17 @@ if(SNV_PLATFORM_WINDOWS)
         ${DirectX12_INC_PRIVATE}
     )
 endif()
+
+# ---------------------------- UI ----------------------------
+set(UI_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/UI)
+set(UI_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/UI)
+
+set(UI_SRC
+    ${UI_SRC_DIR}/ImGuiContext.cpp
+)
+set(UI_INC_PUBLIC
+    ${UI_INC_PUBLIC_DIR}/ImGuiContext.hpp
+)
 
 # -------------------------- Utils ---------------------------
 set(Utils_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Utils)
@@ -387,6 +401,7 @@ set(SuperNovaEngine_SRC
     ${Entity_SRC}
     ${Input_SRC}
     ${Renderer_SRC}
+    ${UI_SRC}
     ${Utils_SRC}
 )
 set(SuperNovaEngine_INC_PUBLIC
@@ -398,6 +413,7 @@ set(SuperNovaEngine_INC_PUBLIC
     ${Entity_INC_PUBLIC}
     ${Input_INC_PUBLIC}
     ${Renderer_INC_PUBLIC}
+    ${UI_INC_PUBLIC}
     ${Utils_INC_PUBLIC}
 )
 set(SuperNovaEngine_INC_PRIVATE

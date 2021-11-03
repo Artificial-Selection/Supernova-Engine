@@ -1,6 +1,7 @@
 #pragma once
 
 //#include <Engine/Renderer/RenderGraphBuilder.hpp> // Can be forward declared, but then you need to include it everywhere to use it
+#include <Engine/Renderer/IImGuiRenderContext.hpp> // NOTE(v.matushkin): Forward declare?
 #include <Engine/Renderer/RenderTypes.hpp>
 
 #include <glm/ext/matrix_float4x4.hpp>
@@ -40,6 +41,8 @@ public:
     static void Clear(BufferBit bufferBitMask);
 
     static void RenderFrame(const glm::mat4x4& localToWorld);
+
+    static [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext();
 
     static [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc);
     static [[nodiscard]] BufferHandle  CreateBuffer(
