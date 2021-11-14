@@ -23,6 +23,7 @@ public:
     // Needed by RenderPasses
     [[nodiscard]] RenderTextureHandle GetRenderTexture(const std::string& name) const { return m_renderTextures.at(name); }
     [[nodiscard]] void*               GetNativeRenderTexture(const std::string& name) const;
+    [[nodiscard]] FramebufferHandle   GetSwapchainFramebuffer() const;
 
     [[nodiscard]] GraphicsState CreateGraphicsState(
         const GraphicsStateDesc& graphicsStateDesc,

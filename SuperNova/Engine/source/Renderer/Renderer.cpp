@@ -82,6 +82,11 @@ void* Renderer::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
     return s_rendererBackend->GetNativeRenderTexture(renderTextureHandle);
 }
 
+FramebufferHandle Renderer::GetSwapchainFramebuffer()
+{
+    return s_rendererBackend->GetSwapchainFramebuffer();
+}
+
 
 void Renderer::SetBlendFunction(BlendFactor source, BlendFactor destination)
 {

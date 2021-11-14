@@ -37,6 +37,11 @@ void* RenderGraph::GetNativeRenderTexture(const std::string& name) const
     return Renderer::GetNativeRenderTexture(m_renderTextures.at(name));
 }
 
+FramebufferHandle RenderGraph::GetSwapchainFramebuffer() const
+{
+    return Renderer::GetSwapchainFramebuffer();
+}
+
 
 GraphicsState RenderGraph::CreateGraphicsState(
     const GraphicsStateDesc&        graphicsStateDesc,

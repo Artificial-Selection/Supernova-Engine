@@ -26,9 +26,9 @@ class GLBackend final : public IRendererBackend
     struct GLFramebuffer
     {
         ui32                         ID;
-        ui32                         DepthStencilType;
         std::vector<GLRenderTexture> ColorAttachments;
-        GLRenderTexture              DepthStenscilAttachment;
+        GLRenderTexture              DepthStencilAttachment;
+        ui32                         DepthStencilType;
     };
 
 public:
@@ -38,7 +38,8 @@ public:
     void EnableBlend() override;
     void EnableDepthTest() override;
 
-    [[nodiscard]] void* GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
+    [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
+    [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return m_swapchainFramebufferHandle; }
 
     void SetBlendFunction(BlendFactor source, BlendFactor destination) override;
     void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
@@ -65,11 +66,13 @@ public:
     [[nodiscard]] ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource) override;
 
 private:
+    FramebufferHandle m_swapchainFramebufferHandle;
+
     std::unordered_map<BufferHandle,        GLBuffer>        m_buffers;
     std::unordered_map<FramebufferHandle,   GLFramebuffer>   m_framebuffers;
     std::unordered_map<RenderTextureHandle, GLRenderTexture> m_renderTextures;
-    std::unordered_map<TextureHandle,       GLTexture>       m_textures;
     std::unordered_map<ShaderHandle,        GLShader>        m_shaders;
+    std::unordered_map<TextureHandle,       GLTexture>       m_textures;
 };
 
 } // namespace snv

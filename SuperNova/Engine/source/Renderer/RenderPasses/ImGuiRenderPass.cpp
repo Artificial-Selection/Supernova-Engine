@@ -10,11 +10,18 @@
 #include <imgui.h>
 
 
+// TODO(v.matushkin):
+//  - <ImageUV>
+//    I need to set UV for ImGui::Image() when using OpenGL, can I get rid of this?
+//    May be change the shader in GLImGuiRenderContext to swap UV? Don't know if there is any other option.
+
+
 namespace snv
 {
 
 ImGuiRenderPass::ImGuiRenderPass()
     : m_imguiContext(nullptr)
+    , m_swapchainFramebuffer(FramebufferHandle::InvalidHandle)
     , m_engineOutputRenderTexture(nullptr)
 {}
 
@@ -26,6 +33,7 @@ ImGuiRenderPass::~ImGuiRenderPass()
 
 void ImGuiRenderPass::OnCreate(RenderGraph& renderGraph)
 {
+    m_swapchainFramebuffer      = renderGraph.GetSwapchainFramebuffer();
     m_engineOutputRenderTexture = renderGraph.GetNativeRenderTexture(ResourceNames::EngineColor);
 
     m_imguiContext = new ImGuiContext();
@@ -33,8 +41,7 @@ void ImGuiRenderPass::OnCreate(RenderGraph& renderGraph)
 
 void ImGuiRenderPass::OnRender(const RenderContext& renderContext) const
 {
-    // TODO(v.matushkin): Hack
-    renderContext.BeginRenderPass(static_cast<FramebufferHandle>(0));
+    renderContext.BeginRenderPass(m_swapchainFramebuffer);
 
     m_imguiContext->BeginFrame();
 
@@ -80,10 +87,19 @@ void ImGuiRenderPass::OnRender(const RenderContext& renderContext) const
         const auto windowSize = ImGui::GetWindowSize();
         if (ImGui::BeginChild("Scene Child", windowSize))
         {
+            // NOTE(v.matushkin): Do I need to get this every frame?
             const auto& graphicsSettings = EngineSettings::GraphicsSettings;
             ImVec2      engineOutputDimensions(graphicsSettings.RenderWidth, graphicsSettings.RenderHeight);
     
-            ImGui::Image(m_engineOutputRenderTexture, engineOutputDimensions, ImVec2(0, 1), ImVec2(1, 0));
+            // TODO(v.matushkin): <ImageUV>
+            if (graphicsSettings.GraphicsApi == GraphicsApi::OpenGL)
+            {
+                ImGui::Image(m_engineOutputRenderTexture, engineOutputDimensions, ImVec2(0, 1), ImVec2(1, 0));
+            }
+            else
+            {
+                ImGui::Image(m_engineOutputRenderTexture, engineOutputDimensions);
+            }
 
             ImGui::EndChild();
         }

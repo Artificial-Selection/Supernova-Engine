@@ -15,7 +15,7 @@ i32 main()
     };
 
     snv::EngineSettings::GraphicsSettings = {
-        .GraphicsApi  = snv::GraphicsApi::OpenGL,
+        .GraphicsApi  = snv::GraphicsApi::DirectX11,
         .RenderWidth  = 800,
         .RenderHeight = 600,
     };

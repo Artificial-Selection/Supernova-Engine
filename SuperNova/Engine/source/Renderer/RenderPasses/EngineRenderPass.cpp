@@ -25,21 +25,23 @@ void EngineRenderPass::OnCreate(RenderGraph& renderGraph)
     GraphicsStateDesc graphicsStateDesc = {
         .ColorAttachments = {
             {
-                .ClearValue = ClearColorValue(),
+                .ClearValue = {.Color = {0.f, 0.f, 0.f, 0.f}},
                 .Width      = renderWidth,
                 .Height     = renderHeight,
                 .Format     = RenderTextureFormat::BGRA32,
                 .LoadAction = RenderTextureLoadAction::Clear,
+                .Usage      = RenderTextureUsage::ShaderRead, // TODO(v.matushkin): Hardcoded, RenderGraph should set this
             },
         },
         .DepthStencilAttachment = {
-                .ClearValue = ClearDepthStencilValue(),
+                .ClearValue = {.DepthStencil = {.Depth = 1.f, .Stencil = 0}},
                 .Width      = renderWidth,
                 .Height     = renderHeight,
                 .Format     = RenderTextureFormat::Depth32,
                 .LoadAction = RenderTextureLoadAction::Clear,
+                .Usage      = RenderTextureUsage::Default
         },
-        .DepthStencilType = FramebufferDepthStencilType::Depth
+        .DepthStencilType = FramebufferDepthStencilType::Depth,
     };
 
     std::vector<std::string> attachmentNames = {ResourceNames::EngineColor, ResourceNames::EngineDepth};

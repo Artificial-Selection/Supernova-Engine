@@ -13,8 +13,6 @@
 //    - <SwapBuffers>
 //  - <GLFramebuffer>
 //    - What to do with the default screen framebuffer?
-//    - BeginFrame() clears the default screen framebuffer, this shouldn't be in here?
-//      Clearing should be done in RenderPass API
 
 
 const ui32 gl_BlendFactor[] = {
@@ -61,6 +59,13 @@ const ui32 gl_RenderTextureFormat[] = {
     GL_RGBA8, // TODO(v.matushkin): The fuck am I supposed to do with this RGBA/BGRA shit, I cannot specify BGRA in OpenGL
     GL_DEPTH_COMPONENT32F
 };
+
+// TODO(v.matushkin): Remove GetHandle() methods from GLShader/GLTexture/GLBuffer classes and use this
+// static ui32 g_BufferHandleWorkaround        = 0;
+static ui32 g_FramebufferHandleWorkaround   = 0;
+static ui32 g_RenderTextureHandleWorkaround = 0;
+// static ui32 g_ShaderHandleWorkaround        = 0;
+// static ui32 g_TextureHandleWorkaround       = 0;
 
 
 namespace snv
@@ -162,8 +167,16 @@ GLBackend::GLBackend()
     glFrontFace(GL_CCW);
 
     // TODO(v.matushkin): <GLFramebuffer>
-    m_framebuffers[static_cast<FramebufferHandle>(0)] = GLFramebuffer{
+    GLRenderTexture colorAttachment = {
+        .ID         = static_cast<ui32>(RenderTextureHandle::InvalidHandle),
+        .ClearValue = {.Color = {0.f, 0.f, 0.f, 0.f}},
+        .LoadAction = RenderTextureLoadAction::Clear,
+    };
+
+    m_swapchainFramebufferHandle                 = static_cast<FramebufferHandle>(g_FramebufferHandleWorkaround++);
+    m_framebuffers[m_swapchainFramebufferHandle] = GLFramebuffer{
         .ID               = 0,
+        .ColorAttachments = {colorAttachment},
         .DepthStencilType = GL_NONE,
     };
 }
@@ -233,11 +246,6 @@ void GLBackend::Clear(BufferBit bufferBitMask)
 
 void GLBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
-    // NOTE(v.matushkin): Don't need to clear stencil rn, just to test that is working
-    // TODO(v.matushkin): <GLFramebuffer>
-    const auto cleaFlags = BufferBit::Color | BufferBit::Depth | BufferBit::Stencil;
-    Clear(static_cast<BufferBit>(cleaFlags));
-
     // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
     // const auto& shader = m_shaders[shaderHandle];
     const auto& shader = m_shaders.begin()->second;
@@ -263,15 +271,14 @@ void GLBackend::BeginRenderPass(FramebufferHandle framebufferHandle)
         const auto& colorAttachment = colorAttachments[i];
         if (colorAttachment.LoadAction == RenderTextureLoadAction::Clear)
         {
-            const auto clearColorValue = colorAttachment.ClearValue.Color.Value;
             // NOTE(v.matushkin): Why the fuck it doesn't work with GL_DRAW_BUFFER0 + i ?
-            glClearNamedFramebufferfv(glFramebufferID, GL_COLOR, i, clearColorValue);
+            glClearNamedFramebufferfv(glFramebufferID, GL_COLOR, i, colorAttachment.ClearValue.Color);
         }
     }
 
     //- Clear DepthStencil attachment
     // NOTE(v.matushkin): Is it an UB if I get the address of ClearValue.DepthStencil when depthStencilType == GL_NONE ?
-    const auto& depthStencilAttachment = framebuffer.DepthStenscilAttachment;
+    const auto& depthStencilAttachment = framebuffer.DepthStencilAttachment;
     const auto& depthStencilClearValue = depthStencilAttachment.ClearValue.DepthStencil;
     const auto  depthStencilType       = framebuffer.DepthStencilType;
 
@@ -348,7 +355,7 @@ GraphicsState GLBackend::CreateGraphicsState(const GraphicsStateDesc& graphicsSt
         //-- Bind RenderTexture to Framebuffer
         glNamedFramebufferTexture(framebuffer.ID, GL_COLOR_ATTACHMENT0 + i, glRenderTexture.ID, 0);
 
-        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(m_renderTextures.size());
+        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
         m_renderTextures[renderTextureHandle] = glRenderTexture;
         graphicsState.ColorAttachments.push_back(renderTextureHandle);
 
@@ -361,7 +368,7 @@ GraphicsState GLBackend::CreateGraphicsState(const GraphicsStateDesc& graphicsSt
 
     if (descDepthStencilType != FramebufferDepthStencilType::None)
     {
-        auto& depthStenscilAttachment = framebuffer.DepthStenscilAttachment;
+        auto& depthStenscilAttachment = framebuffer.DepthStencilAttachment;
     
         depthStenscilAttachment.ClearValue = depthStencilAttachmentDesc.ClearValue;
         depthStenscilAttachment.LoadAction = depthStencilAttachmentDesc.LoadAction;
@@ -384,7 +391,7 @@ GraphicsState GLBackend::CreateGraphicsState(const GraphicsStateDesc& graphicsSt
         //-- Bind RenderBuffer to Framebuffer
         glNamedFramebufferRenderbuffer(framebuffer.ID, glDepthStencilAttachment, GL_RENDERBUFFER, depthStenscilAttachment.ID);
     
-        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(m_renderTextures.size());
+        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
         m_renderTextures[renderTextureHandle] = depthStenscilAttachment;
         graphicsState.DepthStencilAttachment  = renderTextureHandle;
     }
@@ -393,7 +400,7 @@ GraphicsState GLBackend::CreateGraphicsState(const GraphicsStateDesc& graphicsSt
         framebuffer.DepthStencilType = GL_NONE;
     }
 
-    const auto framebufferHandle      = static_cast<FramebufferHandle>(m_framebuffers.size());
+    const auto framebufferHandle      = static_cast<FramebufferHandle>(g_FramebufferHandleWorkaround++);
     graphicsState.Framebuffer         = framebufferHandle;
     m_framebuffers[framebufferHandle] = std::move(framebuffer);
 

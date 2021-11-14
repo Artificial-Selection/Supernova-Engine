@@ -118,7 +118,7 @@ namespace ShaderBinding
     const ui32 sSampler      = 2;
     //- Set 1
     const ui32 tBaseColorMap = 0;
-} // namespace ShaderBinding
+}
 
 const VkFormat k_SwapchainFormat    = VK_FORMAT_B8G8R8A8_UNORM;
 const VkFormat k_DepthStencilFormat = VK_FORMAT_D32_SFLOAT;

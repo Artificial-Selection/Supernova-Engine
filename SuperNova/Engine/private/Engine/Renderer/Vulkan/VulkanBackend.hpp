@@ -77,7 +77,8 @@ public:
     void EnableBlend() override;
     void EnableDepthTest() override;
 
-    [[nodiscard]] void* GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override { return nullptr; }
+    [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override { return nullptr; }
+    [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return {}; }
 
     void SetBlendFunction(BlendFactor source, BlendFactor destination) override;
     void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;

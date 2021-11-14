@@ -82,6 +82,13 @@ enum class RenderTextureLoadAction : ui8
     Load
 };
 
+// NOTE(v.matushkin): Not sure about this enum and the naming
+enum class RenderTextureUsage : ui8
+{
+    Default,
+    ShaderRead,
+};
+
 // TODO(v.matushkin): Add Default color/depth formats that depends on the current platform
 enum class RenderTextureFormat : ui8
 {
@@ -117,51 +124,17 @@ enum class TextureWrapMode : ui8
 };
 
 
-struct ClearColorValue
-{
-    f32 Value[4];
-
-    // Black color
-    ClearColorValue() = default;
-
-    ClearColorValue(f32 r, f32 g, f32 b, f32 a = 0)
-        : Value{r, g, b, a}
-    {}
-};
-
+// NOTE(v.matushkin): Default Color/DepthStencil clear values?
 struct ClearDepthStencilValue
 {
     f32 Depth;
     i32 Stencil;
-
-    // Depth = 1, Stencil = 0
-    ClearDepthStencilValue()
-        : ClearDepthStencilValue(1)
-    {}
-
-    ClearDepthStencilValue(f32 depth, i32 stencil = 0)
-        : Depth(depth)
-        , Stencil(stencil)
-    {}
 };
 
 union RenderTextureClearValue
 {
-    ClearColorValue        Color;
+    f32                    Color[4];
     ClearDepthStencilValue DepthStencil;
-
-    // Sets black color
-    RenderTextureClearValue()
-        : Color()
-    {}
-
-    RenderTextureClearValue(const ClearColorValue& color)
-        : Color(color)
-    {}
-
-    RenderTextureClearValue(const ClearDepthStencilValue& depthStencil)
-        : DepthStencil(depthStencil)
-    {}
 };
 
 struct RenderTextureDesc
@@ -171,6 +144,7 @@ struct RenderTextureDesc
     ui32                    Height;
     RenderTextureFormat     Format;
     RenderTextureLoadAction LoadAction;
+    RenderTextureUsage      Usage;
 };
 
 struct TextureDesc

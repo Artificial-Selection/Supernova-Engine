@@ -23,7 +23,9 @@ public:
     virtual void EnableBlend() = 0;
     virtual void EnableDepthTest() = 0;
 
-    virtual [[nodiscard]] void* GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) = 0;
+    // NOTE(v.matushkin): Questionable methods
+    virtual [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) = 0;
+    virtual [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() = 0;
 
     virtual void SetBlendFunction(BlendFactor source, BlendFactor destination) = 0;
     virtual void SetClearColor(f32 r, f32 g, f32 b, f32 a) = 0;

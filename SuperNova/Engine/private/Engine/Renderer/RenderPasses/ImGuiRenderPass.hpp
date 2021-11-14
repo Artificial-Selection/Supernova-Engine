@@ -22,9 +22,10 @@ public:
     void OnRender(const RenderContext& renderContext) const override;
 
 private:
-    ImGuiContext* m_imguiContext;
+    ImGuiContext*     m_imguiContext;
 
-    void* m_engineOutputRenderTexture;
+    FramebufferHandle m_swapchainFramebuffer;
+    void*             m_engineOutputRenderTexture;
 };
 
 } // namespace snv
