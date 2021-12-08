@@ -10,7 +10,7 @@
 #include <dxc/dxcapi.h>
 
 #include <memory>
-#include <span>
+#include <string>
 
 
 namespace snv
@@ -28,7 +28,7 @@ class DX12ShaderCompiler
 public:
     DX12ShaderCompiler();
 
-    [[nodiscard]] DX12ShaderBytecode CompileShader(LPCWSTR profile, std::span<const char> shaderSource);
+    [[nodiscard]] DX12ShaderBytecode CompileShader(LPCWSTR profile, const std::string& shaderStageSource);
 
 private:
     Microsoft::WRL::ComPtr<IDxcCompiler3> m_compiler;

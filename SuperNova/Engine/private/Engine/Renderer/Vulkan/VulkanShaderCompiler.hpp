@@ -2,7 +2,7 @@
 
 #include <Engine/Core/Core.hpp>
 
-#include <span>
+#include <string>
 #include <vector>
 
 
@@ -20,6 +20,6 @@ enum class ShaderType : ui32
 void Init();
 void Shutdown();
 
-std::vector<ui32> CompileShader(ShaderType shaderType, std::span<const char> shaderSource);
+std::vector<ui32> CompileShader(ShaderType shaderType, const std::string& shaderStageSource);
 
 } // namespace snv::VulkanShaderCompiler

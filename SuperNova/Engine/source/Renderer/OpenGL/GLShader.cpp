@@ -19,7 +19,7 @@ GLShader::GLShader() noexcept
     : m_shaderProgramID(k_InvalidHandle)
 {}
 
-GLShader::GLShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
+GLShader::GLShader(const std::string& vertexSource, const std::string& fragmentSource)
 {
     const auto vertexShaderID   = CreateShader(vertexSource.data(), GLShaderType::Vertex);
     const auto fragmentShaderID = CreateShader(fragmentSource.data(), GLShaderType::Fragment);

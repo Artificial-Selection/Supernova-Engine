@@ -78,9 +78,9 @@ public:
     [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override { return nullptr; }
     [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return {}; }
 
-    void SetBlendFunction(BlendFactor source, BlendFactor destination) override;
+    void SetBlendFunction(BlendMode source, BlendMode destination) override;
     void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
-    void SetDepthFunction(DepthFunction depthFunction) override;
+    void SetDepthFunction(DepthCompareFunction depthCompareFunction) override;
     void SetViewport(i32 x, i32 y, i32 width, i32 height) override;
 
     void Clear(BufferBit bufferBitMask) override;
@@ -100,7 +100,7 @@ public:
         const std::vector<VertexAttributeDesc>& vertexLayout
     ) override;
     [[nodiscard]] TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData) override;
-    [[nodiscard]] ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource) override;
+    [[nodiscard]] ShaderHandle  CreateShader(const ShaderDesc& shaderDesc) override;
 
 private:
     void CreateDevice();

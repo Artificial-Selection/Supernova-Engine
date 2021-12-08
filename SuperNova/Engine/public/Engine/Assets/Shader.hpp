@@ -3,8 +3,6 @@
 #include <Engine/Core/Core.hpp>
 #include <Engine/Renderer/RenderTypes.hpp>
 
-#include <span>
-
 
 namespace snv
 {
@@ -12,11 +10,13 @@ namespace snv
 class Shader
 {
 public:
-    Shader(std::span<const char> vertexSource, std::span<const char> fragmentSource);
+    Shader(ShaderDesc&& shaderDesc);
 
     [[nodiscard]] ShaderHandle GetHandle() const { return m_shaderHandle; }
 
 private:
+    const ShaderDesc m_shaderDesc;
+
     ShaderHandle m_shaderHandle;
 };
 

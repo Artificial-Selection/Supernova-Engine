@@ -5,6 +5,7 @@
 #include <glm/ext/matrix_float4x4.hpp>
 #include <wrl/client.h>
 
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -97,9 +98,9 @@ public:
     [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
     [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return m_swapchainFramebufferHandle; }
 
-    void SetBlendFunction(BlendFactor source, BlendFactor destination) override;
+    void SetBlendFunction(BlendMode source, BlendMode destination) override;
     void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
-    void SetDepthFunction(DepthFunction depthFunction) override;
+    void SetDepthFunction(DepthCompareFunction depthCompareFunction) override;
     void SetViewport(i32 x, i32 y, i32 width, i32 height) override;
 
     void Clear(BufferBit bufferBitMask) override;
@@ -119,7 +120,7 @@ public:
         const std::vector<VertexAttributeDesc>& vertexLayout
     ) override;
     [[nodiscard]] TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData) override;
-    [[nodiscard]] ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource) override;
+    [[nodiscard]] ShaderHandle  CreateShader(const ShaderDesc& shaderDesc) override;
 
 private:
     void CreateDevice();

@@ -34,9 +34,9 @@ public:
     static [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle);
     static [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer();
 
-    static void SetBlendFunction(BlendFactor source, BlendFactor destination);
+    static void SetBlendFunction(BlendMode source, BlendMode destination);
     static void SetClearColor(f32 r, f32 g, f32 b, f32 a);
-    static void SetDepthFunction(DepthFunction depthFunction);
+    static void SetDepthFunction(DepthCompareFunction depthCompareFunction);
     static void SetViewport(i32 x, i32 y, i32 width, i32 height);
 
     static void Clear(BufferBit bufferBitMask);
@@ -52,7 +52,7 @@ public:
         const std::vector<VertexAttributeDesc>& vertexLayout
     );
     static [[nodiscard]] TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData);
-    static [[nodiscard]] ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource);
+    static [[nodiscard]] ShaderHandle  CreateShader(const ShaderDesc& shaderDesc);
 
 private:
     static inline IRendererBackend*   s_rendererBackend;

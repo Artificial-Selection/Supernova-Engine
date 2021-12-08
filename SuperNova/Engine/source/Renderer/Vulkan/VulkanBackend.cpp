@@ -15,6 +15,7 @@
 
 #include <limits>
 
+
 // TODO(v.matushkin):
 // - <SurfaceCreation>
 //   I can put surface creation in Window class and use GLFW methods, but I think this is wrong
@@ -364,7 +365,7 @@ void VulkanBackend::EnableBlend()
 void VulkanBackend::EnableDepthTest()
 {}
 
-void VulkanBackend::SetBlendFunction(BlendFactor source, BlendFactor destination)
+void VulkanBackend::SetBlendFunction(BlendMode source, BlendMode destination)
 {}
 
 void VulkanBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
@@ -372,7 +373,7 @@ void VulkanBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
     m_clearValues[0].color = {.float32 = {r, g, b, a}};
 }
 
-void VulkanBackend::SetDepthFunction(DepthFunction depthFunction)
+void VulkanBackend::SetDepthFunction(DepthCompareFunction depthCompareFunction)
 {}
 
 void VulkanBackend::SetViewport(i32 x, i32 y, i32 width, i32 height)
@@ -1040,10 +1041,10 @@ TextureHandle VulkanBackend::CreateTexture(const TextureDesc& textureDesc, const
     return textureHandle;
 }
 
-ShaderHandle VulkanBackend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
+ShaderHandle VulkanBackend::CreateShader(const ShaderDesc& shaderDesc)
 {
-    const auto vertexBytecode   = VulkanShaderCompiler::CompileShader(VulkanShaderCompiler::ShaderType::Vertex, vertexSource);
-    const auto fragmentBytecode = VulkanShaderCompiler::CompileShader(VulkanShaderCompiler::ShaderType::Fragment, fragmentSource);
+    const auto vertexBytecode   = VulkanShaderCompiler::CompileShader(VulkanShaderCompiler::ShaderType::Vertex, shaderDesc.VertexSource);
+    const auto fragmentBytecode = VulkanShaderCompiler::CompileShader(VulkanShaderCompiler::ShaderType::Fragment, shaderDesc.FragmentSource);
 
     VulkanShader vulkanShader;
 

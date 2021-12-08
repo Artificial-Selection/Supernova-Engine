@@ -1,10 +1,11 @@
 #include <Engine/Assets/AssetDatabase.hpp>
-
 #include <Engine/Assets/Model.hpp>
 #include <Engine/Assets/Mesh.hpp>
 #include <Engine/Assets/Material.hpp>
 #include <Engine/Assets/Texture.hpp>
 #include <Engine/Assets/Shader.hpp>
+#include <Engine/Assets/ShaderParser/ShaderParser.hpp>
+#include <Engine/Assets/ShaderParser/ShaderParserError.hpp>
 #include <Engine/Components/MeshRenderer.hpp>
 #include <Engine/Core/Assert.hpp>
 #include <Engine/Entity/GameObject.hpp>
@@ -24,8 +25,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#include <filesystem>
 #include <fstream>
+#include <sstream>
+#include <utility>
 
 
 namespace AssimpConstants
@@ -263,7 +265,7 @@ Texture AssetDatabase::LoadTexture(const std::string& texturePath)
 {
     stbi_set_flip_vertically_on_load(true); // TODO(v.matushkin): Set only once
 
-    // TODO(v.matushkin): Asset class shouldn't handle path adjusting
+    // TODO(v.matushkin): AssetDatabase shouldn't handle path adjusting
     std::string fullPath = "../../assets/models/Sponza/" + texturePath;
 
     i32 width, height, numComponents;
@@ -296,47 +298,42 @@ Texture AssetDatabase::LoadTexture(const std::string& texturePath)
 }
 
 // TODO(v.matushkin): Improve this shit with passes/loading(don't know what did I mean by that)
-//  Thats why there should be only one shader language I guess
-//  Or at least there should some static AppSettings class or something, so there is no need to access Renderer
 Shader AssetDatabase::LoadShader(const std::string& shaderName)
 {
     const auto graphicsApi = EngineSettings::GraphicsSettings.GraphicsApi;
 
     std::string shaderPath;
-    std::string shaderExtension;
-    if (graphicsApi == GraphicsApi::DirectX11 || graphicsApi == GraphicsApi::DirectX12)
+    if (graphicsApi == GraphicsApi::Vulkan)
     {
-        shaderExtension = ".hlsl";
-        shaderPath      = m_dxShaderDir;
+        shaderPath = m_vkShaderDir;
+    }
+    else if (graphicsApi == GraphicsApi::OpenGL)
+    {
+        shaderPath = m_glShaderDir;
     }
     else
     {
-        shaderExtension = ".glsl";
-        shaderPath      = graphicsApi == GraphicsApi::OpenGL ? m_glShaderDir : m_vkShaderDir;
+        shaderPath = m_dxShaderDir;
     }
-    shaderPath += shaderName;
+    shaderPath += shaderName + ".shader";
 
-    // Get Vertex Shader
-    const std::string vertexPath(shaderPath + "_vs" + shaderExtension);
-    const auto        vertexSize   = std::filesystem::file_size(vertexPath);
-    auto              vertexSource = std::make_unique<char[]>(vertexSize + 1);
+    std::ifstream vertexFile(shaderPath, std::ios::binary | std::ios::in);
+    std::stringstream buffer;
+    buffer << vertexFile.rdbuf();
+
+    // TODO(v.matushkin): Assign default material if got an error
+    ShaderDesc shaderDesc;
+    try
     {
-        std::ifstream vertexFile(vertexPath, std::ios::binary | std::ios::in);
-        vertexFile.read(vertexSource.get(), vertexSize);
+        ShaderParser shaderParser;
+        shaderDesc = shaderParser.Parse(buffer.str());
     }
-    // Get Fragment Shader
-    const std::string fragmentPath(shaderPath + "_fs" + shaderExtension);
-    const auto        fragmentSize   = std::filesystem::file_size(fragmentPath);
-    auto              fragmentSource = std::make_unique<char[]>(fragmentSize + 1);
+    catch (const ShaderParserError& error)
     {
-        std::ifstream fragmentFile(fragmentPath, std::ios::binary | std::ios::in);
-        fragmentFile.read(fragmentSource.get(), fragmentSize);
+        LOG_ERROR("ShaderParserError: {}", error.what());
     }
 
-    return Shader(
-        std::span(vertexSource.get(), vertexSize),
-        std::span(fragmentSource.get(), fragmentSize)
-    );
+    return Shader(std::move(shaderDesc));
 }
 
 

@@ -13,12 +13,12 @@
 #include <chrono>
 
 
-const f32 k_MovementSpeed = 2.0f;
-const f32 k_MovementBoost = 5.0f;
+static const f32 k_MovementSpeed = 2.0f;
+static const f32 k_MovementBoost = 5.0f;
 
-const char* k_AssetDir      = "../../assets/";
-const char* k_SponzaObjPath = "Sponza/sponza.obj";
-const char* k_ShaderName    = "triangle";
+static const char* k_AssetDir      = "../../assets/";
+static const char* k_SponzaObjPath = "Sponza/sponza.obj";
+static const char* k_ShaderName    = "Main";
 
 
 namespace snv
@@ -37,7 +37,7 @@ void Engine::OnCreate()
     Renderer::SetViewport(0, 0, renderWidth, renderHeight);
     Renderer::SetClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     Renderer::EnableDepthTest();
-    Renderer::SetDepthFunction(DepthFunction::Less);
+    Renderer::SetDepthFunction(DepthCompareFunction::Less);
 
     AssetDatabase::Init(k_AssetDir);
 

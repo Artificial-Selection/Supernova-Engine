@@ -12,7 +12,7 @@ DX12ShaderCompiler::DX12ShaderCompiler()
 }
 
 
-DX12ShaderBytecode DX12ShaderCompiler::CompileShader(LPCWSTR profile, std::span<const char> shaderSource)
+DX12ShaderBytecode DX12ShaderCompiler::CompileShader(LPCWSTR profile, const std::string& shaderStageSource)
 {
     // https://developer.nvidia.com/dx12-dos-and-donts
     // Use the /all_resources_bound / D3DCOMPILE_ALL_RESOURCES_BOUND compile flag if possible
@@ -26,8 +26,8 @@ DX12ShaderBytecode DX12ShaderCompiler::CompileShader(LPCWSTR profile, std::span<
     auto hr = m_utils->BuildArguments(nullptr, L"main", profile, arguments, ARRAYSIZE(arguments), nullptr, 0, dxcCompilerArgs.GetAddressOf());
 
     DxcBuffer dxcBuffer = {
-        .Ptr      = shaderSource.data(),
-        .Size     = shaderSource.size_bytes(),
+        .Ptr      = shaderStageSource.data(),
+        .Size     = shaderStageSource.length(),
         .Encoding = 0, //NOTE(v.matushkin): ???
     };
 
@@ -50,7 +50,11 @@ DX12ShaderBytecode DX12ShaderCompiler::CompileShader(LPCWSTR profile, std::span<
     auto bytecode       = std::make_unique<ui8[]>(bytecodeLength);
     std::memcpy(bytecode.get(), dxcBlob->GetBufferPointer(), bytecodeLength);
 
-    return { .Bytecode = std::move(bytecode), .Length = bytecodeLength};
+    return DX12ShaderBytecode
+    {
+        .Bytecode = std::move(bytecode),
+        .Length   = bytecodeLength
+    };
 }
 
 } // namespace snv

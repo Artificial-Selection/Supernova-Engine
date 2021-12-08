@@ -15,10 +15,18 @@
 //    - What to do with the default screen framebuffer?
 
 
-const ui32 gl_BlendFactor[] = {
-    GL_ONE,                // BlendFactor::One
-    GL_SRC_ALPHA,          // BlendFactor::SrcAlpha
-    GL_ONE_MINUS_SRC_ALPHA // BlendFactor::OneMinusSrcAlpha
+const ui32 gl_BlendMode[] = {
+    GL_ZERO,
+    GL_ONE,
+    GL_DST_COLOR,
+    GL_SRC_COLOR,
+    GL_ONE_MINUS_DST_COLOR,
+    GL_SRC_ALPHA,
+    GL_ONE_MINUS_SRC_COLOR,
+    GL_DST_ALPHA,
+    GL_ONE_MINUS_DST_ALPHA,
+    GL_SRC_ALPHA_SATURATE,
+    GL_ONE_MINUS_SRC_ALPHA,
 };
 
 const ui32 gl_BufferBit[] = {
@@ -32,10 +40,10 @@ const ui32 gl_DepthFunction[] = {
     GL_NEVER,    // DepthFunction::Never
     GL_LESS,     // DepthFunction::Less
     GL_EQUAL,    // DepthFunction::Equal
-    GL_LEQUAL,   // DepthFunction::LessOrEqual
+    GL_LEQUAL,   // DepthFunction::LessEqual
     GL_GREATER,  // DepthFunction::Greater
     GL_NOTEQUAL, // DepthFunction::NotEqual
-    GL_GEQUAL,   // DepthFunction::GreaterOrEqual
+    GL_GEQUAL,   // DepthFunction::GreaterEqual
     GL_ALWAYS    // DepthFunction::Always
 };
 
@@ -199,11 +207,11 @@ void* GLBackend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
 }
 
 
-void GLBackend::SetBlendFunction(BlendFactor source, BlendFactor destination)
+void GLBackend::SetBlendFunction(BlendMode source, BlendMode destination)
 {
-    const auto sourceFactor      = gl_BlendFactor[static_cast<ui32>(source)];
-    const auto destinationFactor = gl_BlendFactor[static_cast<ui32>(destination)];
-    glBlendFunc(sourceFactor, destinationFactor);
+    const auto sourceMode      = gl_BlendMode[static_cast<ui8>(source)];
+    const auto destinationMode = gl_BlendMode[static_cast<ui8>(destination)];
+    glBlendFunc(sourceMode, destinationMode);
 }
 
 void GLBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
@@ -211,9 +219,9 @@ void GLBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
     glClearColor(r, g, b, a);
 }
 
-void GLBackend::SetDepthFunction(DepthFunction depthFunction)
+void GLBackend::SetDepthFunction(DepthCompareFunction depthCompareFunction)
 {
-    const auto function = gl_DepthFunction[static_cast<ui32>(depthFunction)];
+    const auto function = gl_DepthFunction[static_cast<ui8>(depthCompareFunction)];
     glDepthFunc(function);
 }
 
@@ -429,9 +437,9 @@ TextureHandle GLBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
     return handle;
 }
 
-ShaderHandle GLBackend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
+ShaderHandle GLBackend::CreateShader(const ShaderDesc& shaderDesc)
 {
-    GLShader   glShader(vertexSource, fragmentSource);
+    GLShader   glShader(shaderDesc.VertexSource, shaderDesc.FragmentSource);
     const auto handle = glShader.GetHandle();
     m_shaders.emplace(handle, std::move(glShader));
 

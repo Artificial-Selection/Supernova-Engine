@@ -3,6 +3,7 @@
 #include <Engine/Core/Core.hpp>
 
 #include <vector>
+#include <string>
 
 
 namespace snv
@@ -17,11 +18,21 @@ enum class TextureHandle       : ui32 { InvalidHandle = k_InvalidHandle };
 enum class ShaderHandle        : ui32 { InvalidHandle = k_InvalidHandle };
 
 
-enum class BlendFactor : ui32
+// NOTE(v.matushkin): Unity has 'Off' BlendMode, what does it do?
+// NOTE(v.matushkin): Graphics APIs have more options
+enum class BlendMode : ui8
 {
+    Zero,
     One,
+    DstColor,
+    SrcColor,
+    OneMinusDstColor,
     SrcAlpha,
-    OneMinusSrcAlpha
+    OneMinusSrcColor,
+    DstAlpha,
+    OneMinusDstAlpha,
+    ScrAlphaSaturate,
+    OneMinusSrcAlpha,
 };
 
 // TODO(v.matushkin): Bring back enum class?
@@ -34,16 +45,24 @@ enum BufferBit : ui32
     Stencil = 1 << 2
 };
 
-enum class DepthFunction : ui32
+enum class CullMode : ui8
+{
+    Off,
+    Front,
+    Back,
+    // OpenGl and Vulkan have FrontAndBack
+};
+
+enum class DepthCompareFunction : ui8
 {
     Never,
     Less,
     Equal,
-    LessOrEqual,
+    LessEqual,
     Greater,
     NotEqual,
-    GreaterOrEqual,
-    Always
+    GreaterEqual,
+    Always,
 };
 
 // NOTE(v.matushkin): Not sure about this enum
@@ -175,6 +194,33 @@ struct GraphicsState
     std::vector<RenderTextureHandle> ColorAttachments;
     RenderTextureHandle              DepthStencilAttachment;
     FramebufferHandle                Framebuffer;
+};
+
+struct BlendState
+{
+    BlendMode ColorSrcBlendMode;
+    BlendMode ColorDstBlendMode;
+    BlendMode AlphaSrcBlendMode;
+    BlendMode AlphaDstBlendMode;
+};
+
+struct ShaderState
+{
+    BlendState           BlendState;
+    CullMode             CullMode;
+    DepthCompareFunction DepthCompareFunction;
+
+    static ShaderState Default();
+};
+
+struct ShaderDesc
+{
+    std::string Name;
+
+    ShaderState State;
+
+    std::string VertexSource;
+    std::string FragmentSource;
 };
 
 } // namespace snv

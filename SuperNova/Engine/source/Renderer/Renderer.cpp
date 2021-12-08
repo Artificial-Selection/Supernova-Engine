@@ -88,7 +88,7 @@ FramebufferHandle Renderer::GetSwapchainFramebuffer()
 }
 
 
-void Renderer::SetBlendFunction(BlendFactor source, BlendFactor destination)
+void Renderer::SetBlendFunction(BlendMode source, BlendMode destination)
 {
     s_rendererBackend->SetBlendFunction(source, destination);
 }
@@ -98,9 +98,9 @@ void Renderer::SetClearColor(f32 r, f32 g, f32 b, f32 a)
     s_rendererBackend->SetClearColor(r, g, b, a);
 }
 
-void Renderer::SetDepthFunction(DepthFunction depthFunction)
+void Renderer::SetDepthFunction(DepthCompareFunction depthCompareFunction)
 {
-    s_rendererBackend->SetDepthFunction(depthFunction);
+    s_rendererBackend->SetDepthFunction(depthCompareFunction);
 }
 
 void Renderer::SetViewport(i32 x, i32 y, i32 width, i32 height)
@@ -166,9 +166,9 @@ TextureHandle Renderer::CreateTexture(const TextureDesc& textureDesc, const ui8*
     return s_rendererBackend->CreateTexture(textureDesc, textureData);
 }
 
-ShaderHandle Renderer::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
+ShaderHandle Renderer::CreateShader(const ShaderDesc& shaderDesc)
 {
-    return s_rendererBackend->CreateShader(vertexSource, fragmentSource);
+    return s_rendererBackend->CreateShader(shaderDesc);
 }
 
 } // namespace snv

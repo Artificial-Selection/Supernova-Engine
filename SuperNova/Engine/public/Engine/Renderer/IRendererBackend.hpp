@@ -27,9 +27,9 @@ public:
     virtual [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) = 0;
     virtual [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() = 0;
 
-    virtual void SetBlendFunction(BlendFactor source, BlendFactor destination) = 0;
+    virtual void SetBlendFunction(BlendMode source, BlendMode destination) = 0;
     virtual void SetClearColor(f32 r, f32 g, f32 b, f32 a) = 0;
-    virtual void SetDepthFunction(DepthFunction depthFunction) = 0;
+    virtual void SetDepthFunction(DepthCompareFunction depthCompareFunction) = 0;
     virtual void SetViewport(i32 x, i32 y, i32 width, i32 height) = 0;
 
     virtual void Clear(BufferBit bufferBitMask) = 0;
@@ -51,7 +51,7 @@ public:
         const std::vector<VertexAttributeDesc>& vertexLayout
     ) = 0;
     virtual [[nodiscard]] TextureHandle CreateTexture(const TextureDesc& textureDesc, const ui8* textureData) = 0;
-    virtual [[nodiscard]] ShaderHandle  CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource) = 0;
+    virtual [[nodiscard]] ShaderHandle  CreateShader(const ShaderDesc& shaderDesc) = 0;
 };
 
 } // namespace snv

@@ -123,12 +123,12 @@ void Shutdown()
 }
 
 
-std::vector<ui32> CompileShader(ShaderType shaderType, std::span<const char> shaderSource)
+std::vector<ui32> CompileShader(ShaderType shaderType, const std::string& shaderStageSource)
 {
     std::vector<ui32> spirvBytecode;
 
     const auto eshLanguage = static_cast<EShLanguage>(shaderType);
-    auto fucking_const_char_const = shaderSource.data();
+    auto       fucking_const_char_const = shaderStageSource.data();
     const auto messages = static_cast<EShMessages>(EShMsgVulkanRules | EShMsgSpvRules | EShMsgDefault);
     const auto glslVersion = 460;
 

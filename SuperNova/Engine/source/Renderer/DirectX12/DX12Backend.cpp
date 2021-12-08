@@ -231,7 +231,7 @@ void DX12Backend::EnableDepthTest()
 {}
 
 
-void DX12Backend::SetBlendFunction(BlendFactor source, BlendFactor destination)
+void DX12Backend::SetBlendFunction(BlendMode source, BlendMode destination)
 {}
 
 void DX12Backend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
@@ -242,7 +242,7 @@ void DX12Backend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
     m_clearColor[3] = a;
 }
 
-void DX12Backend::SetDepthFunction(DepthFunction depthFunction)
+void DX12Backend::SetDepthFunction(DepthCompareFunction depthCompareFunction)
 {}
 
 void DX12Backend::SetViewport(i32 x, i32 y, i32 width, i32 height)
@@ -649,11 +649,11 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
     return textureHandle;
 }
 
-ShaderHandle DX12Backend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
+ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
 {
     DX12Shader dx12Shader = {
-        .VertexShader   = m_shaderCompiler->CompileShader(L"vs_6_5", vertexSource),
-        .FragmentShader = m_shaderCompiler->CompileShader(L"ps_6_5", fragmentSource),
+        .VertexShader   = m_shaderCompiler->CompileShader(L"vs_6_5", shaderDesc.VertexSource),
+        .FragmentShader = m_shaderCompiler->CompileShader(L"ps_6_5", shaderDesc.FragmentSource),
     };
 
     static ui32 shader_handle_workaround = 0;

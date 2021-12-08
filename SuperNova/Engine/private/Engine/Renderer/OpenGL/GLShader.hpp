@@ -5,7 +5,6 @@
 
 #include <glm/ext/matrix_float4x4.hpp>
 
-#include <span>
 #include <string>
 
 
@@ -25,7 +24,7 @@ public:
     // NOTE(v.matushkin): Can I make this move only without default constructor?
     // TODO(v.matushkin): Define destructor
     GLShader() noexcept;
-    GLShader(std::span<const char> vertexSource, std::span<const char> fragmentSource);
+    GLShader(const std::string& vertexSource, const std::string& fragmentSource);
 
     GLShader(GLShader&& other) noexcept;
     GLShader& operator=(GLShader&& other) noexcept;

@@ -167,8 +167,25 @@ set(Application_INC_PUBLIC
 )
 
 # -------------------------- Assets --------------------------
-set(Assets_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Assets)
-set(Assets_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/Assets)
+set(Assets_SRC_DIR         ${SuperNovaEngine_SRC_DIR}/Assets)
+set(Assets_INC_PUBLIC_DIR  ${SuperNovaEngine_INC_PUBLIC_DIR}/Assets)
+set(Assets_INC_PRIVATE_DIR ${SuperNovaEngine_INC_PRIVATE_DIR}/Assets)
+
+# ------------ Shader ------------
+set(ShaderParser_SRC_DIR         ${Assets_SRC_DIR}/ShaderParser)
+set(ShaderParser_INC_PRIVATE_DIR ${Assets_INC_PRIVATE_DIR}/ShaderParser)
+
+set(ShaderParser_SRC
+    ${ShaderParser_SRC_DIR}/Lexer.cpp
+    ${ShaderParser_SRC_DIR}/ShaderParser.cpp
+    ${ShaderParser_SRC_DIR}/ShaderParserUtils.cpp
+)
+set(ShaderParser_INC_PRIVATE
+    ${ShaderParser_INC_PRIVATE_DIR}/Lexer.hpp
+    ${ShaderParser_INC_PRIVATE_DIR}/ShaderParser.hpp
+    ${ShaderParser_INC_PRIVATE_DIR}/ShaderParserError.hpp
+    ${ShaderParser_INC_PRIVATE_DIR}/ShaderParserUtils.hpp
+)
 
 set(Assets_SRC
     ${Assets_SRC_DIR}/AssetDatabase.cpp
@@ -177,6 +194,7 @@ set(Assets_SRC
     ${Assets_SRC_DIR}/Model.cpp
     ${Assets_SRC_DIR}/Shader.cpp
     ${Assets_SRC_DIR}/Texture.cpp
+    ${ShaderParser_SRC}
 )
 set(Assets_INC_PUBLIC
     ${Assets_INC_PUBLIC_DIR}/AssetDatabase.hpp
@@ -185,6 +203,10 @@ set(Assets_INC_PUBLIC
     ${Assets_INC_PUBLIC_DIR}/Model.hpp
     ${Assets_INC_PUBLIC_DIR}/Shader.hpp
     ${Assets_INC_PUBLIC_DIR}/Texture.hpp
+    ${ShaderParser_INC_PRIVATE}
+)
+set(Assets_INC_PRIVATE
+    ${Shader_INC_PRIVATE}
 )
 
 # ------------------------ Components ------------------------
@@ -265,6 +287,7 @@ set(Renderer_INC_PRIVATE_DIR ${SuperNovaEngine_INC_PRIVATE_DIR}/Renderer)
 # ------------ OpenGL ------------
 set(OpenGL_SRC_DIR         ${Renderer_SRC_DIR}/OpenGL)
 set(OpenGL_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/OpenGL)
+
 set(OpenGL_SRC
     ${OpenGL_SRC_DIR}/GLBackend.cpp
     ${OpenGL_SRC_DIR}/GLBuffer.cpp
@@ -283,6 +306,7 @@ set(OpenGL_INC_PRIVATE
 # ------------ Vulkan ------------
 set(Vulkan_SRC_DIR         ${Renderer_SRC_DIR}/Vulkan)
 set(Vulkan_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/Vulkan)
+
 set(Vulkan_SRC
     ${Vulkan_SRC_DIR}/VulkanBackend.cpp
     ${Vulkan_SRC_DIR}/VulkanShaderCompiler.cpp
@@ -295,6 +319,7 @@ set(Vulkan_INC_PRIVATE
 # ---------- DirectX 11 ----------
 set(DirectX11_SRC_DIR         ${Renderer_SRC_DIR}/DirectX11)
 set(DirectX11_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/DirectX11)
+
 set(DirectX11_SRC
     ${DirectX11_SRC_DIR}/DX11Backend.cpp
     ${DirectX11_SRC_DIR}/DX11ImGuiRenderContext.cpp
@@ -307,6 +332,7 @@ set(DirectX11_INC_PRIVATE
 # ---------- DirectX 12 ----------
 set(DirectX12_SRC_DIR         ${Renderer_SRC_DIR}/DirectX12)
 set(DirectX12_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/DirectX12)
+
 set(DirectX12_SRC
     ${DirectX12_SRC_DIR}/DX12Backend.cpp
     ${DirectX12_SRC_DIR}/DX12ShaderCompiler.cpp
@@ -320,6 +346,7 @@ set(DirectX12_INC_PRIVATE
 set(RenderPasses_SRC_DIR         ${Renderer_SRC_DIR}/RenderPasses)
 set(RenderPasses_INC_PUBLIC_DIR  ${Renderer_INC_PUBLIC_DIR}/RenderPasses)
 set(RenderPasses_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/RenderPasses)
+
 set(RenderPasses_SRC
     ${RenderPasses_SRC_DIR}/EngineRenderPass.cpp
     ${RenderPasses_SRC_DIR}/ImGuiRenderPass.cpp
@@ -338,6 +365,7 @@ set(Renderer_SRC
     ${Renderer_SRC_DIR}/Renderer.cpp
     ${Renderer_SRC_DIR}/RenderGraph.cpp
     ${Renderer_SRC_DIR}/RenderGraphBuilder.cpp
+    ${Renderer_SRC_DIR}/RenderTypes.cpp
     ${RenderPasses_SRC}
     ${OpenGL_SRC}
     ${Vulkan_SRC}
@@ -354,6 +382,7 @@ set(Renderer_INC_PUBLIC
 )
 set(Renderer_INC_PRIVATE
     ${Renderer_INC_PRIVATE_DIR}/IImGuiRenderContext.hpp
+    ${Renderer_INC_PRIVATE_DIR}/RenderDefaults.hpp
     ${RenderPasses_INC_PRIVATE}
     ${OpenGL_INC_PRIVATE}
     ${Vulkan_INC_PRIVATE}
@@ -382,15 +411,20 @@ set(UI_INC_PUBLIC
 )
 
 # -------------------------- Utils ---------------------------
-set(Utils_SRC_DIR        ${SuperNovaEngine_SRC_DIR}/Utils)
-set(Utils_INC_PUBLIC_DIR ${SuperNovaEngine_INC_PUBLIC_DIR}/Utils)
+set(Utils_SRC_DIR         ${SuperNovaEngine_SRC_DIR}/Utils)
+set(Utils_INC_PUBLIC_DIR  ${SuperNovaEngine_INC_PUBLIC_DIR}/Utils)
+set(Utils_INC_PRIVATE_DIR ${SuperNovaEngine_INC_PRIVATE_DIR}/Utils)
 
 set(Utils_SRC
+    ${Utils_SRC_DIR}/EnumUtils.cpp
     ${Utils_SRC_DIR}/Time.cpp
 )
 set(Utils_INC_PUBLIC
     ${Utils_INC_PUBLIC_DIR}/Time.hpp
-    # ${Utils_INC_PUBLIC_DIR}/Singleton.hpp
+)
+set(Utils_INC_PRIVATE
+    ${Utils_INC_PRIVATE_DIR}/EnumUtils.hpp
+    ${Utils_INC_PRIVATE_DIR}/EnumStrings.hpp
 )
 
 
@@ -419,7 +453,9 @@ set(SuperNovaEngine_INC_PUBLIC
     ${Utils_INC_PUBLIC}
 )
 set(SuperNovaEngine_INC_PRIVATE
+    ${Assets_INC_PRIVATE}
     ${Renderer_INC_PRIVATE}
+    ${Utils_INC_PRIVATE}
 )
 
 

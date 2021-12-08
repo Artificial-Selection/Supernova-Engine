@@ -30,7 +30,7 @@ const D3D11_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
 };
 
 // NOTE(v.matushkin): Questionable naming
-const ui32 dx11_DepthStencilType[] = {
+const ui32 dx11_DepthStencilClearFlag[] = {
     0,
     D3D11_CLEAR_DEPTH,
     D3D11_CLEAR_STENCIL,
@@ -198,7 +198,7 @@ void* DX11Backend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandl
 }
 
 
-void DX11Backend::SetBlendFunction(BlendFactor source, BlendFactor destination)
+void DX11Backend::SetBlendFunction(BlendMode source, BlendMode destination)
 {
 }
 
@@ -210,7 +210,7 @@ void DX11Backend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
     m_clearColor[3] = a;
 }
 
-void DX11Backend::SetDepthFunction(DepthFunction depthFunction)
+void DX11Backend::SetDepthFunction(DepthCompareFunction depthCompareFunction)
 {}
 
 void DX11Backend::SetViewport(i32 x, i32 y, i32 width, i32 height)
@@ -280,7 +280,8 @@ void DX11Backend::BeginRenderPass(FramebufferHandle framebufferHandle)
             d3dDepthStencilView,
             d3dDepthStencilClearFlags,
             depthStencilClearValue.Depth,
-            depthStencilClearValue.Stencil);
+            depthStencilClearValue.Stencil
+        );
     }
 }
 
@@ -397,12 +398,14 @@ GraphicsState DX11Backend::CreateGraphicsState(const GraphicsStateDesc& graphics
     }
 
     //- Create DepthStencil attachment
-    dx11Framebuffer.DepthStencilClearFlags = dx11_DepthStencilType[static_cast<ui8>(graphicsStateDesc.DepthStencilType)];
+    dx11Framebuffer.DepthStencilClearFlags = dx11_DepthStencilClearFlag[static_cast<ui8>(graphicsStateDesc.DepthStencilType)];
 
     if (dx11Framebuffer.DepthStencilClearFlags != 0)
     {
         const auto& depthStencilDesc       = graphicsStateDesc.DepthStencilAttachment;
         const auto  dxgiDepthStencilFormat = dx11_RenderTextureFormat[static_cast<ui8>(depthStencilDesc.Format)];
+
+        SNV_ASSERT(depthStencilDesc.Usage == RenderTextureUsage::Default, "Sampling DepthStencil texture is not supported");
 
         ComPtr<ID3D11Texture2D1>       d3dTexture;
         ComPtr<ID3D11DepthStencilView> d3dDSV;
@@ -426,7 +429,7 @@ GraphicsState DX11Backend::CreateGraphicsState(const GraphicsStateDesc& graphics
         D3D11_DEPTH_STENCIL_VIEW_DESC d3dDsvDesc  = {
             .Format        = dxgiDepthStencilFormat,
             .ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D,
-            .Flags         = 0,
+            .Flags         = 0, // NOTE(v.matushkin): D3D11_DSV_READ_ONLY_* ?
             .Texture2D     = {.MipSlice = 0},
         };
         m_device->CreateDepthStencilView(d3dTexture.Get(), &d3dDsvDesc, d3dDSV.GetAddressOf());
@@ -563,14 +566,14 @@ TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const u
     return textureHandle;
 }
 
-ShaderHandle DX11Backend::CreateShader(std::span<const char> vertexSource, std::span<const char> fragmentSource)
+ShaderHandle DX11Backend::CreateShader(const ShaderDesc& shaderDesc)
 {
     // TODO(v.matushkin): D3DCompile2 ?
-    ID3DBlob* d3dVertexBlob;
-    ID3DBlob* d3dVertexErrorBlob;
-    auto      hr = D3DCompile(
-        vertexSource.data(),
-        vertexSource.size_bytes(),
+    ComPtr<ID3DBlob> d3dVertexBlob;
+    ComPtr<ID3DBlob> d3dVertexErrorBlob;
+    auto hr = D3DCompile(
+        shaderDesc.VertexSource.data(),
+        shaderDesc.VertexSource.length(),
         "Vertex Shader Name", // NOTE(v.matushkin): Can be nullptr, don't know where/how it will be used
         nullptr,
         nullptr, // TODO(v.matushkin): I need to use this ID3DInclude
@@ -578,8 +581,8 @@ ShaderHandle DX11Backend::CreateShader(std::span<const char> vertexSource, std::
         "vs_5_0",
         0, // TODO(v.matushkin): Use this, especially D3DCOMPILE_OPTIMIZATION_LEVEL* and may be D3DCOMPILE_PACK_MATRIX_ROW_MAJOR
         0,
-        &d3dVertexBlob,
-        &d3dVertexErrorBlob
+        d3dVertexBlob.GetAddressOf(),
+        d3dVertexErrorBlob.GetAddressOf()
     );
     if (FAILED(hr))
     {
@@ -594,8 +597,8 @@ ShaderHandle DX11Backend::CreateShader(std::span<const char> vertexSource, std::
     ComPtr<ID3DBlob> d3dFragmentBlob;
     ComPtr<ID3DBlob> d3dFragmentErrorBlob;
     hr = D3DCompile(
-        fragmentSource.data(),
-        fragmentSource.size_bytes(),
+        shaderDesc.FragmentSource.data(),
+        shaderDesc.FragmentSource.length(),
         "Fragment Shader Name",     // NOTE(v.matushkin): Can be nullptr, don't know where/how it will be used
         nullptr,
         nullptr,                    // TODO(v.matushkin): I need to use this ID3DInclude
