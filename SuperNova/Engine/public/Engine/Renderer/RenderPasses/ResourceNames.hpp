@@ -6,7 +6,7 @@
 namespace snv::ResourceNames
 {
 
-static inline const std::string EngineColor = "Engine Color";
-static inline const std::string EngineDepth = "Engine Depth";
+inline const std::string EngineColor = "Engine Color";
+inline const std::string EngineDepth = "Engine Depth";
 
 } // namespace snv::ResourceNames

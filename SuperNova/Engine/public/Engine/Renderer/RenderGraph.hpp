@@ -21,8 +21,8 @@ public:
     void Execute(const RenderContext& renderContext) const;
 
     // Needed by RenderPasses
-    [[nodiscard]] RenderTextureHandle GetRenderTexture(const std::string& name) const { return m_renderTextures.at(name); }
-    [[nodiscard]] void*               GetNativeRenderTexture(const std::string& name) const;
+    [[nodiscard]] RenderTextureHandle GetRenderTexture(const std::string& name) const;
+    [[nodiscard]] void*               GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) const; // For ImGui only
     [[nodiscard]] FramebufferHandle   GetSwapchainFramebuffer() const;
 
     [[nodiscard]] GraphicsState CreateGraphicsState(

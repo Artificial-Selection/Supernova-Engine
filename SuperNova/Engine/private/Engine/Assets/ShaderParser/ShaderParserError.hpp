@@ -6,7 +6,7 @@
 namespace snv
 {
 
-class ShaderParserError : public std::runtime_error
+class ShaderParserError final : public std::runtime_error
 {
 public:
     explicit ShaderParserError(const char* what)

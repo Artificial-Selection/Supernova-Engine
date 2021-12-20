@@ -23,6 +23,11 @@ void RenderContext::BeginRenderPass(FramebufferHandle framebufferHandle) const
     m_rendererBackend->BeginRenderPass(framebufferHandle);
 }
 
+void RenderContext::BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) const
+{
+    m_rendererBackend->BeginRenderPass(framebufferHandle, input);
+}
+
 void RenderContext::DrawRenderers() const
 {
     const auto meshRendererView = ComponentFactory::GetView<const MeshRenderer>();

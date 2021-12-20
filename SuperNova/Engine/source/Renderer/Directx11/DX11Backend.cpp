@@ -23,21 +23,21 @@
 
 // TODO(v.matushkin): Find out how D3D11_APPEND_ALIGNED_ELEMENT works
 // TODO(v.matushkin): TEXCOORD to DXGI_FORMAT_R32G32_FLOAT
-const D3D11_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
+static const D3D11_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
     {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
     {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
     {"TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 2, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
 };
 
 // NOTE(v.matushkin): Questionable naming
-const ui32 dx11_DepthStencilClearFlag[] = {
+static const ui32 dx11_DepthStencilClearFlag[] = {
     0,
     D3D11_CLEAR_DEPTH,
     D3D11_CLEAR_STENCIL,
     D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
 };
 
-const DXGI_FORMAT dx11_RenderTextureFormat[] = {
+static const DXGI_FORMAT dx11_RenderTextureFormat[] = {
     DXGI_FORMAT_B8G8R8A8_UNORM,
     DXGI_FORMAT_D32_FLOAT,
 };
@@ -46,7 +46,7 @@ const DXGI_FORMAT dx11_RenderTextureFormat[] = {
 // NOTE(v.matushkin): Don't know if I should use UINT or UNORM
 // TODO(v.matushkin): Apparently there is no support fo 24 bit formats (like RGB8, DEPTH24) on all(almost?) gpus
 //  So I guess, I should remove this formats from TextureGraphicsFormat
-const DXGI_FORMAT dx11_TextureFormat[] = {
+static const DXGI_FORMAT dx11_TextureFormat[] = {
     DXGI_FORMAT_R8_UINT,
     DXGI_FORMAT_R16_UINT,
     DXGI_FORMAT_R16_FLOAT,
@@ -63,7 +63,7 @@ const DXGI_FORMAT dx11_TextureFormat[] = {
     DXGI_FORMAT_D32_FLOAT,
 };
 
-const D3D11_TEXTURE_ADDRESS_MODE dx11_TextureWrapMode[] = {
+static const D3D11_TEXTURE_ADDRESS_MODE dx11_TextureWrapMode[] = {
     D3D11_TEXTURE_ADDRESS_CLAMP,
     D3D11_TEXTURE_ADDRESS_BORDER,
     D3D11_TEXTURE_ADDRESS_MIRROR_ONCE,
@@ -71,7 +71,7 @@ const D3D11_TEXTURE_ADDRESS_MODE dx11_TextureWrapMode[] = {
     D3D11_TEXTURE_ADDRESS_WRAP,
 };
 
-const DXGI_FORMAT k_SwapchainFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+static const DXGI_FORMAT k_SwapchainFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 static ui32 g_BufferHandleWorkaround        = 0;
 static ui32 g_FramebufferHandleWorkaround   = 0;
@@ -285,6 +285,11 @@ void DX11Backend::BeginRenderPass(FramebufferHandle framebufferHandle)
     }
 }
 
+void DX11Backend::BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input)
+{
+    BeginRenderPass(framebufferHandle);
+}
+
 void DX11Backend::EndFrame()
 {
     // TODO(v.matushkin): VSync settings
@@ -338,10 +343,10 @@ GraphicsState DX11Backend::CreateGraphicsState(const GraphicsStateDesc& graphics
         ComPtr<ID3D11ShaderResourceView> d3dSrv = nullptr;
 
         //-- Create Color texture
-        ui32 d3d11TextureBindFlags = D3D11_BIND_RENDER_TARGET;
+        ui32 d3dTextureBindFlags = D3D11_BIND_RENDER_TARGET;
         if (isUsageShaderRead)
         {
-            d3d11TextureBindFlags |= D3D11_BIND_SHADER_RESOURCE;
+            d3dTextureBindFlags |= D3D11_BIND_SHADER_RESOURCE;
         }
         D3D11_TEXTURE2D_DESC1 d3dDepthStencilDesc = {
             .Width          = colorDesc.Width,
@@ -351,7 +356,7 @@ GraphicsState DX11Backend::CreateGraphicsState(const GraphicsStateDesc& graphics
             .Format         = dxgiColorFormat,
             .SampleDesc     = {.Count = 1, .Quality = 0},
             .Usage          = D3D11_USAGE_DEFAULT,
-            .BindFlags      = d3d11TextureBindFlags,
+            .BindFlags      = d3dTextureBindFlags,
             .CPUAccessFlags = 0,
             .MiscFlags      = 0,                              // NOTE(v.matushkin): Whats this?
             .TextureLayout  = D3D11_TEXTURE_LAYOUT_UNDEFINED, // Can use only UNDEFINED if CPUAccessFlags = 0
@@ -713,7 +718,7 @@ void DX11Backend::CreateSwapchain()
     //  is incompatible with the flip presentation model, which is desirable for various reasons including
     //  player embedding.
     DXGI_SWAP_CHAIN_DESC1 dxgiSwapChainDesc = {
-        .Width       = windowSettings.Width,            // NOTE(v.matushkin): Specify Width/Height explicitly?
+        .Width       = windowSettings.Width,
         .Height      = windowSettings.Height,
         .Format      = k_SwapchainFormat,
         .Stereo      = false,

@@ -6,7 +6,7 @@
 namespace snv
 {
 
-class GLImGuiRenderContext : public IImGuiRenderContext
+class GLImGuiRenderContext final : public IImGuiRenderContext
 {
 public:
     GLImGuiRenderContext();

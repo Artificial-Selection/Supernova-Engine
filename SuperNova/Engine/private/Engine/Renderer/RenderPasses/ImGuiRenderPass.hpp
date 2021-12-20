@@ -12,7 +12,7 @@ class RenderContext;
 
 
 // TODO(v.matushkin): Move this pass to the Editor code. Rename to something like EditorUIRenderPass ?
-class ImGuiRenderPass : public IRenderPass
+class ImGuiRenderPass final : public IRenderPass
 {
 public:
     ImGuiRenderPass();
@@ -22,10 +22,11 @@ public:
     void OnRender(const RenderContext& renderContext) const override;
 
 private:
-    ImGuiContext*     m_imguiContext;
+    ImGuiContext*       m_imguiContext;
 
-    FramebufferHandle m_swapchainFramebuffer;
-    void*             m_engineOutputRenderTexture;
+    FramebufferHandle   m_swapchainFramebuffer;
+    RenderTextureHandle m_engineOutputRenderTexture;
+    void*               m_engineOutputNativeRenderTexture;
 };
 
 } // namespace snv

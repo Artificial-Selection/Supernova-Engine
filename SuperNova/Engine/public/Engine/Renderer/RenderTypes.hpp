@@ -147,7 +147,7 @@ enum class TextureWrapMode : ui8
 struct ClearDepthStencilValue
 {
     f32 Depth;
-    i32 Stencil;
+    ui8 Stencil;
 };
 
 union RenderTextureClearValue

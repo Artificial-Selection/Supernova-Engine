@@ -10,7 +10,7 @@ class RenderGraph;
 class RenderContext;
 
 
-class EngineRenderPass : public IRenderPass
+class EngineRenderPass final : public IRenderPass
 {
 public:
     EngineRenderPass();

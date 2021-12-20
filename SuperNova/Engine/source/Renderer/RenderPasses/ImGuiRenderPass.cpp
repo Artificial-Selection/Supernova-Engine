@@ -22,7 +22,8 @@ namespace snv
 ImGuiRenderPass::ImGuiRenderPass()
     : m_imguiContext(nullptr)
     , m_swapchainFramebuffer(FramebufferHandle::InvalidHandle)
-    , m_engineOutputRenderTexture(nullptr)
+    , m_engineOutputRenderTexture(RenderTextureHandle::InvalidHandle)
+    , m_engineOutputNativeRenderTexture(nullptr)
 {}
 
 ImGuiRenderPass::~ImGuiRenderPass()
@@ -33,15 +34,16 @@ ImGuiRenderPass::~ImGuiRenderPass()
 
 void ImGuiRenderPass::OnCreate(RenderGraph& renderGraph)
 {
-    m_swapchainFramebuffer      = renderGraph.GetSwapchainFramebuffer();
-    m_engineOutputRenderTexture = renderGraph.GetNativeRenderTexture(ResourceNames::EngineColor);
+    m_swapchainFramebuffer            = renderGraph.GetSwapchainFramebuffer();
+    m_engineOutputRenderTexture       = renderGraph.GetRenderTexture(ResourceNames::EngineColor);
+    m_engineOutputNativeRenderTexture = renderGraph.GetNativeRenderTexture(m_engineOutputRenderTexture);
 
     m_imguiContext = new ImGuiContext();
 }
 
 void ImGuiRenderPass::OnRender(const RenderContext& renderContext) const
 {
-    renderContext.BeginRenderPass(m_swapchainFramebuffer);
+    renderContext.BeginRenderPass(m_swapchainFramebuffer, m_engineOutputRenderTexture);
 
     m_imguiContext->BeginFrame();
 
@@ -94,11 +96,11 @@ void ImGuiRenderPass::OnRender(const RenderContext& renderContext) const
             // TODO(v.matushkin): <ImageUV>
             if (graphicsSettings.GraphicsApi == GraphicsApi::OpenGL)
             {
-                ImGui::Image(m_engineOutputRenderTexture, engineOutputDimensions, ImVec2(0, 1), ImVec2(1, 0));
+                ImGui::Image(m_engineOutputNativeRenderTexture, engineOutputDimensions, ImVec2(0, 1), ImVec2(1, 0));
             }
             else
             {
-                ImGui::Image(m_engineOutputRenderTexture, engineOutputDimensions);
+                ImGui::Image(m_engineOutputNativeRenderTexture, engineOutputDimensions);
             }
 
             ImGui::EndChild();

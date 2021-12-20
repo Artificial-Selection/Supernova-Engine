@@ -7,6 +7,7 @@
 #include <glm/ext/matrix_float4x4.hpp>
 #include <wrl/client.h>
 
+#include <memory>
 #include <unordered_map>
 
 
@@ -26,14 +27,21 @@ struct IDXGISwapChain4;
 namespace snv
 {
 
+class DX12DescriptorHeap;
+
+
 class DX12Backend final : public IRendererBackend
 {
+    template<class T>
+    using ComPtr = Microsoft::WRL::ComPtr<T>;
+
+
     struct DX12Buffer
     {
-        Microsoft::WRL::ComPtr<ID3D12Resource2> Index;
-        Microsoft::WRL::ComPtr<ID3D12Resource2> Position;
-        Microsoft::WRL::ComPtr<ID3D12Resource2> Normal;
-        Microsoft::WRL::ComPtr<ID3D12Resource2> TexCoord0;
+        ComPtr<ID3D12Resource2> Index;
+        ComPtr<ID3D12Resource2> Position;
+        ComPtr<ID3D12Resource2> Normal;
+        ComPtr<ID3D12Resource2> TexCoord0;
 
         D3D12_INDEX_BUFFER_VIEW  IndexView;
         D3D12_VERTEX_BUFFER_VIEW PositionView;
@@ -41,16 +49,37 @@ class DX12Backend final : public IRendererBackend
         D3D12_VERTEX_BUFFER_VIEW TexCoord0View;
     };
 
-    struct DX12Texture
+    struct DX12RenderTexture
     {
-        Microsoft::WRL::ComPtr<ID3D12Resource2> Texture;
-        ui32                                    IndexInDescriptorHeap;
+        ComPtr<ID3D12Resource2>     Texture;
+        D3D12_CPU_DESCRIPTOR_HANDLE Descriptor;
+        D3D12_CPU_DESCRIPTOR_HANDLE SrvCpuDescriptor;
+        D3D12_GPU_DESCRIPTOR_HANDLE SrvGpuDescriptor;
+        D3D12_RESOURCE_STATES       CurrentState;
+        RenderTextureClearValue     ClearValue;
+        RenderTextureLoadAction     LoadAction;
+    };
+    using DX12RenderTexturePtr = std::shared_ptr<DX12RenderTexture>;
+
+    struct DX12Framebuffer
+    {
+        std::vector<DX12RenderTexturePtr>        ColorAttachments;
+        std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> ColorDescriptors;
+        std::shared_ptr<DX12RenderTexture>       DepthStencilAttachment;
+        D3D12_CLEAR_FLAGS                        DepthStencilClearFlags;
     };
 
     struct DX12Shader
     {
         DX12ShaderBytecode VertexShader;
         DX12ShaderBytecode FragmentShader;
+    };
+
+    struct DX12Texture
+    {
+        ComPtr<ID3D12Resource2>     Texture;
+        D3D12_CPU_DESCRIPTOR_HANDLE CpuDescriptor;
+        D3D12_GPU_DESCRIPTOR_HANDLE GpuDescriptor;
     };
 
 
@@ -75,8 +104,8 @@ public:
     void EnableBlend() override;
     void EnableDepthTest() override;
 
-    [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override { return nullptr; }
-    [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return {}; }
+    [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
+    [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return m_swapchainFramebufferHandle; }
 
     void SetBlendFunction(BlendMode source, BlendMode destination) override;
     void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
@@ -86,14 +115,15 @@ public:
     void Clear(BufferBit bufferBitMask) override;
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
-    void BeginRenderPass(FramebufferHandle framebufferHandle) override {}
+    void BeginRenderPass(FramebufferHandle framebufferHandle) override;
+    void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) override;
     void EndFrame() override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
 
-    [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() override { return nullptr; }
+    [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() override;
 
-    [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) override { return {}; }
+    [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) override;
     [[nodiscard]] BufferHandle  CreateBuffer(
         std::span<const std::byte>              indexData,
         std::span<const std::byte>              vertexData,
@@ -105,10 +135,7 @@ public:
 private:
     void CreateDevice();
     void CreateCommandQueue();
-    void CreateSwapChain();
-    void CreateDescriptorHeaps();
-    void CreateRenderTargetViews();
-    void CreateDepthStencilView();
+    void CreateSwapchain();
     void CreateCommandAllocators();
     void CreateCommandList();
     void CreateFence();
@@ -125,51 +152,47 @@ private:
     //-----------------------------------------------------------------------------
     // Direct3D resources
     //-----------------------------------------------------------------------------
-    Microsoft::WRL::ComPtr<IDXGIFactory7>              m_factory;
-    Microsoft::WRL::ComPtr<ID3D12Device8>              m_device;
-    Microsoft::WRL::ComPtr<ID3D12CommandQueue>         m_commandQueue;
+    ComPtr<IDXGIFactory7>              m_factory;
+    ComPtr<ID3D12Device8>              m_device;
+    ComPtr<ID3D12CommandQueue>         m_commandQueue;
 
-    Microsoft::WRL::ComPtr<IDXGISwapChain4>            m_swapChain;
-    Microsoft::WRL::ComPtr<ID3D12Resource2>            m_backBuffers[k_BackBufferFrames];
+    ComPtr<IDXGISwapChain4>            m_swapChain;
 
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator>     m_commandAllocators[k_BackBufferFrames];
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList6> m_graphicsCommandList;
+    ComPtr<ID3D12CommandAllocator>     m_commandAllocators[k_BackBufferFrames];
+    ComPtr<ID3D12GraphicsCommandList6> m_graphicsCommandList;
 
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>       m_descriptorHeapRTV;
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>       m_descriptorHeapDSV;
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>       m_descriptorHeapSRV;
+    ComPtr<ID3D12RootSignature>        m_rootSignature;
+    ComPtr<ID3D12PipelineState>        m_graphicsPipeline;
 
-    Microsoft::WRL::ComPtr<ID3D12RootSignature>        m_rootSignature;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState>        m_graphicsPipeline;
+    DX12Framebuffer                    m_swapchainFramebuffers[k_BackBufferFrames];
+    FramebufferHandle                  m_swapchainFramebufferHandle;
+    ui32                               m_currentBackBufferIndex;
 
-    Microsoft::WRL::ComPtr<ID3D12Resource2> m_depthStencil;
+    ComPtr<ID3D12Resource2>            m_cbPerFrame;
+    ComPtr<ID3D12Resource2>            m_cbPerDraw;
+    PerFrame                           m_cbPerFrameData;
+    PerDraw                            m_cbPerDrawData;
 
-    Microsoft::WRL::ComPtr<ID3D12Resource2> m_cbPerFrame;
-    Microsoft::WRL::ComPtr<ID3D12Resource2> m_cbPerDraw;
-    PerFrame                                m_cbPerFrameData;
-    PerDraw                                 m_cbPerDrawData;
-
-    D3D12_VIEWPORT m_viewport;
-    D3D12_RECT     m_scissorRect;
-
-    ui32 m_rtvDescriptorSize;
-    ui32 m_srvDescriptorSize; // CBV/SRV/UAV
-    ui32 m_currentBackBufferIndex;
+    D3D12_VIEWPORT                     m_viewport;
+    D3D12_RECT                         m_scissorRect;
 
     // Synchronization objects
-    Microsoft::WRL::ComPtr<ID3D12Fence1> m_fence;
-    ui64                                 m_fenceValue;
-    ui64                                 m_frameFenceValues[k_BackBufferFrames];
-    void*                                m_fenceEvent;
+    ComPtr<ID3D12Fence1>               m_fence;
+    ui64                               m_fenceValue;
+    ui64                               m_frameFenceValues[k_BackBufferFrames];
+    void*                              m_fenceEvent;
 
 
+    std::unique_ptr<DX12DescriptorHeap> m_descriptorHeap;
     std::unique_ptr<DX12ShaderCompiler> m_shaderCompiler;
 
-    f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f};
+    f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f}; // TODO(v.matushkin): Remove? Not used right now
 
-    std::unordered_map<BufferHandle,  DX12Buffer>  m_buffers;
-    std::unordered_map<TextureHandle, DX12Texture> m_textures;
-    std::unordered_map<ShaderHandle,  DX12Shader>  m_shaders;
+    std::unordered_map<BufferHandle,        DX12Buffer>           m_buffers;
+    std::unordered_map<FramebufferHandle,   DX12Framebuffer>      m_framebuffers;
+    std::unordered_map<RenderTextureHandle, DX12RenderTexturePtr> m_renderTextures;
+    std::unordered_map<ShaderHandle,        DX12Shader>           m_shaders;
+    std::unordered_map<TextureHandle,       DX12Texture>          m_textures;
 };
 
 } // namespace snv

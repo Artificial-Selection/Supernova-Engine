@@ -1,5 +1,8 @@
 #include <Engine/Renderer/DirectX12/DX12Backend.hpp>
+#include <Engine/Renderer/DirectX12/DX12DescriptorHeap.hpp>
+#include <Engine/Renderer/DirectX12/DX12ImGuiRenderContext.hpp>
 
+#include <Engine/EngineSettings.hpp>
 #include <Engine/Application/Window.hpp>
 #include <Engine/Core/Assert.hpp>
 
@@ -53,15 +56,12 @@
 //        - http://alextardif.com/D3D11To12P3.html
 //        - https://mynameismjp.wordpress.com/2016/03/25/bindless-texturing-for-deferred-rendering-and-decals/
 //
-//  - <WindowSize>
-//    Window size is hardcoded (k_WindowWidth/k_WindowHeight), pass this values in costructor, or get them from window (first one is better I think).
-//
 //  - <TextureSampler>
 //    Right now CreateTexture ignores texture wrapping options, there is only one static sampler. I don't know how to manage differnt samplers
 //
 //  - <AsynResourceUpload>
 //    Right now CreateTexture(and later CreateMesh) call is blocking until it's done uploading to the GPU.
-//    There should be async resource uploading API, although right now I don't how I'm gonna synchronize it with the rendering
+//    There should be async resource uploading API, although right now I don't know how I'm gonna synchronize it with the rendering
 //      - Sync with graphcis command list:
 //        IDK???
 //      - Do not sync with graphics command list:
@@ -79,24 +79,74 @@
 //  - <RenderGraph>
 //    Shaders loading happens after *Backend initialization, and in other Backends it's working, but not in this one.
 //    I should have another step of initialization which will happen after Backend init, but before rendering starts.
-//    And I think RenderGraph should solve this problem
+//    And I think RenderGraph should solve this problem.
+//
+//  - <HDR>
+//    [LINKS]:
+//      - https://docs.microsoft.com/en-us/windows/win32/direct3darticles/high-dynamic-range
+//
+//  - <SplitBarriers>
+//    Can I use split barriers(D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY/D3D12_RESOURCE_BARRIER_FLAG_END_ONLY) somewhere?
+//    [LINKS]:
+//      - https://docs.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#split-barriers
+//
+//  - <RenderPasses>
+//    Use ID3D12GraphicsCommandList4::BeginRenderPass(), EndRenderPass()
+//    [LINKS]:
+//      - https://docs.microsoft.com/en-us/windows/win32/direct3d12/direct3d-12-render-passes
+// 
+//  - <DX12RenderTexture>
+//    - <SRV>
+//      How to prevent access to SrvCpuDescriptor/SrvGpuDescriptor if RenderTexture will not be used in Pixel shader?
+//      Put this pair int the std::optional ?
+//    - <CurrentState>
+//      Storing current resources state will not work with multithreaded command buffer recording.
+//      But right know it doesn't matter, don't know how to manage transition barriers in RenderGraph differently anyway
+//    - <Framebuffer>
+//      I need to store DX12RenderTexture in DX12Framebuffer and in m_renderTextures map.
+//      In OpenGL/DX11 they are stored as different entities, which is wrong, but workds. But in DX12/Vulkan I need to manage transition barriers
+//        for render textures, so I need to have only one DX12RenderTexture entity.
+//      I used std::shared_ptr to get things done quickly, but I'm not sure if this is the way, may be it would be better to store
+//        DX12RenderTexture as RenderTextureHandle in the DX12Framebuffer or something.
 
 
-// TODO(v.matushkin): <WindowSize>
-const ui32 k_WindowWidth  = 1100;
-const ui32 k_WindowHeight = 800;
+// NOTE(v.matushkin): To enable D3D_FEATURE_LEVEL_12_2
+//  https://devblogs.microsoft.com/directx/gettingstarted-dx12agility/#OS
+//  https://www.nuget.org/packages/Microsoft.Direct3D.D3D12/1.4.10
+// extern "C"
+// {
+//     __declspec(dllexport) extern const UINT D3D12SDKVersion = 4;
+// }
+// extern "C"
+// {
+//     __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\";
+// }
 
-const D3D12_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
+
+static const D3D12_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
     {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
     {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
     {"TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+};
+
+// NOTE(v.matushkin): Questionable naming
+static const D3D12_CLEAR_FLAGS dx12_DepthStencilClearFlag[] = {
+    static_cast<D3D12_CLEAR_FLAGS>(0), // NOTE(v.matushkin): Hack
+    D3D12_CLEAR_FLAG_DEPTH,
+    D3D12_CLEAR_FLAG_STENCIL,
+    D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+};
+
+static const DXGI_FORMAT dx12_RenderTextureFormat[] = {
+    DXGI_FORMAT_B8G8R8A8_UNORM,
+    DXGI_FORMAT_D32_FLOAT,
 };
 
 // NOTE(v.matushkin): Same as in DX11Backend, place it in something like DXCommon.hpp?
 // NOTE(v.matushkin): Don't know if I should use UINT or UNORM
 // TODO(v.matushkin): Apparently there is no support fo 24 bit formats (like RGB8, DEPTH24) on all(almost?) gpus
 //  So I guess, I should remove this formats from TextureGraphicsFormat
-const DXGI_FORMAT dx12_TextureFormat[] = {
+static const DXGI_FORMAT dx12_TextureFormat[] = {
     DXGI_FORMAT_R8_UINT,
     DXGI_FORMAT_R16_UINT,
     DXGI_FORMAT_R16_FLOAT,
@@ -115,26 +165,33 @@ const DXGI_FORMAT dx12_TextureFormat[] = {
 
 namespace RootParameterIndex
 {
-    const ui32 cbPerFrame = 0;
-    const ui32 cbPerDraw  = 1;
-    const ui32 dtTextures = 2;
+    static const ui32 cbPerFrame = 0;
+    static const ui32 cbPerDraw  = 1;
+    static const ui32 dtTextures = 2;
 }
 namespace ShaderRegister
 {
-    const ui32 bPerFrame      = 0;
-    const ui32 bPerDraw       = 1;
-    const ui32 tBaseColorMap  = 0;
-    const ui32 sStatic        = 0;
+    static const ui32 bPerFrame      = 0;
+    static const ui32 bPerDraw       = 1;
+    static const ui32 tBaseColorMap  = 0;
+    static const ui32 sStatic        = 0;
 }
 
-const DXGI_FORMAT k_DepthStencilFormat = DXGI_FORMAT_D32_FLOAT;
-const f32 k_DepthClearValue = 1.0f;
+static const DXGI_FORMAT k_SwapchainFormat          = DXGI_FORMAT_B8G8R8A8_UNORM;
+// TODO(v.matushkin): k_EngineColorFormat and k_EngineDepthStencilFormat are for EngineRenderPass render textures
+//  how am I supposed to remove this hardcoded shit? Somehow deduce this from shader(don't think this is possible) ?
+//  Specify it in the shader? How does Unity handle this, what if I use same shader with different render texture formats.
+static const DXGI_FORMAT k_EngineColorFormat        = DXGI_FORMAT_B8G8R8A8_UNORM;
+static const DXGI_FORMAT k_EngineDepthStencilFormat = DXGI_FORMAT_D32_FLOAT;
 
 // TODO(v.matushkin): <RenderGraph>
 static bool g_IsPipelineInitialized = false;
 
-// TODO(v.matushkin): <DynamicTextureDescriptorHeap>
-const ui32 k_MaxTextureDescriptors = 300;
+static ui32 g_BufferHandleWorkaround        = 0;
+static ui32 g_FramebufferHandleWorkaround   = 0;
+static ui32 g_RenderTextureHandleWorkaround = 0;
+static ui32 g_ShaderHandleWorkaround        = 0;
+static ui32 g_TextureHandleWorkaround       = 0;
 
 
 // void D3D12MessageCallback(
@@ -177,6 +234,22 @@ const ui32 k_MaxTextureDescriptors = 300;
 //     }
 // }
 
+D3D12_RESOURCE_BARRIER ResourceTransition(ID3D12Resource2* resource, D3D12_RESOURCE_STATES stateBefore, D3D12_RESOURCE_STATES stateAfter)
+{
+    D3D12_RESOURCE_TRANSITION_BARRIER d3dResourceTransitionBarrier = {
+        .pResource   = resource,
+        .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, // ???
+        .StateBefore = stateBefore,
+        .StateAfter  = stateAfter,
+    };
+
+    return D3D12_RESOURCE_BARRIER{
+        .Type       = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+        .Flags      = D3D12_RESOURCE_BARRIER_FLAG_NONE, // ???
+        .Transition = d3dResourceTransitionBarrier
+    };
+}
+
 
 namespace snv
 {
@@ -185,11 +258,11 @@ DX12Backend::DX12Backend()
     : m_shaderCompiler(std::make_unique<DX12ShaderCompiler>())
 {
     CreateDevice();
+
+    m_descriptorHeap = std::make_unique<DX12DescriptorHeap>(m_device.Get());
+
     CreateCommandQueue();
-    CreateSwapChain();
-    CreateDescriptorHeaps();
-    CreateRenderTargetViews();
-    CreateDepthStencilView();
+    CreateSwapchain();
     CreateCommandAllocators();
     CreateCommandList();
     CreateFence();
@@ -199,12 +272,13 @@ DX12Backend::DX12Backend()
 
     CreateRootSignature();
 
-    // TODO(v.matushkin): <WindowSize> Viewport and SwapChain should be the same size?
+    // TODO(v.matushkin): Viewport and SwapChain should be the same size?
+    const auto& graphicsSettings = EngineSettings::GraphicsSettings;
     m_viewport = {
         .TopLeftX = 0,
         .TopLeftY = 0,
-        .Width    = k_WindowWidth,
-        .Height   = k_WindowHeight,
+        .Width    = static_cast<f32>(graphicsSettings.RenderWidth),
+        .Height   = static_cast<f32>(graphicsSettings.RenderHeight),
         .MinDepth = 0, // corresponds to D3D12_MIN_DEPTH
         .MaxDepth = 1, // corresponds to D3D12_MAX_DEPTH
     };
@@ -229,6 +303,12 @@ void DX12Backend::EnableBlend()
 
 void DX12Backend::EnableDepthTest()
 {}
+
+
+void* DX12Backend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
+{
+    return (void*) m_renderTextures[renderTextureHandle]->SrvGpuDescriptor.ptr;
+}
 
 
 void DX12Backend::SetBlendFunction(BlendMode source, BlendMode destination)
@@ -295,7 +375,7 @@ void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
     }
 
     //- Set DescriptorHeaps
-    ID3D12DescriptorHeap* descriptorHeaps[] = { m_descriptorHeapSRV.Get() };
+    ID3D12DescriptorHeap* const descriptorHeaps[] = {m_descriptorHeap->GetSRVHeap()};
     m_graphicsCommandList->SetDescriptorHeaps(1, descriptorHeaps);
 
     //- Set Rasterizer Stage
@@ -303,50 +383,108 @@ void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
     m_graphicsCommandList->RSSetViewports(1, &m_viewport);
     m_graphicsCommandList->RSSetScissorRects(1, &m_scissorRect);
 
-    //- Transition RenderTarget from PRESENT to RENDER_TARGET
-    D3D12_RESOURCE_TRANSITION_BARRIER d3dResourceTransitionBarrier = {
-        .pResource   = m_backBuffers[m_currentBackBufferIndex].Get(),
-        .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, // ???
-        .StateBefore = D3D12_RESOURCE_STATE_PRESENT,
-        .StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET,
-    };
-    D3D12_RESOURCE_BARRIER d3dResourceBarrier = {
-        .Type       = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-        .Flags      = D3D12_RESOURCE_BARRIER_FLAG_NONE, // ???
-        .Transition = d3dResourceTransitionBarrier,
-    };
-    m_graphicsCommandList->ResourceBarrier(1, &d3dResourceBarrier);
-
-    //- Set RenderTarget and DepthStencil
-    auto descriptorHandleRTV = m_descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
-    descriptorHandleRTV.ptr += m_rtvDescriptorSize * m_currentBackBufferIndex;
-    auto descriptorHandleDSV = m_descriptorHeapDSV->GetCPUDescriptorHandleForHeapStart();
-    // NOTE(v.matushkin): RTsSingleHandleToDescriptorRange=true for multiple render targets?
-    m_graphicsCommandList->OMSetRenderTargets(1, &descriptorHandleRTV, false, &descriptorHandleDSV);
-
-    //- Clear RenderTarget and DepthStencil
-    m_graphicsCommandList->ClearRenderTargetView(descriptorHandleRTV, m_clearColor, 0, nullptr);
-    m_graphicsCommandList->ClearDepthStencilView(descriptorHandleDSV, D3D12_CLEAR_FLAG_DEPTH, k_DepthClearValue, 0, 0, nullptr);
-
     //- Set Input-Assembler Stage
     m_graphicsCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+void DX12Backend::BeginRenderPass(FramebufferHandle framebufferHandle)
+{
+    auto& dx12Framebuffer = framebufferHandle == m_swapchainFramebufferHandle
+                          ? m_swapchainFramebuffers[m_currentBackBufferIndex]
+                          : m_framebuffers[framebufferHandle];
+
+    const auto& dx12DepthStencilAttachment = dx12Framebuffer.DepthStencilAttachment;
+    const auto  d3dDepthStencilClearFlags  = dx12Framebuffer.DepthStencilClearFlags;
+
+    const auto* d3dDepthStencilDescriptor = d3dDepthStencilClearFlags != 0
+                                          ? &dx12DepthStencilAttachment->Descriptor
+                                          : nullptr;
+
+    //- Resource transition barriers
+    {
+        std::vector<D3D12_RESOURCE_BARRIER> d3dResourceBarriers;
+
+        for (auto& colorAttachment : dx12Framebuffer.ColorAttachments)
+        {
+            if (colorAttachment->CurrentState != D3D12_RESOURCE_STATE_RENDER_TARGET)
+            {
+                d3dResourceBarriers.push_back(ResourceTransition(
+                    colorAttachment->Texture.Get(),
+                    colorAttachment->CurrentState,
+                    D3D12_RESOURCE_STATE_RENDER_TARGET)
+                );
+                colorAttachment->CurrentState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+            }
+        }
+
+        if (d3dResourceBarriers.size() > 0)
+        {
+            m_graphicsCommandList->ResourceBarrier(d3dResourceBarriers.size(), d3dResourceBarriers.data());
+        }
+    }
+    //- Set RenderTargets
+    {
+        const auto& d3dColorDescriptors = dx12Framebuffer.ColorDescriptors;
+        // NOTE(v.matushkin): RTsSingleHandleToDescriptorRange=true for multiple render targets?
+        m_graphicsCommandList->OMSetRenderTargets(d3dColorDescriptors.size(), d3dColorDescriptors.data(), false, d3dDepthStencilDescriptor);
+    }
+    //- Clear Color attachments
+    for (const auto& colorAttachment : dx12Framebuffer.ColorAttachments)
+    {
+        if (colorAttachment->LoadAction == RenderTextureLoadAction::Clear)
+        {
+            m_graphicsCommandList->ClearRenderTargetView(colorAttachment->Descriptor, colorAttachment->ClearValue.Color, 0, nullptr);
+        }
+    }
+    //- Clear DepthStencil attachment
+    if (d3dDepthStencilDescriptor != nullptr && dx12DepthStencilAttachment->LoadAction == RenderTextureLoadAction::Clear)
+    {
+        const auto depthStencilClearValue = dx12DepthStencilAttachment->ClearValue.DepthStencil;
+        m_graphicsCommandList->ClearDepthStencilView(
+            *d3dDepthStencilDescriptor,
+            d3dDepthStencilClearFlags,
+            depthStencilClearValue.Depth,
+            depthStencilClearValue.Stencil,
+            0,
+            nullptr
+        );
+    }
+}
+
+void DX12Backend::BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input)
+{
+    auto& dx12InputRenderTexture = m_renderTextures[input];
+    if (dx12InputRenderTexture->CurrentState != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+    {
+        const auto d3dResourceBarrier = ResourceTransition(
+            dx12InputRenderTexture->Texture.Get(),
+            dx12InputRenderTexture->CurrentState,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+        );
+        m_graphicsCommandList->ResourceBarrier(1, &d3dResourceBarrier);
+
+        dx12InputRenderTexture->CurrentState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    }
+
+    BeginRenderPass(framebufferHandle);
 }
 
 void DX12Backend::EndFrame()
 {
     //- Transition RenderTarget from RENDER_TARGET to PRESENT
-    D3D12_RESOURCE_TRANSITION_BARRIER d3dResourceTransitionBarrier = {
-        .pResource   = m_backBuffers[m_currentBackBufferIndex].Get(),
-        .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, // ???
-        .StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
-        .StateAfter  = D3D12_RESOURCE_STATE_PRESENT
-    };
-    D3D12_RESOURCE_BARRIER d3dResourceBarrier = {
-        .Type       = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-        .Flags      = D3D12_RESOURCE_BARRIER_FLAG_NONE, // ???
-        .Transition = d3dResourceTransitionBarrier
-    };
-    m_graphicsCommandList->ResourceBarrier(1, &d3dResourceBarrier);
+    {
+        auto& dx12SwapchainRenderTexture = m_swapchainFramebuffers[m_currentBackBufferIndex].ColorAttachments[0];
+        SNV_ASSERT(dx12SwapchainRenderTexture->CurrentState == D3D12_RESOURCE_STATE_RENDER_TARGET, "That was an error");
+
+        const auto d3dResourceBarrier = ResourceTransition(
+            dx12SwapchainRenderTexture->Texture.Get(),
+            dx12SwapchainRenderTexture->CurrentState,
+            D3D12_RESOURCE_STATE_PRESENT
+        );
+        m_graphicsCommandList->ResourceBarrier(1, &d3dResourceBarrier);
+
+        dx12SwapchainRenderTexture->CurrentState = D3D12_RESOURCE_STATE_PRESENT;
+    }
 
     m_graphicsCommandList->Close();
 
@@ -374,13 +512,237 @@ void DX12Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHan
 
     //- Set Material Texture
     const auto& texture = m_textures[textureHandle];
-    auto srvGPUDescriptorHandle = m_descriptorHeapSRV->GetGPUDescriptorHandleForHeapStart();
-    srvGPUDescriptorHandle.ptr += m_srvDescriptorSize * texture.IndexInDescriptorHeap;
-    m_graphicsCommandList->SetGraphicsRootDescriptorTable(RootParameterIndex::dtTextures, srvGPUDescriptorHandle);
+    m_graphicsCommandList->SetGraphicsRootDescriptorTable(RootParameterIndex::dtTextures, texture.GpuDescriptor);
 
     m_graphicsCommandList->DrawIndexedInstanced(indexCount, 1, 0, 0, 0);
 }
 
+
+IImGuiRenderContext* DX12Backend::CreateImGuiRenderContext()
+{
+    const auto [fontSrvCpuDescriptor, fontSrvGpuDescriptor] = m_descriptorHeap->AllocateSRV();
+    return new DX12ImGuiRenderContext(
+        m_graphicsCommandList.Get(),
+        m_device.Get(),
+        k_BackBufferFrames,
+        k_SwapchainFormat,
+        m_descriptorHeap->GetSRVHeap(),
+        fontSrvCpuDescriptor,
+        fontSrvGpuDescriptor
+    );
+}
+
+
+GraphicsState DX12Backend::CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc)
+{
+    GraphicsState graphicsState;
+
+    DX12Framebuffer dx12Framebuffer;
+
+    //- Create Color attachments
+    const auto& colorAttachments       = graphicsStateDesc.ColorAttachments;
+    const auto  d3dRtvColorDescriptors = m_descriptorHeap->AllocateRTV(colorAttachments.size());
+
+    for (ui32 i = 0; i < colorAttachments.size(); ++i)
+    {
+        const auto& colorDesc         = colorAttachments[i];
+        const auto  dxgiColorFormat   = dx12_RenderTextureFormat[static_cast<ui8>(colorDesc.Format)];
+        const auto  isUsageShaderRead = colorDesc.Usage == RenderTextureUsage::ShaderRead;
+
+        ComPtr<ID3D12Resource2> d3dColorTexture;
+        const auto              d3dRtvColorDescriptor = d3dRtvColorDescriptors[i];
+
+        //-- Create Color texture
+        // TODO(v.matushkin): <HeapPropertiesUnknown>
+        D3D12_HEAP_PROPERTIES d3dHeapProperties = {
+            .Type                 = D3D12_HEAP_TYPE_DEFAULT,
+            .CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
+            .MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN,
+            .CreationNodeMask     = 1,
+            .VisibleNodeMask      = 1,
+        };
+
+        auto d3dResourceFlags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        if (isUsageShaderRead == false)
+        {
+            d3dResourceFlags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+        }
+        D3D12_RESOURCE_DESC1 d3dResourceDesc = {
+            .Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+            .Alignment        = 0,
+            .Width            = colorDesc.Width,
+            .Height           = colorDesc.Height,
+            .DepthOrArraySize = 1,
+            .MipLevels        = 0,
+            .Format           = dxgiColorFormat,
+            .SampleDesc       = {.Count = 1, .Quality = 0},
+            .Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN,
+            .Flags            = d3dResourceFlags,
+            // .SamplerFeedbackMipRegion = ,
+        };
+
+        const auto* colorClearValue = colorDesc.ClearValue.Color;
+        D3D12_CLEAR_VALUE d3dColorOptimizedClearValue = {
+            .Format = dxgiColorFormat,
+            .Color  = {colorClearValue[0], colorClearValue[1], colorClearValue[2], colorClearValue[3]},
+        };
+
+        m_device->CreateCommittedResource2(
+            &d3dHeapProperties,
+            D3D12_HEAP_FLAG_NONE,
+            &d3dResourceDesc,
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            &d3dColorOptimizedClearValue,
+            nullptr,
+            IID_PPV_ARGS(d3dColorTexture.GetAddressOf())
+        );
+
+        //-- Create RenderTarget view
+        // NOTE(v.matushkin): Why it works without setting Texture2D?
+        D3D12_RENDER_TARGET_VIEW_DESC d3dRenderTargetViewDesc = {
+            .Format        = dxgiColorFormat,
+            .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
+            // .Texture2D     = ,
+        };
+        m_device->CreateRenderTargetView(d3dColorTexture.Get(), &d3dRenderTargetViewDesc, d3dRtvColorDescriptor);
+
+        DX12RenderTexture dx12ColorAttachment = {
+            .Texture      = d3dColorTexture,
+            .Descriptor   = d3dRtvColorDescriptor,
+            // .SrvCpuDescriptor = ,
+            // .SrvGpuDescriptor = ,
+            .CurrentState = D3D12_RESOURCE_STATE_RENDER_TARGET,
+            .ClearValue   = colorDesc.ClearValue,
+            .LoadAction   = colorDesc.LoadAction,
+        };
+
+        //-- Create Render Texture SRV
+        if (isUsageShaderRead)
+        {
+            D3D12_TEX2D_SRV d3dTexture2DSrv = {
+                // .MostDetailedMip     = ,
+                .MipLevels = 1,
+                // .PlaneSlice          = ,
+                // .ResourceMinLODClamp = ,
+            };
+            D3D12_SHADER_RESOURCE_VIEW_DESC d3dRenderTargetSrvDesc = {
+                .Format                  = dxgiColorFormat,
+                .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
+                .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, // NOTE(v.matushkin): texture channels
+                                                                                     // swizzling, but when it's useful?
+                .Texture2D               = d3dTexture2DSrv,
+            };
+
+            const auto [srvCpuDescriptor, srvGpuDescriptor] = m_descriptorHeap->AllocateSRV();
+            dx12ColorAttachment.SrvCpuDescriptor            = srvCpuDescriptor;
+            dx12ColorAttachment.SrvGpuDescriptor            = srvGpuDescriptor;
+
+            m_device->CreateShaderResourceView(d3dColorTexture.Get(), &d3dRenderTargetSrvDesc, srvCpuDescriptor);
+        }
+
+        auto dx12ColorAttachmentPtr = std::make_shared<DX12RenderTexture>(dx12ColorAttachment);
+
+        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
+        m_renderTextures[renderTextureHandle] = dx12ColorAttachmentPtr;
+        graphicsState.ColorAttachments.push_back(renderTextureHandle);
+
+        dx12Framebuffer.ColorAttachments.push_back(std::move(dx12ColorAttachmentPtr));
+        dx12Framebuffer.ColorDescriptors.push_back(d3dRtvColorDescriptor);
+    }
+
+    //- Create DepthStencil attachment
+    dx12Framebuffer.DepthStencilClearFlags = dx12_DepthStencilClearFlag[static_cast<ui8>(graphicsStateDesc.DepthStencilType)];
+
+    if (dx12Framebuffer.DepthStencilClearFlags != 0)
+    {
+        const auto& depthStencilDesc       = graphicsStateDesc.DepthStencilAttachment;
+        const auto  depthStencilClearValue = depthStencilDesc.ClearValue.DepthStencil;
+        const auto  dxgiDepthStencilFormat = dx12_RenderTextureFormat[static_cast<ui8>(depthStencilDesc.Format)];
+
+        SNV_ASSERT(depthStencilDesc.Usage == RenderTextureUsage::Default, "Sampling DepthStencil texture is not supported");
+
+        ComPtr<ID3D12Resource2> d3dDepthStencilTexture;
+        const auto d3dDepthStencilDescriptor = m_descriptorHeap->AllocateDSV();
+
+        //-- Create DepthStencil texture
+        // TODO(v.matushkin): <HeapPropertiesUnknown>
+        D3D12_HEAP_PROPERTIES d3dHeapProperties = {
+            .Type                 = D3D12_HEAP_TYPE_DEFAULT,
+            .CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
+            .MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN,
+            .CreationNodeMask     = 1,
+            .VisibleNodeMask      = 1,
+        };
+        // NOTE(v.matushkin): From PIX:
+        //  These depth/stencil resources weren't used as shader resources during this capture, but the resources didn't have the
+        //  D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE flag set on them at creation time. If the application doesn't use these
+        //  resources as shader resources, then consider adding DENY_SHADER_RESOURCE to their creation flags to improve
+        //  performance on some hardware. It will be particularly beneficial on AMD GCN 1.2+ hardware that supports "Delta Color
+        //  Compression" (DCC).
+        D3D12_RESOURCE_DESC1 d3dResourceDesc = {
+            .Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+            .Alignment        = 0,
+            .Width            = depthStencilDesc.Width,
+            .Height           = depthStencilDesc.Height,
+            .DepthOrArraySize = 1,
+            .MipLevels        = 0,
+            .Format           = dxgiDepthStencilFormat,
+            .SampleDesc       = {.Count = 1, .Quality = 0},
+            .Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN,
+            .Flags            = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE,
+            // .SamplerFeedbackMipRegion = ,
+        };
+
+        D3D12_DEPTH_STENCIL_VALUE d3dDepthStencilValue = {
+            .Depth   = depthStencilClearValue.Depth,
+            .Stencil = depthStencilClearValue.Stencil,
+        };
+        D3D12_CLEAR_VALUE d3dDepthOptimizedClearValue = {
+            .Format       = dxgiDepthStencilFormat,
+            .DepthStencil = d3dDepthStencilValue,
+        };
+
+        m_device->CreateCommittedResource2(
+            &d3dHeapProperties,
+            D3D12_HEAP_FLAG_NONE,
+            &d3dResourceDesc,
+            D3D12_RESOURCE_STATE_DEPTH_WRITE,
+            &d3dDepthOptimizedClearValue,
+            nullptr,
+            IID_PPV_ARGS(d3dDepthStencilTexture.GetAddressOf())
+        );
+
+        //-- Create DepthStencil view
+        // NOTE(v.matushkin): Why it works without setting Texture2D?
+        D3D12_DEPTH_STENCIL_VIEW_DESC d3dDepthStencilViewDesc = {
+            .Format        = dxgiDepthStencilFormat,
+            .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
+            .Flags         = D3D12_DSV_FLAG_NONE, // NOTE(v.matushkin): D3D12_DSV_FLAG_READ_ONLY_* ?
+            // .Texture2D     = ,
+        };
+        m_device->CreateDepthStencilView(d3dDepthStencilTexture.Get(), &d3dDepthStencilViewDesc, d3dDepthStencilDescriptor);
+
+        dx12Framebuffer.DepthStencilAttachment = std::make_shared<DX12RenderTexture>(DX12RenderTexture{
+            .Texture      = d3dDepthStencilTexture,
+            .Descriptor   = d3dDepthStencilDescriptor,
+            // .SrvCpuDescriptor = ,
+            // .SrvGpuDescriptor = ,
+            .CurrentState = D3D12_RESOURCE_STATE_DEPTH_WRITE,
+            .ClearValue   = depthStencilDesc.ClearValue,
+            .LoadAction   = depthStencilDesc.LoadAction,
+        });
+
+        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
+        graphicsState.DepthStencilAttachment  = renderTextureHandle;
+        m_renderTextures[renderTextureHandle] = dx12Framebuffer.DepthStencilAttachment;
+    }
+
+    const auto framebufferHandle      = static_cast<FramebufferHandle>(g_FramebufferHandleWorkaround++);
+    graphicsState.Framebuffer         = framebufferHandle;
+    m_framebuffers[framebufferHandle] = std::move(dx12Framebuffer);
+
+    return graphicsState;
+}
 
 // TODO(v.matushkin): Upload index buffer, better memory managment
 BufferHandle DX12Backend::CreateBuffer(
@@ -460,7 +822,7 @@ BufferHandle DX12Backend::CreateBuffer(
 
         d3dResourceDesc.Width = attributeSize;
 
-        auto hr = m_device->CreateCommittedResource2(
+        m_device->CreateCommittedResource2(
             &d3dHeapProperties,
             D3D12_HEAP_FLAG_NONE,               // NOTE(v.matushkin): Sure?
             &d3dResourceDesc,
@@ -481,12 +843,10 @@ BufferHandle DX12Backend::CreateBuffer(
         d3dVertexBufferViews[i]->SizeInBytes    = attributeSize;
     }
 
-    static ui32 buffer_handle_workaround = 0;
-    auto        graphicsBufferHandle     = static_cast<BufferHandle>(buffer_handle_workaround++);
+    const auto bufferHandle = static_cast<BufferHandle>(g_BufferHandleWorkaround++);
+    m_buffers[bufferHandle] = std::move(dx12Buffer);
 
-    m_buffers[graphicsBufferHandle] = std::move(dx12Buffer);
-
-    return graphicsBufferHandle;
+    return bufferHandle;
 }
 
 TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
@@ -555,7 +915,7 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
 
     d3dHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
 
-    Microsoft::WRL::ComPtr<ID3D12Resource2> d3dTextureUploadHeap;
+    ComPtr<ID3D12Resource2> d3dTextureUploadHeap;
     m_device->CreateCommittedResource2(
         &d3dHeapProperties,
         D3D12_HEAP_FLAG_NONE,
@@ -596,17 +956,11 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
         .SubresourceIndex = 0
     };
 
-    D3D12_RESOURCE_TRANSITION_BARRIER d3dResourceTransitionBarrier = {
-        .pResource   = dx12Texture.Texture.Get(),
-        .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, // NOTE(v.matushkin): ???
-        .StateBefore = D3D12_RESOURCE_STATE_COPY_DEST,
-        .StateAfter  = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-    };
-    D3D12_RESOURCE_BARRIER d3dResourceBarrier = {
-        .Type       = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-        .Flags      = D3D12_RESOURCE_BARRIER_FLAG_NONE,
-        .Transition = d3dResourceTransitionBarrier,
-    };
+    const auto d3dResourceBarrier = ResourceTransition(
+        dx12Texture.Texture.Get(),
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+    );
 
     auto commandAllocator = m_commandAllocators[0].Get();
     commandAllocator->Reset();
@@ -633,15 +987,12 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
         .Texture2D               = d3dTexture2DSRV,
     };
 
-    static ui32 texture_handle_workaround = 0;
+    const auto [srvCpuDescriptor, srvGpuDescriptor] = m_descriptorHeap->AllocateSRV();
+    dx12Texture.CpuDescriptor                       = srvCpuDescriptor;
+    dx12Texture.GpuDescriptor                       = srvGpuDescriptor;
+    m_device->CreateShaderResourceView(dx12Texture.Texture.Get(), &d3dTextureSRVDesc, srvCpuDescriptor);
 
-    // TODO(v.matushkin): This shouldn't depend on texture_handle_workaround. One hack depends on the other one, nice!
-    auto srvDescriptorHandle = m_descriptorHeapSRV->GetCPUDescriptorHandleForHeapStart();
-    dx12Texture.IndexInDescriptorHeap = texture_handle_workaround;
-    srvDescriptorHandle.ptr += m_srvDescriptorSize * texture_handle_workaround;
-    m_device->CreateShaderResourceView(dx12Texture.Texture.Get(), &d3dTextureSRVDesc, srvDescriptorHandle);
-
-    auto textureHandle = static_cast<TextureHandle>(texture_handle_workaround++);
+    const auto textureHandle  = static_cast<TextureHandle>(g_TextureHandleWorkaround++);
     m_textures[textureHandle] = std::move(dx12Texture);
 
     WaitForPreviousFrame();
@@ -656,9 +1007,7 @@ ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
         .FragmentShader = m_shaderCompiler->CompileShader(L"ps_6_5", shaderDesc.FragmentSource),
     };
 
-    static ui32 shader_handle_workaround = 0;
-    auto        shaderHandle             = static_cast<ShaderHandle>(shader_handle_workaround++);
-
+    const auto shaderHandle = static_cast<ShaderHandle>(g_ShaderHandleWorkaround++);
     m_shaders[shaderHandle] = std::move(dx12Shader);
 
     return shaderHandle;
@@ -670,7 +1019,9 @@ void DX12Backend::CreateDevice()
     ui32 dxgiFactoryFlags = 0;
 
 #ifdef SNV_GPU_API_DEBUG_ENABLED
-    Microsoft::WRL::ComPtr<ID3D12Debug3> d3dDebug;
+    dxgiFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
+
+    ComPtr<ID3D12Debug3> d3dDebug;
     D3D12GetDebugInterface(IID_PPV_ARGS(d3dDebug.GetAddressOf()));
     d3dDebug->EnableDebugLayer();
     // hr = d3dDebug.As(&d3dDebug5);
@@ -678,13 +1029,11 @@ void DX12Backend::CreateDevice()
     //  SetEnableAutoDebugName() from ID3D12Debug5?
     //  Although for some fucking reason, ID3D12Debug3 is the max version I can get
     //  And apparently I should set resource names to ease the debug
-
-    dxgiFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
 #endif // SNV_GPU_API_DEBUG_ENABLED
 
     CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(m_factory.GetAddressOf()));
 
-    Microsoft::WRL::ComPtr<IDXGIAdapter4> dxgiAdapter;
+    ComPtr<IDXGIAdapter4> dxgiAdapter;
     const auto dxgiGPUPreference = DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE;
     // TODO(v.matushkin): Use IID_PPV_ARGS
     const auto riid = __uuidof(IDXGIAdapter4);
@@ -705,7 +1054,7 @@ void DX12Backend::CreateDevice()
     D3D12CreateDevice(dxgiAdapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(m_device.GetAddressOf()));
 
 #ifdef SNV_GPU_API_DEBUG_ENABLED
-    // Microsoft::WRL::ComPtr<ID3D12InfoQueue1> d3dInfoQueue;
+    // ComPtr<ID3D12InfoQueue1> d3dInfoQueue;
     // hr = m_device.As(&d3dInfoQueue);
 
     // DWORD useless_callback_cookie; // NOTE(v.matushkin): Used only for UnregisterMessageCallback() ?
@@ -727,8 +1076,11 @@ void DX12Backend::CreateCommandQueue()
     m_device->CreateCommandQueue(&d3dCommandQueueDesc, IID_PPV_ARGS(m_commandQueue.GetAddressOf()));
 }
 
-void DX12Backend::CreateSwapChain()
+void DX12Backend::CreateSwapchain()
 {
+    const auto& windowSettings = ApplicationSettings::WindowSettings;
+
+    //- Create Swapchain
     // NOTE(v.matushkin): This member is valid only with bit-block transfer (bitblt) model swap chains.
     //  When using flip model swap chain, this member must be specified as {1, 0}
     DXGI_SAMPLE_DESC dxgiSwapChainSampleDesc = {
@@ -748,9 +1100,9 @@ void DX12Backend::CreateSwapChain()
     //  is incompatible with the flip presentation model, which is desirable for various reasons including
     //  player embedding.
     DXGI_SWAP_CHAIN_DESC1 dxgiSwapChainDesc = {
-        // .Width,                                      // NOTE(v.matushkin): Specify Width/Height explicitly?
-        // .Height
-        .Format      = DXGI_FORMAT_R8G8B8A8_UNORM,      // TODO(v.matushkin): <SwapchainCreation/Format>
+        .Width       = windowSettings.Width,
+        .Height      = windowSettings.Height,
+        .Format      = k_SwapchainFormat,               // TODO(v.matushkin): <SwapchainCreation/Format>
         .Stereo      = false,
         .SampleDesc  = dxgiSwapChainSampleDesc,
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
@@ -766,7 +1118,7 @@ void DX12Backend::CreateSwapChain()
     // Disable the Alt+Enter fullscreen toggle feature. Switching to fullscreen will be handled manually.
     m_factory->MakeWindowAssociation(win32Window, DXGI_MWA_NO_ALT_ENTER);
 
-    Microsoft::WRL::ComPtr<IDXGISwapChain1> dxgiSwapChain;
+    ComPtr<IDXGISwapChain1> dxgiSwapChain;
     m_factory->CreateSwapChainForHwnd(
         m_commandQueue.Get(), // Swap chain needs the queue so that it can force a flush on it.
         win32Window,
@@ -776,118 +1128,39 @@ void DX12Backend::CreateSwapChain()
         dxgiSwapChain.GetAddressOf()
     );
     dxgiSwapChain.As(&m_swapChain);
-}
 
-void DX12Backend::CreateDescriptorHeaps()
-{
-    //- Create RTV heap
-    D3D12_DESCRIPTOR_HEAP_DESC d3dDescriptorHeapRTV = {
-        .Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-        .NumDescriptors = k_BackBufferFrames,
-        .Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE, // This flag only applies to CBV, SRV, UAV and samplers
-        .NodeMask       = 0,
-    };
-    m_device->CreateDescriptorHeap(&d3dDescriptorHeapRTV, IID_PPV_ARGS(m_descriptorHeapRTV.GetAddressOf()));
-
-    //- Create DSV heap
-    D3D12_DESCRIPTOR_HEAP_DESC d3dDescriptorHeapDSV = {
-        .Type           = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
-        .NumDescriptors = 1,
-        .Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
-        .NodeMask       = 0,
-    };
-    m_device->CreateDescriptorHeap(&d3dDescriptorHeapDSV, IID_PPV_ARGS(m_descriptorHeapDSV.GetAddressOf()));
-
-    //- Create SRV heap
-    D3D12_DESCRIPTOR_HEAP_DESC d3dDescriptorHeapSRV = {
-        .Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-        .NumDescriptors = k_MaxTextureDescriptors,
-        .Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
-        .NodeMask       = 0,
-    };
-    m_device->CreateDescriptorHeap(&d3dDescriptorHeapSRV, IID_PPV_ARGS(m_descriptorHeapSRV.GetAddressOf()));
-
-    //- Get Descriptor sizes
-    m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    m_srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-}
-
-void DX12Backend::CreateRenderTargetViews()
-{
-    auto rtvDescriptorHandle = m_descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+    //- Create Swapchain Framebuffer
+    const auto d3dRtvColorDescriptors = m_descriptorHeap->AllocateRTV(k_BackBufferFrames);
 
     for (ui32 i = 0; i < k_BackBufferFrames; ++i)
     {
-        auto& backBuffer = m_backBuffers[i];
+        ComPtr<ID3D12Resource2> d3dColorTexture;
+        const auto              d3dRtvColorDescriptor = d3dRtvColorDescriptors[i];
 
-        m_swapChain->GetBuffer(i, IID_PPV_ARGS(backBuffer.GetAddressOf()));
+        m_swapChain->GetBuffer(i, IID_PPV_ARGS(d3dColorTexture.GetAddressOf()));
+
         // NOTE(v.matushkin): D3D12_RENDER_TARGET_VIEW_DESC = null?
-        m_device->CreateRenderTargetView(backBuffer.Get(), nullptr, rtvDescriptorHandle);
+        m_device->CreateRenderTargetView(d3dColorTexture.Get(), nullptr, d3dRtvColorDescriptor);
 
-        rtvDescriptorHandle.ptr += m_rtvDescriptorSize;
+        DX12RenderTexture dx12ColorAttachment = {
+            .Texture      = d3dColorTexture,
+            .Descriptor   = d3dRtvColorDescriptor,
+            // .SrvCpuDescriptor = ,
+            // .SrvGpuDescriptor = ,
+            .CurrentState = D3D12_RESOURCE_STATE_PRESENT,
+            .ClearValue   = {.Color = {0.0f, 0.0f, 0.0f, 0.0f}},
+            .LoadAction   = RenderTextureLoadAction::Clear
+        };
+
+        m_swapchainFramebuffers[i] = {
+            .ColorAttachments       = {std::make_shared<DX12RenderTexture>(dx12ColorAttachment)},
+            .ColorDescriptors       = {d3dRtvColorDescriptor},
+            // .DepthStencilAttachment = ,
+            .DepthStencilClearFlags = dx12_DepthStencilClearFlag[0],
+        };
     }
-}
 
-void DX12Backend::CreateDepthStencilView()
-{
-    //TODO(v.matushkin): <HeapPropertiesUnknown>
-    D3D12_HEAP_PROPERTIES d3dHeapProperties = {
-        .Type                 = D3D12_HEAP_TYPE_DEFAULT,
-        .CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
-        .MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN,
-        .CreationNodeMask     = 1,
-        .VisibleNodeMask      = 1,
-    };
-    DXGI_SAMPLE_DESC dxgiSampleDesc = {
-        .Count   = 1,
-        .Quality = 0
-    };
-    // NOTE(v.matushkin): From PIX:
-    //  These depth/stencil resources weren't used as shader resources during this capture, but the resources didn't have the
-    //  D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE flag set on them at creation time. If the application doesn't use these resources as shader resources,
-    //  then consider adding DENY_SHADER_RESOURCE to their creation flags to improve performance on some hardware.
-    //  It will be particularly beneficial on AMD GCN 1.2+ hardware that supports "Delta Color Compression" (DCC).
-    D3D12_RESOURCE_DESC1 d3dResourceDesc = {
-        .Dimension                = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
-        .Alignment                = 0,
-        .Width                    = k_WindowWidth,
-        .Height                   = k_WindowHeight,
-        .DepthOrArraySize         = 1,
-        .MipLevels                = 0,
-        .Format                   = k_DepthStencilFormat,
-        .SampleDesc               = dxgiSampleDesc,
-        .Layout                   = D3D12_TEXTURE_LAYOUT_UNKNOWN,
-        .Flags                    = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE,
-        // .SamplerFeedbackMipRegion = ,
-    };
-
-    D3D12_DEPTH_STENCIL_VALUE d3dDepthStencilValue = {
-        .Depth   = k_DepthClearValue,
-        .Stencil = 0,
-    };
-    D3D12_CLEAR_VALUE d3dDepthOptimizedClearValue = {
-        .Format       = k_DepthStencilFormat,
-        .DepthStencil = d3dDepthStencilValue,
-    };
-
-    m_device->CreateCommittedResource2(
-        &d3dHeapProperties,
-        D3D12_HEAP_FLAG_NONE,
-        &d3dResourceDesc,
-        D3D12_RESOURCE_STATE_DEPTH_WRITE,
-        &d3dDepthOptimizedClearValue,
-        nullptr,
-        IID_PPV_ARGS(m_depthStencil.GetAddressOf())
-    );
-
-    // NOTE(v.matushkin): Why it works without setting Texture2D?
-    D3D12_DEPTH_STENCIL_VIEW_DESC d3dDepthStencilViewDesc = {
-        .Format        = k_DepthStencilFormat,
-        .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
-        .Flags         = D3D12_DSV_FLAG_NONE,
-        // .Texture2D     = ,
-    };
-    m_device->CreateDepthStencilView(m_depthStencil.Get(), &d3dDepthStencilViewDesc, m_descriptorHeapDSV->GetCPUDescriptorHandleForHeapStart());
+    m_swapchainFramebufferHandle = static_cast<FramebufferHandle>(g_FramebufferHandleWorkaround++);
 }
 
 void DX12Backend::CreateCommandAllocators()
@@ -1043,16 +1316,25 @@ void DX12Backend::CreateRootSignature()
         .Desc_1_1 = d3dRootSignatureDesc,
     };
 
-    Microsoft::WRL::ComPtr<ID3DBlob> rootSignature;
-    Microsoft::WRL::ComPtr<ID3DBlob> rootSignatureError;
-    auto hr = D3D12SerializeVersionedRootSignature(&d3dVersionedRootSignatureDesc, rootSignature.GetAddressOf(), rootSignatureError.GetAddressOf());
+    ComPtr<ID3DBlob> rootSignature;
+    ComPtr<ID3DBlob> rootSignatureError;
+    auto hr = D3D12SerializeVersionedRootSignature(
+        &d3dVersionedRootSignatureDesc,
+        rootSignature.GetAddressOf(),
+        rootSignatureError.GetAddressOf()
+    );
     // TODO(v.matushkin): Remove error check from release build?
     if (FAILED(hr))
     {
         OutputDebugStringA((LPSTR)rootSignatureError->GetBufferPointer());
     }
 
-    m_device->CreateRootSignature(0, rootSignature->GetBufferPointer(), rootSignature->GetBufferSize(), IID_PPV_ARGS(m_rootSignature.GetAddressOf()));
+    m_device->CreateRootSignature(
+        0,
+        rootSignature->GetBufferPointer(),
+        rootSignature->GetBufferSize(),
+        IID_PPV_ARGS(m_rootSignature.GetAddressOf())
+    );
 }
 
 void DX12Backend::CreatePipeline()
@@ -1141,13 +1423,13 @@ void DX12Backend::CreatePipeline()
         .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
         .NumRenderTargets      = 1,
         // .RTVFormats            =,
-        .DSVFormat             = k_DepthStencilFormat,
+        .DSVFormat             = k_EngineDepthStencilFormat,
         .SampleDesc            = dxgiSampleDesc,
         .NodeMask              = 0,
         // .CachedPSO             =,
         // .Flags                 =,
     };
-    d3dGraphicsPipelineDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    d3dGraphicsPipelineDesc.RTVFormats[0] = k_EngineColorFormat;
 
     m_device->CreateGraphicsPipelineState(&d3dGraphicsPipelineDesc, IID_PPV_ARGS(m_graphicsPipeline.GetAddressOf()));
 }

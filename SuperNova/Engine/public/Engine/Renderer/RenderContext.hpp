@@ -15,6 +15,7 @@ public:
     RenderContext(IRendererBackend* rendererBackend);
 
     void BeginRenderPass(FramebufferHandle framebufferHandle) const;
+    void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) const;
     void DrawRenderers() const;
 
 private:

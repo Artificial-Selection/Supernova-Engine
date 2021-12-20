@@ -9,7 +9,8 @@ struct ID3D11DeviceContext;
 
 namespace snv
 {
-class DX11ImGuiRenderContext : public IImGuiRenderContext
+
+class DX11ImGuiRenderContext final : public IImGuiRenderContext
 {
 public:
     DX11ImGuiRenderContext(ID3D11Device* d3dDevice, ID3D11DeviceContext* d3dDeviceContext);

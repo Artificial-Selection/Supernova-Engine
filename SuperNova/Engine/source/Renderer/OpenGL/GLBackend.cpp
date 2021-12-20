@@ -298,13 +298,19 @@ void GLBackend::BeginRenderPass(FramebufferHandle framebufferHandle)
         }
         else if (depthStencilType == GL_STENCIL)
         {
-            glClearNamedFramebufferiv(glFramebufferID, GL_STENCIL, 0, &depthStencilClearValue.Stencil);
+            i32 stencilClearValue = depthStencilClearValue.Stencil;
+            glClearNamedFramebufferiv(glFramebufferID, GL_STENCIL, 0, &stencilClearValue);
         }
         else if (depthStencilType == GL_DEPTH_STENCIL)
         {
             glClearNamedFramebufferfi(glFramebufferID, GL_DEPTH_STENCIL, 0, depthStencilClearValue.Depth, depthStencilClearValue.Stencil);
         }
     }
+}
+
+void GLBackend::BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input)
+{
+    BeginRenderPass(framebufferHandle);
 }
 
 void GLBackend::EndFrame()

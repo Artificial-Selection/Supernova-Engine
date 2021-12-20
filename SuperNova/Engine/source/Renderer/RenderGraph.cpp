@@ -8,6 +8,9 @@
 // TODO(v.matushkin):
 //  - <AttachmentNames>
 //    Right now the connection between RenderTexture and its name done in a shitty way, but idk how to improve it
+//
+//  - <GetNativeRenderTexture>
+//    This method probably can be removed when I'll replace '#include <imgui_impl_*.h>' with my own implementation
 
 
 namespace snv
@@ -32,9 +35,14 @@ void RenderGraph::Execute(const RenderContext& renderContext) const
 }
 
 
-void* RenderGraph::GetNativeRenderTexture(const std::string& name) const
+RenderTextureHandle RenderGraph::GetRenderTexture(const std::string& name) const
 {
-    return Renderer::GetNativeRenderTexture(m_renderTextures.at(name));
+    return m_renderTextures.at(name);
+}
+
+void* RenderGraph::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) const
+{
+    return Renderer::GetNativeRenderTexture(renderTextureHandle);
 }
 
 FramebufferHandle RenderGraph::GetSwapchainFramebuffer() const

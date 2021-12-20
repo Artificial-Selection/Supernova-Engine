@@ -10,14 +10,14 @@ i32 main()
 {
     snv::ApplicationSettings::WindowSettings = {
         .Title  = "SuperNova-Engine",
-        .Width  = 1280,
-        .Height = 720,
+        .Width  = 1920,
+        .Height = 1080,
     };
 
     snv::EngineSettings::GraphicsSettings = {
-        .GraphicsApi  = snv::GraphicsApi::DirectX11,
-        .RenderWidth  = 800,
-        .RenderHeight = 600,
+        .GraphicsApi  = snv::GraphicsApi::DirectX12,
+        .RenderWidth  = 1280,
+        .RenderHeight = 1000,
     };
 
     snv::Application app;

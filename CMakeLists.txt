@@ -335,10 +335,14 @@ set(DirectX12_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/DirectX12)
 
 set(DirectX12_SRC
     ${DirectX12_SRC_DIR}/DX12Backend.cpp
+    ${DirectX12_SRC_DIR}/DX12DescriptorHeap.cpp
+    ${DirectX12_SRC_DIR}/DX12ImGuiRenderContext.cpp
     ${DirectX12_SRC_DIR}/DX12ShaderCompiler.cpp
 )
 set(DirectX12_INC_PRIVATE
     ${DirectX12_INC_PRIVATE_DIR}/DX12Backend.hpp
+    ${DirectX12_INC_PRIVATE_DIR}/DX12DescriptorHeap.hpp
+    ${DirectX12_INC_PRIVATE_DIR}/DX12ImGuiRenderContext.hpp
     ${DirectX12_INC_PRIVATE_DIR}/DX12ShaderCompiler.hpp
 )
 

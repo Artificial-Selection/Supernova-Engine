@@ -51,6 +51,7 @@ public:
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
     void BeginRenderPass(FramebufferHandle framebufferHandle) override;
+    void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) override;
     void EndFrame() override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;

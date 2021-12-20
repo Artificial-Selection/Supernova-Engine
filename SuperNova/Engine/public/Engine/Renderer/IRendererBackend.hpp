@@ -24,6 +24,9 @@ public:
     virtual void EnableDepthTest() = 0;
 
     // NOTE(v.matushkin): Questionable methods
+    // OpenGL GLuint
+    // DX11   ID3D11ShaderResourceView*
+    // DX12   D3D12_GPU_DESCRIPTOR_HANDLE
     virtual [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) = 0;
     virtual [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() = 0;
 
@@ -37,6 +40,7 @@ public:
     // TODO(v.matushkin): Remove, temporary method
     virtual void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) = 0;
     virtual void BeginRenderPass(FramebufferHandle framebufferHandle) = 0;
+    virtual void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) = 0;
     virtual void EndFrame() = 0;
 
     // NOTE(v.matushkin): Questionable method
