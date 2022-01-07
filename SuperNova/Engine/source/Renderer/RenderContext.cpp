@@ -18,15 +18,21 @@ RenderContext::RenderContext(IRendererBackend* rendererBackend)
 {}
 
 
-void RenderContext::BeginRenderPass(FramebufferHandle framebufferHandle) const
+void RenderContext::BeginRenderPass(RenderPassHandle renderPassHandle) const
 {
-    m_rendererBackend->BeginRenderPass(framebufferHandle);
+    m_rendererBackend->BeginRenderPass(renderPassHandle);
 }
 
-void RenderContext::BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) const
+void RenderContext::BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) const
 {
-    m_rendererBackend->BeginRenderPass(framebufferHandle, input);
+    m_rendererBackend->BeginRenderPass(renderPassHandle, input);
 }
+
+void RenderContext::EndRenderPass() const
+{
+    m_rendererBackend->EndRenderPass();
+}
+
 
 void RenderContext::DrawRenderers() const
 {

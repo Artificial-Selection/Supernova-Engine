@@ -1,7 +1,5 @@
 #pragma once
 
-#include <Engine/Renderer/RenderTypes.hpp>
-
 #include <concepts>
 
 
@@ -9,14 +7,14 @@ namespace snv
 {
 
 class RenderContext;
-class RenderGraph;
+class RenderPassBuilder;
 
 
 struct IRenderPass
 {
     virtual ~IRenderPass() = default;
 
-    virtual void OnCreate(RenderGraph& renderGraph) = 0;
+    virtual void OnCreate(RenderPassBuilder& renderPassBuilder) = 0;
     virtual void OnRender(const RenderContext& renderContext) const = 0;
 };
 

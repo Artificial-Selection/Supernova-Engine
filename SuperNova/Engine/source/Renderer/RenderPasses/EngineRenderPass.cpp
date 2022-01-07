@@ -5,6 +5,10 @@
 
 #include <Engine/EngineSettings.hpp>
 
+
+#include <Engine/Core/Log.hpp> // TODO(v.matushkin): Remove
+
+
 #include <string>
 #include <vector>
 
@@ -12,49 +16,44 @@
 namespace snv
 {
 
-EngineRenderPass::EngineRenderPass()
-    : m_framebufferHandle(FramebufferHandle::InvalidHandle)
-{}
-
-
-void EngineRenderPass::OnCreate(RenderGraph& renderGraph)
+EngineRenderPass::EngineRenderPass(RenderPassScheduler& renderPassScheduler)
+    : m_renderPassHandle(RenderPassHandle::InvalidHandle)
 {
+    LOG_INFO("EngineRenderPass::EngineRenderPass");
+    renderPassScheduler.CreateTexture(ResourceNames::EngineColor);
+    renderPassScheduler.CreateTexture(ResourceNames::EngineDepth);
+}
+
+
+void EngineRenderPass::OnCreate(RenderPassBuilder& renderPassBuilder)
+{
+    LOG_INFO("EngineRenderPass::OnCreate");
     const auto renderWidth  = EngineSettings::GraphicsSettings.RenderWidth;
     const auto renderHeight = EngineSettings::GraphicsSettings.RenderHeight;
 
-    GraphicsStateDesc graphicsStateDesc = {
-        .ColorAttachments = {
-            {
-                .ClearValue = {.Color = {0.f, 0.f, 0.f, 0.f}},
-                .Width      = renderWidth,
-                .Height     = renderHeight,
-                .Format     = RenderTextureFormat::BGRA32,
-                .LoadAction = RenderTextureLoadAction::Clear,
-                .Usage      = RenderTextureUsage::ShaderRead, // TODO(v.matushkin): Hardcoded, RenderGraph should set this
-            },
-        },
-        .DepthStencilAttachment = {
-                .ClearValue = {.DepthStencil = {.Depth = 1.f, .Stencil = 0}},
-                .Width      = renderWidth,
-                .Height     = renderHeight,
-                .Format     = RenderTextureFormat::Depth32,
-                .LoadAction = RenderTextureLoadAction::Clear,
-                .Usage      = RenderTextureUsage::Default
-        },
-        .DepthStencilType = FramebufferDepthStencilType::Depth,
-    };
+    const auto engineColorRenderTextureHandle = renderPassBuilder.CreateRenderTexture(
+        ResourceNames::EngineColor,
+        renderWidth,
+        renderHeight,
+        RenderTextureFormat::BGRA32,
+        {.Color = {0.f, 0.f, 0.f, 0.f}}
+    );
+    const auto engineDepthRenderTextureHandle = renderPassBuilder.CreateRenderTexture(
+        ResourceNames::EngineDepth,
+        renderWidth,
+        renderHeight,
+        RenderTextureFormat::Depth32,
+        {.DepthStencil = {.Depth = 1.f, .Stencil = 0}}
+    );
 
-    std::vector<std::string> attachmentNames = {ResourceNames::EngineColor, ResourceNames::EngineDepth};
-
-    auto graphicsState = renderGraph.CreateGraphicsState(graphicsStateDesc, attachmentNames);
-
-    m_framebufferHandle = graphicsState.Framebuffer;
+    m_renderPassHandle = renderPassBuilder.CreateRenderPass({engineColorRenderTextureHandle}, engineDepthRenderTextureHandle);
 }
 
 void EngineRenderPass::OnRender(const RenderContext& renderContext) const
 {
-    renderContext.BeginRenderPass(m_framebufferHandle);
+    renderContext.BeginRenderPass(m_renderPassHandle);
     renderContext.DrawRenderers();
+    renderContext.EndRenderPass();
 }
 
 } // namespace snv

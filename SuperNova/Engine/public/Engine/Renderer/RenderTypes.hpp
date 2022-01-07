@@ -2,8 +2,9 @@
 
 #include <Engine/Core/Core.hpp>
 
-#include <vector>
+#include <optional>
 #include <string>
+#include <vector>
 
 
 namespace snv
@@ -12,7 +13,7 @@ namespace snv
 constexpr ui32 k_InvalidHandle = -1;
 
 enum class BufferHandle        : ui32 { InvalidHandle = k_InvalidHandle };
-enum class FramebufferHandle   : ui32 { InvalidHandle = k_InvalidHandle };
+enum class RenderPassHandle    : ui32 { InvalidHandle = k_InvalidHandle };
 enum class RenderTextureHandle : ui32 { InvalidHandle = k_InvalidHandle };
 enum class TextureHandle       : ui32 { InvalidHandle = k_InvalidHandle };
 enum class ShaderHandle        : ui32 { InvalidHandle = k_InvalidHandle };
@@ -42,7 +43,7 @@ enum BufferBit : ui32
     Color   = 1 << 0,
     Depth   = 1 << 1,
     // Accum = 0x00000200,
-    Stencil = 1 << 2
+    Stencil = 1 << 2,
 };
 
 enum class CullMode : ui8
@@ -65,20 +66,11 @@ enum class DepthCompareFunction : ui8
     Always,
 };
 
-// NOTE(v.matushkin): Not sure about this enum
-enum class FramebufferDepthStencilType : ui8
-{
-    None,
-    Depth,
-    Stencil,
-    DepthStencil
-};
-
 enum class VertexAttribute : ui8
 {
     Position,
     Normal,
-    TexCoord0
+    TexCoord0,
 };
 
 enum class VertexAttributeFormat : ui8
@@ -98,7 +90,7 @@ enum class RenderTextureLoadAction : ui8
 {
     Clear,
     DontCare,
-    Load
+    Load,
 };
 
 // NOTE(v.matushkin): Not sure about this enum and the naming
@@ -112,7 +104,16 @@ enum class RenderTextureUsage : ui8
 enum class RenderTextureFormat : ui8
 {
     BGRA32,
-    Depth32
+    Depth32,
+};
+
+// NOTE(v.matushkin): Not sure about this enum
+enum class RenderTextureType : ui8
+{
+    Color,
+    Depth,
+    Stencil,
+    DepthStencil,
 };
 
 enum class TextureFormat : ui8
@@ -130,7 +131,7 @@ enum class TextureFormat : ui8
     DEPTH16,
     // DEPTH24,
     DEPTH32, // TODO(v.matushkin): Should be called D24S8 or smth like that?
-    DEPTH32F
+    DEPTH32F,
 };
 // TODO(v.matushkin): Make sure this works correctly in GPU API's
 enum class TextureWrapMode : ui8
@@ -139,7 +140,7 @@ enum class TextureWrapMode : ui8
     ClampToBorder,
     MirroredOnce,
     MirroredRepeat,
-    Repeat
+    Repeat,
 };
 
 
@@ -158,12 +159,15 @@ union RenderTextureClearValue
 
 struct RenderTextureDesc
 {
+    std::string             Name; // NOTE(v.matushkin): Make std::string_view ?
     RenderTextureClearValue ClearValue;
     ui32                    Width;
     ui32                    Height;
     RenderTextureFormat     Format;
     RenderTextureLoadAction LoadAction;
     RenderTextureUsage      Usage;
+
+    [[nodiscard]] RenderTextureType RenderTextureType() const;
 };
 
 struct TextureDesc
@@ -182,18 +186,10 @@ struct VertexAttributeDesc
     ui32                  Offset;
 };
 
-struct GraphicsStateDesc
+struct RenderPassDesc
 {
-    std::vector<RenderTextureDesc> ColorAttachments;
-    RenderTextureDesc              DepthStencilAttachment;
-    FramebufferDepthStencilType    DepthStencilType;
-};
-
-struct GraphicsState
-{
-    std::vector<RenderTextureHandle> ColorAttachments;
-    RenderTextureHandle              DepthStencilAttachment;
-    FramebufferHandle                Framebuffer;
+    std::vector<RenderTextureHandle>   ColorAttachments;
+    std::optional<RenderTextureHandle> DepthStencilAttachment;
 };
 
 struct BlendState

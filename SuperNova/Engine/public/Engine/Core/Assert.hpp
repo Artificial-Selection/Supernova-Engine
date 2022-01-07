@@ -5,8 +5,8 @@
 #include <cstdlib>
 
 
-// TODO(v.matushkin): Define platform macro
-#ifdef SNV_PLATFORM_WINPC
+// TODO(v.matushkin): Probably this should depend on compiler, not on platform
+#ifdef SNV_PLATFORM_WINDOWS
     #define SNV_DEBUG_BREAK() __debugbreak()
 #else
     #define SNV_DEBUG_BREAK()
@@ -14,22 +14,22 @@
 
 
 #ifdef SNV_ASSERTS_ENABLED
-    #define SNV_ASSERT(condition, message)\
-        do\
-        {\
-            if ((condition) == false)\
-            {\
-                LOG_CRITICAL(\
-                    "Assertion `" #condition "` failed\n"\
-                    "\tFile: {}\n"\
-                    "\tLine: {}\n"\
-                    "\tMessage: {}",\
-                    __FILE__, __LINE__, (message)\
-                );\
-                SNV_DEBUG_BREAK();\
-                abort();\
-            }\
-        }\
+    #define SNV_ASSERT(condition, message)                \
+        do                                                \
+        {                                                 \
+            if ((condition) == false)                     \
+            {                                             \
+                LOG_CRITICAL(                             \
+                    "Assertion `" #condition "` failed\n" \
+                    "\tFile: {}\n"                        \
+                    "\tLine: {}\n"                        \
+                    "\tMessage: {}",                      \
+                    __FILE__, __LINE__, (message)         \
+                );                                        \
+                SNV_DEBUG_BREAK();                        \
+                abort();                                  \
+            }                                             \
+        }                                                 \
         while ((void)0,0)
 #else
     #define SNV_ASSERT(condition, message) do { } while ((void)0,0)

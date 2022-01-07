@@ -470,6 +470,21 @@ void VulkanBackend::BeginFrame(
     );
 }
 
+void VulkanBackend::BeginRenderPass(RenderPassHandle renderPassHandle)
+{
+    SNV_ASSERT(false, "Not implemented");
+}
+
+void VulkanBackend::BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input)
+{
+    SNV_ASSERT(false, "Not implemented");
+}
+
+void VulkanBackend::EndRenderPass()
+{
+    SNV_ASSERT(false, "Not implemented");
+}
+
 void VulkanBackend::EndFrame()
 {
     auto commandBuffer = m_commandBuffers[m_currentBackBufferIndex];
@@ -536,6 +551,26 @@ void VulkanBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferH
     );
 
     vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+}
+
+
+IImGuiRenderContext* VulkanBackend::CreateImGuiRenderContext()
+{
+    SNV_ASSERT(false, "Not implemented");
+    return nullptr;
+}
+
+
+RenderTextureHandle VulkanBackend::CreateRenderTexture(const RenderTextureDesc& renderTextureDesc)
+{
+    SNV_ASSERT(false, "Not implemented");
+    return {};
+}
+
+RenderPassHandle VulkanBackend::CreateRenderPass(const RenderPassDesc& renderPassDesc)
+{
+    SNV_ASSERT(false, "Not implemented");
+    return {};
 }
 
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Engine/Renderer/RenderTypes.hpp>
+#include <Engine/Renderer/RenderTypes.hpp> // NOTE(v.matuhskin): Forward?
 
 
 namespace snv
@@ -14,8 +14,10 @@ class RenderContext
 public:
     RenderContext(IRendererBackend* rendererBackend);
 
-    void BeginRenderPass(FramebufferHandle framebufferHandle) const;
-    void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) const;
+    void BeginRenderPass(RenderPassHandle renderPassHandle) const;
+    void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) const;
+    void EndRenderPass() const;
+
     void DrawRenderers() const;
 
 private:

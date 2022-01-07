@@ -28,8 +28,9 @@ public:
 
     [[nodiscard]] ID3D12DescriptorHeap* GetSRVHeap() const { return m_descriptorHeapSRV.Get(); }
 
-    D3D12_CPU_DESCRIPTOR_HANDLE                                         AllocateDSV();
+    D3D12_CPU_DESCRIPTOR_HANDLE                                         AllocateRTV();
     std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>                            AllocateRTV(ui32 numDescriptors);
+    D3D12_CPU_DESCRIPTOR_HANDLE                                         AllocateDSV();
     std::pair<D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE> AllocateSRV();
 
 private:

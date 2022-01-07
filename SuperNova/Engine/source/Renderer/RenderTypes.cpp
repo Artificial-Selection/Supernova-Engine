@@ -5,6 +5,16 @@
 namespace snv
 {
 
+RenderTextureType RenderTextureDesc::RenderTextureType() const
+{
+    if (Format == RenderTextureFormat::BGRA32)
+    {
+        return RenderTextureType::Color;
+    }
+
+    return RenderTextureType::Depth;
+}
+
 ShaderState ShaderState::Default()
 {
     return ShaderState

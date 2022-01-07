@@ -20,13 +20,15 @@ class GLBackend final : public IRendererBackend
     struct GLRenderTexture
     {
         ui32                    ID;
+        ui32                    DepthStencilAttachmentType; // NOTE(v.matushkin): Do I need to store it here and in GLRenderPass?
         RenderTextureClearValue ClearValue;
         RenderTextureLoadAction LoadAction;
+        bool                    IsRenderbuffer;
     };
 
-    struct GLFramebuffer
+    struct GLRenderPass
     {
-        ui32                         ID;
+        ui32                         FramebufferID;
         std::vector<GLRenderTexture> ColorAttachments;
         GLRenderTexture              DepthStencilAttachment;
         ui32                         DepthStencilType;
@@ -39,8 +41,8 @@ public:
     void EnableBlend() override;
     void EnableDepthTest() override;
 
-    [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
-    [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return m_swapchainFramebufferHandle; }
+    [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
+    [[nodiscard]] RenderPassHandle GetSwapchainRenderPass() override { return m_swapchainRenderPassHandle; }
 
     void SetBlendFunction(BlendMode source, BlendMode destination) override;
     void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
@@ -50,15 +52,18 @@ public:
     void Clear(BufferBit bufferBitMask) override;
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
-    void BeginRenderPass(FramebufferHandle framebufferHandle) override;
-    void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) override;
+    void BeginRenderPass(RenderPassHandle renderPassHandle) override;
+    void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
+    void EndRenderPass() override {}
     void EndFrame() override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
 
     [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() override;
 
-    [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) override;
+    [[nodiscard]] RenderTextureHandle CreateRenderTexture(const RenderTextureDesc& renderTextureDesc) override;
+    [[nodiscard]] RenderPassHandle    CreateRenderPass(const RenderPassDesc& renderPassDesc) override;
+
     [[nodiscard]] BufferHandle  CreateBuffer(
         std::span<const std::byte>              indexData,
         std::span<const std::byte>              vertexData,
@@ -68,10 +73,10 @@ public:
     [[nodiscard]] ShaderHandle  CreateShader(const ShaderDesc& shaderDesc) override;
 
 private:
-    FramebufferHandle m_swapchainFramebufferHandle;
+    RenderPassHandle m_swapchainRenderPassHandle;
 
     std::unordered_map<BufferHandle,        GLBuffer>        m_buffers;
-    std::unordered_map<FramebufferHandle,   GLFramebuffer>   m_framebuffers;
+    std::unordered_map<RenderPassHandle,    GLRenderPass>    m_renderPasses;
     std::unordered_map<RenderTextureHandle, GLRenderTexture> m_renderTextures;
     std::unordered_map<ShaderHandle,        GLShader>        m_shaders;
     std::unordered_map<TextureHandle,       GLTexture>       m_textures;

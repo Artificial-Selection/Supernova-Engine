@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Engine/Core/Core.hpp>
+#include <Engine/Renderer/RenderTypes.hpp>
 
 
 namespace snv
@@ -26,7 +27,7 @@ struct ApplicationSettings
         ui32        Height;
     };
 
-    static inline WindowSettings WindowSettings;
+    inline static WindowSettings WindowSettings;
 };
 
 // TODO(v.matushkin): Use this settings in DX11/DX12/Vulkan backends
@@ -34,12 +35,13 @@ struct EngineSettings
 {
     struct GraphicsSettings
     {
-        GraphicsApi GraphicsApi;
-        ui32        RenderWidth;
-        ui32        RenderHeight;
+        ui32                RenderWidth;
+        ui32                RenderHeight;
+        GraphicsApi         GraphicsApi;
+        RenderTextureFormat SwapchainFormat;
     };
 
-    static inline GraphicsSettings GraphicsSettings;
+    inline static GraphicsSettings GraphicsSettings;
 };
 
 } // namespace snv

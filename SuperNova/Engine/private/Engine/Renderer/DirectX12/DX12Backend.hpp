@@ -58,14 +58,15 @@ class DX12Backend final : public IRendererBackend
         D3D12_RESOURCE_STATES       CurrentState;
         RenderTextureClearValue     ClearValue;
         RenderTextureLoadAction     LoadAction;
+        RenderTextureType           Type; // NOTE(v.matushkin): May be store DepthStencilClearFlags instead of type?
     };
     using DX12RenderTexturePtr = std::shared_ptr<DX12RenderTexture>;
 
-    struct DX12Framebuffer
+    struct DX12RenderPass
     {
         std::vector<DX12RenderTexturePtr>        ColorAttachments;
         std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> ColorDescriptors;
-        std::shared_ptr<DX12RenderTexture>       DepthStencilAttachment;
+        DX12RenderTexturePtr                     DepthStencilAttachment;
         D3D12_CLEAR_FLAGS                        DepthStencilClearFlags;
     };
 
@@ -104,8 +105,8 @@ public:
     void EnableBlend() override;
     void EnableDepthTest() override;
 
-    [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
-    [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return m_swapchainFramebufferHandle; }
+    [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
+    [[nodiscard]] RenderPassHandle GetSwapchainRenderPass() override { return m_swapchainRenderPassHandle; }
 
     void SetBlendFunction(BlendMode source, BlendMode destination) override;
     void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
@@ -115,15 +116,18 @@ public:
     void Clear(BufferBit bufferBitMask) override;
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
-    void BeginRenderPass(FramebufferHandle framebufferHandle) override;
-    void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) override;
+    void BeginRenderPass(RenderPassHandle renderPassHandle) override;
+    void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
+    void EndRenderPass() override {}
     void EndFrame() override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
 
     [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() override;
 
-    [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) override;
+    [[nodiscard]] RenderTextureHandle CreateRenderTexture(const RenderTextureDesc& renderTextureDesc) override;
+    [[nodiscard]] RenderPassHandle    CreateRenderPass(const RenderPassDesc& renderPassDesc) override;
+
     [[nodiscard]] BufferHandle  CreateBuffer(
         std::span<const std::byte>              indexData,
         std::span<const std::byte>              vertexData,
@@ -164,8 +168,8 @@ private:
     ComPtr<ID3D12RootSignature>        m_rootSignature;
     ComPtr<ID3D12PipelineState>        m_graphicsPipeline;
 
-    DX12Framebuffer                    m_swapchainFramebuffers[k_BackBufferFrames];
-    FramebufferHandle                  m_swapchainFramebufferHandle;
+    DX12RenderPass                     m_swapchainRenderPasses[k_BackBufferFrames];
+    RenderPassHandle                   m_swapchainRenderPassHandle;
     ui32                               m_currentBackBufferIndex;
 
     ComPtr<ID3D12Resource2>            m_cbPerFrame;
@@ -189,7 +193,7 @@ private:
     f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f}; // TODO(v.matushkin): Remove? Not used right now
 
     std::unordered_map<BufferHandle,        DX12Buffer>           m_buffers;
-    std::unordered_map<FramebufferHandle,   DX12Framebuffer>      m_framebuffers;
+    std::unordered_map<RenderPassHandle,    DX12RenderPass>       m_renderPasses;
     std::unordered_map<RenderTextureHandle, DX12RenderTexturePtr> m_renderTextures;
     std::unordered_map<ShaderHandle,        DX12Shader>           m_shaders;
     std::unordered_map<TextureHandle,       DX12Texture>          m_textures;

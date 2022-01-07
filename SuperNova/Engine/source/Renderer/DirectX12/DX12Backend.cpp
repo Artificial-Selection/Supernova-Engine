@@ -92,6 +92,7 @@
 //
 //  - <RenderPasses>
 //    Use ID3D12GraphicsCommandList4::BeginRenderPass(), EndRenderPass()
+//    Checked RenderPassTier, got 0 :( So idk if it's worth it? Probably should do it anyway
 //    [LINKS]:
 //      - https://docs.microsoft.com/en-us/windows/win32/direct3d12/direct3d-12-render-passes
 // 
@@ -129,9 +130,10 @@ static const D3D12_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
     {"TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 };
 
-// NOTE(v.matushkin): Questionable naming
-static const D3D12_CLEAR_FLAGS dx12_DepthStencilClearFlag[] = {
-    static_cast<D3D12_CLEAR_FLAGS>(0), // NOTE(v.matushkin): Hack
+#define DX12_NO_DEPTH_STENCIL 0
+#define DX12_NO_DEPTH_STENCIL_CLEAR_FLAG static_cast<D3D12_CLEAR_FLAGS>(DX12_NO_DEPTH_STENCIL)
+static const D3D12_CLEAR_FLAGS dx12_RenderTextureTypeToClearFlags[] = {
+    DX12_NO_DEPTH_STENCIL_CLEAR_FLAG,
     D3D12_CLEAR_FLAG_DEPTH,
     D3D12_CLEAR_FLAG_STENCIL,
     D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
@@ -160,7 +162,7 @@ static const DXGI_FORMAT dx12_TextureFormat[] = {
     DXGI_FORMAT_D16_UNORM,
     // DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH24
     DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH32
-    DXGI_FORMAT_D32_FLOAT
+    DXGI_FORMAT_D32_FLOAT,
 };
 
 namespace RootParameterIndex
@@ -169,6 +171,9 @@ namespace RootParameterIndex
     static const ui32 cbPerDraw  = 1;
     static const ui32 dtTextures = 2;
 }
+// b - constant buffer
+// t - texture
+// s - sampler
 namespace ShaderRegister
 {
     static const ui32 bPerFrame      = 0;
@@ -177,7 +182,6 @@ namespace ShaderRegister
     static const ui32 sStatic        = 0;
 }
 
-static const DXGI_FORMAT k_SwapchainFormat          = DXGI_FORMAT_B8G8R8A8_UNORM;
 // TODO(v.matushkin): k_EngineColorFormat and k_EngineDepthStencilFormat are for EngineRenderPass render textures
 //  how am I supposed to remove this hardcoded shit? Somehow deduce this from shader(don't think this is possible) ?
 //  Specify it in the shader? How does Unity handle this, what if I use same shader with different render texture formats.
@@ -188,7 +192,7 @@ static const DXGI_FORMAT k_EngineDepthStencilFormat = DXGI_FORMAT_D32_FLOAT;
 static bool g_IsPipelineInitialized = false;
 
 static ui32 g_BufferHandleWorkaround        = 0;
-static ui32 g_FramebufferHandleWorkaround   = 0;
+static ui32 g_RenderPassHandleWorkaround    = 0;
 static ui32 g_RenderTextureHandleWorkaround = 0;
 static ui32 g_ShaderHandleWorkaround        = 0;
 static ui32 g_TextureHandleWorkaround       = 0;
@@ -387,18 +391,15 @@ void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
     m_graphicsCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
-void DX12Backend::BeginRenderPass(FramebufferHandle framebufferHandle)
+void DX12Backend::BeginRenderPass(RenderPassHandle renderPassHandle)
 {
-    auto& dx12Framebuffer = framebufferHandle == m_swapchainFramebufferHandle
-                          ? m_swapchainFramebuffers[m_currentBackBufferIndex]
-                          : m_framebuffers[framebufferHandle];
+    auto& dx12Framebuffer = renderPassHandle == m_swapchainRenderPassHandle
+                          ? m_swapchainRenderPasses[m_currentBackBufferIndex]
+                          : m_renderPasses[renderPassHandle];
 
     const auto& dx12DepthStencilAttachment = dx12Framebuffer.DepthStencilAttachment;
     const auto  d3dDepthStencilClearFlags  = dx12Framebuffer.DepthStencilClearFlags;
-
-    const auto* d3dDepthStencilDescriptor = d3dDepthStencilClearFlags != 0
-                                          ? &dx12DepthStencilAttachment->Descriptor
-                                          : nullptr;
+    const auto  hasDepthStencilAttachment  = d3dDepthStencilClearFlags != DX12_NO_DEPTH_STENCIL;
 
     //- Resource transition barriers
     {
@@ -417,11 +418,26 @@ void DX12Backend::BeginRenderPass(FramebufferHandle framebufferHandle)
             }
         }
 
+        // NOTE(v.matushkin): Sampling DepthStencil RenderTexture is not tested
+        if (hasDepthStencilAttachment && dx12DepthStencilAttachment->CurrentState != D3D12_RESOURCE_STATE_DEPTH_WRITE)
+        {
+            d3dResourceBarriers.push_back(ResourceTransition(
+                dx12DepthStencilAttachment->Texture.Get(),
+                dx12DepthStencilAttachment->CurrentState,
+                D3D12_RESOURCE_STATE_DEPTH_WRITE)
+            );
+            dx12DepthStencilAttachment->CurrentState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+        }
+
         if (d3dResourceBarriers.size() > 0)
         {
             m_graphicsCommandList->ResourceBarrier(d3dResourceBarriers.size(), d3dResourceBarriers.data());
         }
     }
+
+    const auto* d3dDepthStencilDescriptor = hasDepthStencilAttachment
+                                          ? &dx12DepthStencilAttachment->Descriptor
+                                          : nullptr;
     //- Set RenderTargets
     {
         const auto& d3dColorDescriptors = dx12Framebuffer.ColorDescriptors;
@@ -437,7 +453,7 @@ void DX12Backend::BeginRenderPass(FramebufferHandle framebufferHandle)
         }
     }
     //- Clear DepthStencil attachment
-    if (d3dDepthStencilDescriptor != nullptr && dx12DepthStencilAttachment->LoadAction == RenderTextureLoadAction::Clear)
+    if (hasDepthStencilAttachment && dx12DepthStencilAttachment->LoadAction == RenderTextureLoadAction::Clear)
     {
         const auto depthStencilClearValue = dx12DepthStencilAttachment->ClearValue.DepthStencil;
         m_graphicsCommandList->ClearDepthStencilView(
@@ -451,7 +467,7 @@ void DX12Backend::BeginRenderPass(FramebufferHandle framebufferHandle)
     }
 }
 
-void DX12Backend::BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input)
+void DX12Backend::BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input)
 {
     auto& dx12InputRenderTexture = m_renderTextures[input];
     if (dx12InputRenderTexture->CurrentState != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
@@ -466,14 +482,15 @@ void DX12Backend::BeginRenderPass(FramebufferHandle framebufferHandle, RenderTex
         dx12InputRenderTexture->CurrentState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
     }
 
-    BeginRenderPass(framebufferHandle);
+    BeginRenderPass(renderPassHandle);
 }
+
 
 void DX12Backend::EndFrame()
 {
     //- Transition RenderTarget from RENDER_TARGET to PRESENT
     {
-        auto& dx12SwapchainRenderTexture = m_swapchainFramebuffers[m_currentBackBufferIndex].ColorAttachments[0];
+        auto& dx12SwapchainRenderTexture = m_swapchainRenderPasses[m_currentBackBufferIndex].ColorAttachments[0];
         SNV_ASSERT(dx12SwapchainRenderTexture->CurrentState == D3D12_RESOURCE_STATE_RENDER_TARGET, "That was an error");
 
         const auto d3dResourceBarrier = ResourceTransition(
@@ -521,11 +538,12 @@ void DX12Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHan
 IImGuiRenderContext* DX12Backend::CreateImGuiRenderContext()
 {
     const auto [fontSrvCpuDescriptor, fontSrvGpuDescriptor] = m_descriptorHeap->AllocateSRV();
+    const auto dxgiSwapchainFormat = dx12_RenderTextureFormat[static_cast<ui8>(EngineSettings::GraphicsSettings.SwapchainFormat)];
     return new DX12ImGuiRenderContext(
         m_graphicsCommandList.Get(),
         m_device.Get(),
         k_BackBufferFrames,
-        k_SwapchainFormat,
+        dxgiSwapchainFormat,
         m_descriptorHeap->GetSRVHeap(),
         fontSrvCpuDescriptor,
         fontSrvGpuDescriptor
@@ -533,26 +551,18 @@ IImGuiRenderContext* DX12Backend::CreateImGuiRenderContext()
 }
 
 
-GraphicsState DX12Backend::CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc)
+RenderTextureHandle DX12Backend::CreateRenderTexture(const RenderTextureDesc& renderTextureDesc)
 {
-    GraphicsState graphicsState;
+    const auto dxgiRenderTextureFormat = dx12_RenderTextureFormat[static_cast<ui8>(renderTextureDesc.Format)];
+    const auto renderTextureType       = renderTextureDesc.RenderTextureType();
+    const auto isColorRenderTexture    = renderTextureType == RenderTextureType::Color;
+    const auto isUsageShaderRead       = renderTextureDesc.Usage == RenderTextureUsage::ShaderRead;
 
-    DX12Framebuffer dx12Framebuffer;
-
-    //- Create Color attachments
-    const auto& colorAttachments       = graphicsStateDesc.ColorAttachments;
-    const auto  d3dRtvColorDescriptors = m_descriptorHeap->AllocateRTV(colorAttachments.size());
-
-    for (ui32 i = 0; i < colorAttachments.size(); ++i)
+    //- Create D3D Texture
+    ComPtr<ID3D12Resource2>     d3dTexture;
+    D3D12_RESOURCE_STATES       d3dResourceInitialState;
+    D3D12_CPU_DESCRIPTOR_HANDLE d3dRenderTargetDescriptor;
     {
-        const auto& colorDesc         = colorAttachments[i];
-        const auto  dxgiColorFormat   = dx12_RenderTextureFormat[static_cast<ui8>(colorDesc.Format)];
-        const auto  isUsageShaderRead = colorDesc.Usage == RenderTextureUsage::ShaderRead;
-
-        ComPtr<ID3D12Resource2> d3dColorTexture;
-        const auto              d3dRtvColorDescriptor = d3dRtvColorDescriptors[i];
-
-        //-- Create Color texture
         // TODO(v.matushkin): <HeapPropertiesUnknown>
         D3D12_HEAP_PROPERTIES d3dHeapProperties = {
             .Type                 = D3D12_HEAP_TYPE_DEFAULT,
@@ -562,7 +572,35 @@ GraphicsState DX12Backend::CreateGraphicsState(const GraphicsStateDesc& graphics
             .VisibleNodeMask      = 1,
         };
 
-        auto d3dResourceFlags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        D3D12_RESOURCE_FLAGS d3dResourceFlags;
+        D3D12_CLEAR_VALUE d3dOptimizedClearValue;
+        d3dOptimizedClearValue.Format = dxgiRenderTextureFormat;
+
+        if (isColorRenderTexture)
+        {
+            d3dResourceFlags          = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+            d3dResourceInitialState   = D3D12_RESOURCE_STATE_RENDER_TARGET;
+            d3dRenderTargetDescriptor = m_descriptorHeap->AllocateRTV();
+
+            const auto* colorClearValue     = renderTextureDesc.ClearValue.Color;
+            d3dOptimizedClearValue.Color[0] = colorClearValue[0];
+            d3dOptimizedClearValue.Color[1] = colorClearValue[1];
+            d3dOptimizedClearValue.Color[2] = colorClearValue[2];
+            d3dOptimizedClearValue.Color[3] = colorClearValue[3];
+        }
+        else
+        {
+            d3dResourceFlags          = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+            d3dResourceInitialState   = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+            d3dRenderTargetDescriptor = m_descriptorHeap->AllocateDSV();
+
+            const auto depthStencilClearValue = renderTextureDesc.ClearValue.DepthStencil;
+            d3dOptimizedClearValue.DepthStencil = {
+                .Depth   = depthStencilClearValue.Depth,
+                .Stencil = depthStencilClearValue.Stencil,
+            };
+        }
+
         if (isUsageShaderRead == false)
         {
             d3dResourceFlags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
@@ -570,108 +608,15 @@ GraphicsState DX12Backend::CreateGraphicsState(const GraphicsStateDesc& graphics
         D3D12_RESOURCE_DESC1 d3dResourceDesc = {
             .Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
             .Alignment        = 0,
-            .Width            = colorDesc.Width,
-            .Height           = colorDesc.Height,
+            .Width            = renderTextureDesc.Width,
+            .Height           = renderTextureDesc.Height,
             .DepthOrArraySize = 1,
             .MipLevels        = 0,
-            .Format           = dxgiColorFormat,
+            .Format           = dxgiRenderTextureFormat,
             .SampleDesc       = {.Count = 1, .Quality = 0},
             .Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN,
             .Flags            = d3dResourceFlags,
             // .SamplerFeedbackMipRegion = ,
-        };
-
-        const auto* colorClearValue = colorDesc.ClearValue.Color;
-        D3D12_CLEAR_VALUE d3dColorOptimizedClearValue = {
-            .Format = dxgiColorFormat,
-            .Color  = {colorClearValue[0], colorClearValue[1], colorClearValue[2], colorClearValue[3]},
-        };
-
-        m_device->CreateCommittedResource2(
-            &d3dHeapProperties,
-            D3D12_HEAP_FLAG_NONE,
-            &d3dResourceDesc,
-            D3D12_RESOURCE_STATE_RENDER_TARGET,
-            &d3dColorOptimizedClearValue,
-            nullptr,
-            IID_PPV_ARGS(d3dColorTexture.GetAddressOf())
-        );
-
-        //-- Create RenderTarget view
-        // NOTE(v.matushkin): Why it works without setting Texture2D?
-        D3D12_RENDER_TARGET_VIEW_DESC d3dRenderTargetViewDesc = {
-            .Format        = dxgiColorFormat,
-            .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
-            // .Texture2D     = ,
-        };
-        m_device->CreateRenderTargetView(d3dColorTexture.Get(), &d3dRenderTargetViewDesc, d3dRtvColorDescriptor);
-
-        DX12RenderTexture dx12ColorAttachment = {
-            .Texture      = d3dColorTexture,
-            .Descriptor   = d3dRtvColorDescriptor,
-            // .SrvCpuDescriptor = ,
-            // .SrvGpuDescriptor = ,
-            .CurrentState = D3D12_RESOURCE_STATE_RENDER_TARGET,
-            .ClearValue   = colorDesc.ClearValue,
-            .LoadAction   = colorDesc.LoadAction,
-        };
-
-        //-- Create Render Texture SRV
-        if (isUsageShaderRead)
-        {
-            D3D12_TEX2D_SRV d3dTexture2DSrv = {
-                // .MostDetailedMip     = ,
-                .MipLevels = 1,
-                // .PlaneSlice          = ,
-                // .ResourceMinLODClamp = ,
-            };
-            D3D12_SHADER_RESOURCE_VIEW_DESC d3dRenderTargetSrvDesc = {
-                .Format                  = dxgiColorFormat,
-                .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
-                .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, // NOTE(v.matushkin): texture channels
-                                                                                     // swizzling, but when it's useful?
-                .Texture2D               = d3dTexture2DSrv,
-            };
-
-            const auto [srvCpuDescriptor, srvGpuDescriptor] = m_descriptorHeap->AllocateSRV();
-            dx12ColorAttachment.SrvCpuDescriptor            = srvCpuDescriptor;
-            dx12ColorAttachment.SrvGpuDescriptor            = srvGpuDescriptor;
-
-            m_device->CreateShaderResourceView(d3dColorTexture.Get(), &d3dRenderTargetSrvDesc, srvCpuDescriptor);
-        }
-
-        auto dx12ColorAttachmentPtr = std::make_shared<DX12RenderTexture>(dx12ColorAttachment);
-
-        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
-        m_renderTextures[renderTextureHandle] = dx12ColorAttachmentPtr;
-        graphicsState.ColorAttachments.push_back(renderTextureHandle);
-
-        dx12Framebuffer.ColorAttachments.push_back(std::move(dx12ColorAttachmentPtr));
-        dx12Framebuffer.ColorDescriptors.push_back(d3dRtvColorDescriptor);
-    }
-
-    //- Create DepthStencil attachment
-    dx12Framebuffer.DepthStencilClearFlags = dx12_DepthStencilClearFlag[static_cast<ui8>(graphicsStateDesc.DepthStencilType)];
-
-    if (dx12Framebuffer.DepthStencilClearFlags != 0)
-    {
-        const auto& depthStencilDesc       = graphicsStateDesc.DepthStencilAttachment;
-        const auto  depthStencilClearValue = depthStencilDesc.ClearValue.DepthStencil;
-        const auto  dxgiDepthStencilFormat = dx12_RenderTextureFormat[static_cast<ui8>(depthStencilDesc.Format)];
-
-        SNV_ASSERT(depthStencilDesc.Usage == RenderTextureUsage::Default, "Sampling DepthStencil texture is not supported");
-
-        ComPtr<ID3D12Resource2> d3dDepthStencilTexture;
-        const auto d3dDepthStencilDescriptor = m_descriptorHeap->AllocateDSV();
-
-        //-- Create DepthStencil texture
-        // TODO(v.matushkin): <HeapPropertiesUnknown>
-        D3D12_HEAP_PROPERTIES d3dHeapProperties = {
-            .Type                 = D3D12_HEAP_TYPE_DEFAULT,
-            .CPUPageProperty      = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
-            .MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN,
-            .CreationNodeMask     = 1,
-            .VisibleNodeMask      = 1,
         };
         // NOTE(v.matushkin): From PIX:
         //  These depth/stencil resources weren't used as shader resources during this capture, but the resources didn't have the
@@ -679,70 +624,109 @@ GraphicsState DX12Backend::CreateGraphicsState(const GraphicsStateDesc& graphics
         //  resources as shader resources, then consider adding DENY_SHADER_RESOURCE to their creation flags to improve
         //  performance on some hardware. It will be particularly beneficial on AMD GCN 1.2+ hardware that supports "Delta Color
         //  Compression" (DCC).
-        D3D12_RESOURCE_DESC1 d3dResourceDesc = {
-            .Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
-            .Alignment        = 0,
-            .Width            = depthStencilDesc.Width,
-            .Height           = depthStencilDesc.Height,
-            .DepthOrArraySize = 1,
-            .MipLevels        = 0,
-            .Format           = dxgiDepthStencilFormat,
-            .SampleDesc       = {.Count = 1, .Quality = 0},
-            .Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN,
-            .Flags            = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE,
-            // .SamplerFeedbackMipRegion = ,
-        };
-
-        D3D12_DEPTH_STENCIL_VALUE d3dDepthStencilValue = {
-            .Depth   = depthStencilClearValue.Depth,
-            .Stencil = depthStencilClearValue.Stencil,
-        };
-        D3D12_CLEAR_VALUE d3dDepthOptimizedClearValue = {
-            .Format       = dxgiDepthStencilFormat,
-            .DepthStencil = d3dDepthStencilValue,
-        };
-
         m_device->CreateCommittedResource2(
             &d3dHeapProperties,
             D3D12_HEAP_FLAG_NONE,
             &d3dResourceDesc,
-            D3D12_RESOURCE_STATE_DEPTH_WRITE,
-            &d3dDepthOptimizedClearValue,
+            d3dResourceInitialState,
+            &d3dOptimizedClearValue,
             nullptr,
-            IID_PPV_ARGS(d3dDepthStencilTexture.GetAddressOf())
+            IID_PPV_ARGS(d3dTexture.GetAddressOf())
         );
+    }
 
-        //-- Create DepthStencil view
+    //- Create RTV or DSV
+    if (isColorRenderTexture)
+    {
+        // NOTE(v.matushkin): Why it works without setting Texture2D?
+        D3D12_RENDER_TARGET_VIEW_DESC d3dRenderTargetViewDesc = {
+            .Format        = dxgiRenderTextureFormat,
+            .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
+            // .Texture2D     = ,
+        };
+        m_device->CreateRenderTargetView(d3dTexture.Get(), &d3dRenderTargetViewDesc, d3dRenderTargetDescriptor);
+    }
+    else
+    {
         // NOTE(v.matushkin): Why it works without setting Texture2D?
         D3D12_DEPTH_STENCIL_VIEW_DESC d3dDepthStencilViewDesc = {
-            .Format        = dxgiDepthStencilFormat,
+            .Format        = dxgiRenderTextureFormat,
             .ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D,
             .Flags         = D3D12_DSV_FLAG_NONE, // NOTE(v.matushkin): D3D12_DSV_FLAG_READ_ONLY_* ?
             // .Texture2D     = ,
         };
-        m_device->CreateDepthStencilView(d3dDepthStencilTexture.Get(), &d3dDepthStencilViewDesc, d3dDepthStencilDescriptor);
-
-        dx12Framebuffer.DepthStencilAttachment = std::make_shared<DX12RenderTexture>(DX12RenderTexture{
-            .Texture      = d3dDepthStencilTexture,
-            .Descriptor   = d3dDepthStencilDescriptor,
-            // .SrvCpuDescriptor = ,
-            // .SrvGpuDescriptor = ,
-            .CurrentState = D3D12_RESOURCE_STATE_DEPTH_WRITE,
-            .ClearValue   = depthStencilDesc.ClearValue,
-            .LoadAction   = depthStencilDesc.LoadAction,
-        });
-
-        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
-        graphicsState.DepthStencilAttachment  = renderTextureHandle;
-        m_renderTextures[renderTextureHandle] = dx12Framebuffer.DepthStencilAttachment;
+        m_device->CreateDepthStencilView(d3dTexture.Get(), &d3dDepthStencilViewDesc, d3dRenderTargetDescriptor);
     }
 
-    const auto framebufferHandle      = static_cast<FramebufferHandle>(g_FramebufferHandleWorkaround++);
-    graphicsState.Framebuffer         = framebufferHandle;
-    m_framebuffers[framebufferHandle] = std::move(dx12Framebuffer);
+    DX12RenderTexture dx12ColorAttachment = {
+        .Texture      = std::move(d3dTexture),
+        .Descriptor   = d3dRenderTargetDescriptor,
+        // .SrvCpuDescriptor = ,
+        // .SrvGpuDescriptor = ,
+        .CurrentState = d3dResourceInitialState,
+        .ClearValue   = renderTextureDesc.ClearValue,
+        .LoadAction   = renderTextureDesc.LoadAction,
+        .Type         = renderTextureDesc.RenderTextureType(),
+    };
 
-    return graphicsState;
+    //- Create SRV
+    if (isUsageShaderRead)
+    {
+         D3D12_TEX2D_SRV d3dTexture2DSrv = {
+             // .MostDetailedMip     = ,
+             .MipLevels = 1,
+             // .PlaneSlice          = ,
+             // .ResourceMinLODClamp = ,
+         };
+         D3D12_SHADER_RESOURCE_VIEW_DESC d3dRenderTargetSrvDesc = {
+             .Format                  = dxgiRenderTextureFormat,
+             .ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D,
+             .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, // NOTE(v.matushkin): texture channels
+                                                                                  // swizzling, but when it's useful?
+             .Texture2D               = d3dTexture2DSrv,
+         };
+
+         const auto [srvCpuDescriptor, srvGpuDescriptor] = m_descriptorHeap->AllocateSRV();
+         dx12ColorAttachment.SrvCpuDescriptor            = srvCpuDescriptor;
+         dx12ColorAttachment.SrvGpuDescriptor            = srvGpuDescriptor;
+    
+         m_device->CreateShaderResourceView(dx12ColorAttachment.Texture.Get(), &d3dRenderTargetSrvDesc, srvCpuDescriptor);
+    }
+
+    const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
+    m_renderTextures[renderTextureHandle] = std::make_shared<DX12RenderTexture>(std::move(dx12ColorAttachment));
+
+    return renderTextureHandle;
 }
+
+RenderPassHandle DX12Backend::CreateRenderPass(const RenderPassDesc& renderPassDesc)
+{
+    DX12RenderPass dx12RenderPass;
+
+    for (const auto colorAttachmentHandle : renderPassDesc.ColorAttachments)
+    {
+        const auto& dx12RenderTexture = m_renderTextures[colorAttachmentHandle];
+        dx12RenderPass.ColorAttachments.push_back(dx12RenderTexture);
+        dx12RenderPass.ColorDescriptors.push_back(dx12RenderTexture->Descriptor);
+    }
+
+    if (renderPassDesc.DepthStencilAttachment.has_value())
+    {
+        const auto& dx12RenderTexture         = m_renderTextures[renderPassDesc.DepthStencilAttachment.value()];
+        dx12RenderPass.DepthStencilAttachment = dx12RenderTexture;
+        dx12RenderPass.DepthStencilClearFlags = dx12_RenderTextureTypeToClearFlags[static_cast<ui8>(dx12RenderTexture->Type)];
+    }
+    else
+    {
+        dx12RenderPass.DepthStencilClearFlags = DX12_NO_DEPTH_STENCIL_CLEAR_FLAG;
+    }
+
+    const auto renderPassHandle      = static_cast<RenderPassHandle>(g_RenderPassHandleWorkaround++);
+    m_renderPasses[renderPassHandle] = std::move(dx12RenderPass);
+
+    return renderPassHandle;
+}
+
 
 // TODO(v.matushkin): Upload index buffer, better memory managment
 BufferHandle DX12Backend::CreateBuffer(
@@ -1078,7 +1062,8 @@ void DX12Backend::CreateCommandQueue()
 
 void DX12Backend::CreateSwapchain()
 {
-    const auto& windowSettings = ApplicationSettings::WindowSettings;
+    const auto& windowSettings      = ApplicationSettings::WindowSettings;
+    const auto  dxgiSwapchainFormat = dx12_RenderTextureFormat[static_cast<ui8>(EngineSettings::GraphicsSettings.SwapchainFormat)];
 
     //- Create Swapchain
     // NOTE(v.matushkin): This member is valid only with bit-block transfer (bitblt) model swap chains.
@@ -1102,7 +1087,7 @@ void DX12Backend::CreateSwapchain()
     DXGI_SWAP_CHAIN_DESC1 dxgiSwapChainDesc = {
         .Width       = windowSettings.Width,
         .Height      = windowSettings.Height,
-        .Format      = k_SwapchainFormat,               // TODO(v.matushkin): <SwapchainCreation/Format>
+        .Format      = dxgiSwapchainFormat,             // TODO(v.matushkin): <SwapchainCreation/Format>
         .Stereo      = false,
         .SampleDesc  = dxgiSwapChainSampleDesc,
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
@@ -1149,18 +1134,19 @@ void DX12Backend::CreateSwapchain()
             // .SrvGpuDescriptor = ,
             .CurrentState = D3D12_RESOURCE_STATE_PRESENT,
             .ClearValue   = {.Color = {0.0f, 0.0f, 0.0f, 0.0f}},
-            .LoadAction   = RenderTextureLoadAction::Clear
+            .LoadAction   = RenderTextureLoadAction::Clear,
+            .Type         = RenderTextureType::Color,
         };
 
-        m_swapchainFramebuffers[i] = {
+        m_swapchainRenderPasses[i] = {
             .ColorAttachments       = {std::make_shared<DX12RenderTexture>(dx12ColorAttachment)},
             .ColorDescriptors       = {d3dRtvColorDescriptor},
             // .DepthStencilAttachment = ,
-            .DepthStencilClearFlags = dx12_DepthStencilClearFlag[0],
+            .DepthStencilClearFlags = DX12_NO_DEPTH_STENCIL_CLEAR_FLAG,
         };
     }
 
-    m_swapchainFramebufferHandle = static_cast<FramebufferHandle>(g_FramebufferHandleWorkaround++);
+    m_swapchainRenderPassHandle = static_cast<RenderPassHandle>(g_RenderPassHandleWorkaround++);
 }
 
 void DX12Backend::CreateCommandAllocators()
@@ -1459,3 +1445,7 @@ bool DX12Backend::CheckTearingSupport()
 }
 
 } // namespace snv
+
+
+#undef DX12_NO_DEPTH_STENCIL_CLEAR_FLAG
+#undef DX12_NO_DEPTH_STENCIL

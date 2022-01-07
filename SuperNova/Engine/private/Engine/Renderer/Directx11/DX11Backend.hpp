@@ -49,12 +49,13 @@ class DX11Backend final : public IRendererBackend
         //  so fuck it, it's easier to leave it like this
         ComPtr<ID3D11RenderTargetView>   RTV;
         ComPtr<ID3D11DepthStencilView>   DSV;
-        ComPtr<ID3D11ShaderResourceView> SRV; // NOTE(v.matushkin): Can be not set
+        ComPtr<ID3D11ShaderResourceView> SRV;        // NOTE(v.matushkin): Can be not set
         RenderTextureClearValue          ClearValue;
         RenderTextureLoadAction          LoadAction;
+        RenderTextureType                Type;       // NOTE(v.matushkin): May be store DepthStencilClearFlags instead of type?
     };
 
-    struct DX11Framebuffer
+    struct DX11RenderPass
     {
         std::vector<DX11RenderTexture>       ColorAttachments;
         std::vector<ID3D11RenderTargetView*> ColorRTVs;
@@ -95,8 +96,8 @@ public:
     void EnableBlend() override;
     void EnableDepthTest() override;
 
-    [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
-    [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return m_swapchainFramebufferHandle; }
+    [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
+    [[nodiscard]] RenderPassHandle GetSwapchainRenderPass() override { return m_swapchainRenderPassHandle; }
 
     void SetBlendFunction(BlendMode source, BlendMode destination) override;
     void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
@@ -106,15 +107,18 @@ public:
     void Clear(BufferBit bufferBitMask) override;
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
-    void BeginRenderPass(FramebufferHandle framebufferHandle) override;
-    void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) override;
+    void BeginRenderPass(RenderPassHandle renderPassHandle) override;
+    void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
+    void EndRenderPass() override {}
     void EndFrame() override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
 
     [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() override;
 
-    [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) override;
+    [[nodiscard]] RenderTextureHandle CreateRenderTexture(const RenderTextureDesc& renderTextureDesc) override;
+    [[nodiscard]] RenderPassHandle    CreateRenderPass(const RenderPassDesc& renderPassDesc) override;
+
     [[nodiscard]] BufferHandle  CreateBuffer(
         std::span<const std::byte>              indexData,
         std::span<const std::byte>              vertexData,
@@ -136,7 +140,7 @@ private:
     ComPtr<ID3D11DeviceContext4> m_deviceContext;
     ComPtr<IDXGISwapChain4>      m_swapChain;
 
-    FramebufferHandle            m_swapchainFramebufferHandle;
+    RenderPassHandle             m_swapchainRenderPassHandle;
 
     ComPtr<ID3D11Buffer>         m_cbPerFrame;
     ComPtr<ID3D11Buffer>         m_cbPerDraw;
@@ -148,7 +152,7 @@ private:
     PerDraw  m_cbPerDrawData;
 
     std::unordered_map<BufferHandle,        DX11Buffer>        m_buffers;
-    std::unordered_map<FramebufferHandle,   DX11Framebuffer>   m_framebuffers;
+    std::unordered_map<RenderPassHandle,    DX11RenderPass>    m_renderPasses;
     std::unordered_map<RenderTextureHandle, DX11RenderTexture> m_renderTextures;
     std::unordered_map<ShaderHandle,        DX11Shader>        m_shaders;
     std::unordered_map<TextureHandle,       DX11Texture>       m_textures;

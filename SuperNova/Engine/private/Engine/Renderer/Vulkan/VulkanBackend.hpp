@@ -78,8 +78,8 @@ public:
     void EnableBlend() override;
     void EnableDepthTest() override;
 
-    [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override { return nullptr; }
-    [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() override { return {}; }
+    [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override { return nullptr; }
+    [[nodiscard]] RenderPassHandle GetSwapchainRenderPass() override { return RenderPassHandle{}; }
 
     void SetBlendFunction(BlendMode source, BlendMode destination) override;
     void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
@@ -89,15 +89,18 @@ public:
     void Clear(BufferBit bufferBitMask) override;
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
-    void BeginRenderPass(FramebufferHandle framebufferHandle) override {}
-    void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) override {}
+    void BeginRenderPass(RenderPassHandle renderPassHandle) override;
+    void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
+    void EndRenderPass() override;
     void EndFrame() override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
 
-    [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() override { return nullptr; }
+    [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() override;
 
-    [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) override { return {}; }
+    [[nodiscard]] RenderTextureHandle CreateRenderTexture(const RenderTextureDesc& renderTextureDesc) override;
+    [[nodiscard]] RenderPassHandle    CreateRenderPass(const RenderPassDesc& renderPassDesc) override;
+
     [[nodiscard]] BufferHandle  CreateBuffer(
         std::span<const std::byte>              indexData,
         std::span<const std::byte>              vertexData,

@@ -1,8 +1,8 @@
 #include <Engine/Renderer/Renderer.hpp>
 #include <Engine/Renderer/RenderContext.hpp>
 #include <Engine/Renderer/RenderGraph.hpp>
-#include <Engine/Renderer/RenderGraphBuilder.hpp>
 
+#include <Engine/Renderer/RenderPasses/ResourceNames.hpp>
 #include <Engine/Renderer/RenderPasses/EngineRenderPass.hpp>
 #include <Engine/Renderer/RenderPasses/ImGuiRenderPass.hpp>
 
@@ -50,18 +50,16 @@ void Renderer::Init()
 #endif
     }
 
-    s_renderGraphBuilder = new RenderGraphBuilder();
-    s_renderGraphBuilder->AddRenderPass<EngineRenderPass>();
-    s_renderGraphBuilder->AddRenderPass<ImGuiRenderPass>();
-
     // TODO(v.matushkin): <RenderGraphBuild>
-    s_renderGraph = nullptr;
+    s_renderGraph = new RenderGraph();
+    s_renderGraph->AddRenderPass<EngineRenderPass>("Engine");
+    s_renderGraph->AddRenderPass<ImGuiRenderPass>("ImGui");
+    s_renderGraph->Build(ResourceNames::EditorUI);
 }
 
 void Renderer::Shutdown()
 {
     delete s_renderGraph;
-    delete s_renderGraphBuilder;
     delete s_rendererBackend;
 }
 
@@ -82,9 +80,9 @@ void* Renderer::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
     return s_rendererBackend->GetNativeRenderTexture(renderTextureHandle);
 }
 
-FramebufferHandle Renderer::GetSwapchainFramebuffer()
+RenderPassHandle Renderer::GetSwapchainRenderPass()
 {
-    return s_rendererBackend->GetSwapchainFramebuffer();
+    return s_rendererBackend->GetSwapchainRenderPass();
 }
 
 
@@ -118,12 +116,6 @@ void Renderer::Clear(BufferBit bufferBitMask)
 //   use global localToWorld
 void Renderer::RenderFrame(const glm::mat4x4& localToWorld)
 {
-    // TODO(v.matushkin): <RenderGraphBuild>
-    if (s_renderGraph == nullptr)
-    {
-        s_renderGraph = s_renderGraphBuilder->Build();
-    }
-
     const auto cameraView = ComponentFactory::GetView<const Camera>();
     SNV_ASSERT(cameraView.size() == 1, "The scene must have at least and only 1 camera");
 
@@ -147,10 +139,16 @@ IImGuiRenderContext* Renderer::CreateImGuiRenderContext()
 }
 
 
-GraphicsState Renderer::CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc)
+RenderTextureHandle Renderer::CreateRenderTexture(const RenderTextureDesc& renderTextureDesc)
 {
-    return s_rendererBackend->CreateGraphicsState(graphicsStateDesc);
+    return s_rendererBackend->CreateRenderTexture(renderTextureDesc);
 }
+
+RenderPassHandle Renderer::CreateRenderPass(const RenderPassDesc& renderPassDesc)
+{
+    return s_rendererBackend->CreateRenderPass(renderPassDesc);
+}
+
 
 BufferHandle Renderer::CreateBuffer(
     std::span<const std::byte>              indexData,

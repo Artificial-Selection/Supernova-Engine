@@ -21,7 +21,6 @@ enum class DepthCompareFunction : ui8;
 
 namespace EnumUtils
 {
-
     // Engine/Assets/ShaderParser/Lexer.hpp
     [[nodiscard]] std::string ToString(TokenType tokenType);
     // Engine/Renderer/RenderTypes.hpp

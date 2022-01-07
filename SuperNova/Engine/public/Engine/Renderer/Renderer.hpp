@@ -1,6 +1,5 @@
 #pragma once
 
-//#include <Engine/Renderer/RenderGraphBuilder.hpp> // Can be forward declared, but then you need to include it everywhere to use it
 #include <Engine/Renderer/IImGuiRenderContext.hpp> // NOTE(v.matushkin): Forward declare?
 #include <Engine/Renderer/RenderTypes.hpp>
 
@@ -16,7 +15,6 @@ namespace snv
 
 class IRendererBackend;
 class RenderGraph;
-class RenderGraphBuilder;
 
 
 class Renderer
@@ -28,11 +26,9 @@ public:
     static void EnableBlend();
     static void EnableDepthTest();
 
-    static [[nodiscard]] RenderGraphBuilder* GetRenderGraphBuilder() { return s_renderGraphBuilder; }
-
     // For ImGui
-    static [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle);
-    static [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer();
+    static [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle);
+    static [[nodiscard]] RenderPassHandle GetSwapchainRenderPass();
 
     static void SetBlendFunction(BlendMode source, BlendMode destination);
     static void SetClearColor(f32 r, f32 g, f32 b, f32 a);
@@ -45,7 +41,9 @@ public:
 
     static [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext();
 
-    static [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc);
+    static [[nodiscard]] RenderTextureHandle CreateRenderTexture(const RenderTextureDesc& renderTextureDesc);
+    static [[nodiscard]] RenderPassHandle    CreateRenderPass(const RenderPassDesc& renderPassDesc);
+
     static [[nodiscard]] BufferHandle  CreateBuffer(
         std::span<const std::byte>              indexData,
         std::span<const std::byte>              vertexData,
@@ -56,7 +54,6 @@ public:
 
 private:
     static inline IRendererBackend*   s_rendererBackend;
-    static inline RenderGraphBuilder* s_renderGraphBuilder;
     static inline RenderGraph*        s_renderGraph;
 };
 

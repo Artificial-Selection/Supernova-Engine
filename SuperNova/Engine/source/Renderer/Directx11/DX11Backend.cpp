@@ -29,9 +29,9 @@ static const D3D11_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
     {"TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 2, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
 };
 
-// NOTE(v.matushkin): Questionable naming
-static const ui32 dx11_DepthStencilClearFlag[] = {
-    0,
+#define DX11_NO_DEPTH_STENCIL 0
+static const ui8 dx11_RenderTextureTypeToClearFlags[] = {
+    DX11_NO_DEPTH_STENCIL, // NOTE(v.matushkin): Only needed as a padding
     D3D11_CLEAR_DEPTH,
     D3D11_CLEAR_STENCIL,
     D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
@@ -71,10 +71,9 @@ static const D3D11_TEXTURE_ADDRESS_MODE dx11_TextureWrapMode[] = {
     D3D11_TEXTURE_ADDRESS_WRAP,
 };
 
-static const DXGI_FORMAT k_SwapchainFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 static ui32 g_BufferHandleWorkaround        = 0;
-static ui32 g_FramebufferHandleWorkaround   = 0;
+static ui32 g_RenderPassHandleWorkaround    = 0;
 static ui32 g_RenderTextureHandleWorkaround = 0;
 static ui32 g_ShaderHandleWorkaround        = 0;
 static ui32 g_TextureHandleWorkaround       = 0;
@@ -199,8 +198,7 @@ void* DX11Backend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandl
 
 
 void DX11Backend::SetBlendFunction(BlendMode source, BlendMode destination)
-{
-}
+{}
 
 void DX11Backend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
 {
@@ -248,24 +246,22 @@ void DX11Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
     m_deviceContext->PSSetShader(shader.FragmentShader.Get(), nullptr, 0);
 }
 
-void DX11Backend::BeginRenderPass(FramebufferHandle framebufferHandle)
+void DX11Backend::BeginRenderPass(RenderPassHandle renderPassHandle)
 {
-    const auto& dx11Framebuffer = m_framebuffers[framebufferHandle];
+    const auto& dx11RenderPass = m_renderPasses[renderPassHandle];
 
-    const auto& dx11DepthStencilRenderTexture = dx11Framebuffer.DepthStencilAttachment;
-    const auto  d3dDepthStencilClearFlags     = dx11Framebuffer.DepthStencilClearFlags;
+    const auto& dx11DepthStencilRenderTexture = dx11RenderPass.DepthStencilAttachment;
+    const auto  d3dDepthStencilClearFlags     = dx11RenderPass.DepthStencilClearFlags;
 
-    auto* d3dDepthStencilView = d3dDepthStencilClearFlags != 0
+    auto* d3dDepthStencilView = d3dDepthStencilClearFlags != DX11_NO_DEPTH_STENCIL
                               ? dx11DepthStencilRenderTexture.DSV.Get()
                               : nullptr;
 
     //- Set RenderTargets
-    {
-        const auto& d3dColorRTVs = dx11Framebuffer.ColorRTVs;
-        m_deviceContext->OMSetRenderTargets(d3dColorRTVs.size(), d3dColorRTVs.data(), d3dDepthStencilView);
-    }
+    m_deviceContext->OMSetRenderTargets(dx11RenderPass.ColorRTVs.size(), dx11RenderPass.ColorRTVs.data(), d3dDepthStencilView);
+
     //- Clear Color attachments
-    for (const auto& colorAttachment : dx11Framebuffer.ColorAttachments)
+    for (const auto& colorAttachment : dx11RenderPass.ColorAttachments)
     {
         if (colorAttachment.LoadAction == RenderTextureLoadAction::Clear)
         {
@@ -285,9 +281,9 @@ void DX11Backend::BeginRenderPass(FramebufferHandle framebufferHandle)
     }
 }
 
-void DX11Backend::BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input)
+void DX11Backend::BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input)
 {
-    BeginRenderPass(framebufferHandle);
+    BeginRenderPass(renderPassHandle);
 }
 
 void DX11Backend::EndFrame()
@@ -326,34 +322,27 @@ IImGuiRenderContext* DX11Backend::CreateImGuiRenderContext()
 }
 
 
-GraphicsState DX11Backend::CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc)
+RenderTextureHandle DX11Backend::CreateRenderTexture(const RenderTextureDesc& renderTextureDesc)
 {
-    GraphicsState graphicsState;
+    const auto dxgiRenderTextureFormat = dx11_RenderTextureFormat[static_cast<ui8>(renderTextureDesc.Format)];
+    const auto renderTextureType       = renderTextureDesc.RenderTextureType();
+    const auto isColorRenderTexture    = renderTextureType == RenderTextureType::Color;
+    const auto isUsageShaderRead       = renderTextureDesc.Usage == RenderTextureUsage::ShaderRead;
 
-    DX11Framebuffer dx11Framebuffer;
-
-    //- Create Color attachments
-    for (const auto& colorDesc : graphicsStateDesc.ColorAttachments)
+    //- Create D3D Texture
+    ComPtr<ID3D11Texture2D1> d3dTexture;
     {
-        const auto dxgiColorFormat   = dx11_RenderTextureFormat[static_cast<ui8>(colorDesc.Format)];
-        const auto isUsageShaderRead = colorDesc.Usage == RenderTextureUsage::ShaderRead;
-
-        ComPtr<ID3D11Texture2D1>         d3dTexture;
-        ComPtr<ID3D11RenderTargetView>   d3dRtv;
-        ComPtr<ID3D11ShaderResourceView> d3dSrv = nullptr;
-
-        //-- Create Color texture
-        ui32 d3dTextureBindFlags = D3D11_BIND_RENDER_TARGET;
+        ui32 d3dTextureBindFlags = isColorRenderTexture ? D3D11_BIND_RENDER_TARGET : D3D11_BIND_DEPTH_STENCIL;
         if (isUsageShaderRead)
         {
             d3dTextureBindFlags |= D3D11_BIND_SHADER_RESOURCE;
         }
         D3D11_TEXTURE2D_DESC1 d3dDepthStencilDesc = {
-            .Width          = colorDesc.Width,
-            .Height         = colorDesc.Height,
+            .Width          = renderTextureDesc.Width,
+            .Height         = renderTextureDesc.Height,
             .MipLevels      = 1,
             .ArraySize      = 1,
-            .Format         = dxgiColorFormat,
+            .Format         = dxgiRenderTextureFormat,
             .SampleDesc     = {.Count = 1, .Quality = 0},
             .Usage          = D3D11_USAGE_DEFAULT,
             .BindFlags      = d3dTextureBindFlags,
@@ -362,101 +351,92 @@ GraphicsState DX11Backend::CreateGraphicsState(const GraphicsStateDesc& graphics
             .TextureLayout  = D3D11_TEXTURE_LAYOUT_UNDEFINED, // Can use only UNDEFINED if CPUAccessFlags = 0
         };
         m_device->CreateTexture2D1(&d3dDepthStencilDesc, nullptr, d3dTexture.GetAddressOf());
-        //-- Create Color RTV
+    }
+
+    //- Create RTV or DSV
+    ComPtr<ID3D11RenderTargetView> d3dRtv;
+    ComPtr<ID3D11DepthStencilView> d3dDsv;
+
+    if (isColorRenderTexture)
+    {
         // NOTE(v.matushkin): There is a D3D11_RENDER_TARGET_VIEW_DESC1, but it seems useless
         D3D11_RENDER_TARGET_VIEW_DESC d3dRtvDesc = {
-            .Format        = dxgiColorFormat,
+            .Format        = dxgiRenderTextureFormat,
             .ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D,
             .Texture2D     = {.MipSlice = 0},
         };
         m_device->CreateRenderTargetView(d3dTexture.Get(), &d3dRtvDesc, d3dRtv.GetAddressOf());
-        //-- Create Color SRV
-        if (isUsageShaderRead)
-        {
-            D3D11_TEX2D_SRV d3dSrvTex2D = {
-                .MostDetailedMip = 0,
-                .MipLevels       = 1,
-            };
-            D3D11_SHADER_RESOURCE_VIEW_DESC d3dSrvDesc = {
-                .Format        = dxgiColorFormat,
-                .ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D,
-                .Texture2D     = d3dSrvTex2D,
-            };
-            m_device->CreateShaderResourceView(d3dTexture.Get(), &d3dSrvDesc, d3dSrv.GetAddressOf());
-        }
-
-        DX11RenderTexture dx11ColorAttachment = {
-            .Texture    = d3dTexture,
-            .RTV        = d3dRtv,
-            .DSV        = nullptr,
-            .SRV        = d3dSrv,
-            .ClearValue = colorDesc.ClearValue,
-            .LoadAction = colorDesc.LoadAction,
-        };
-
-        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
-        m_renderTextures[renderTextureHandle] = dx11ColorAttachment;
-        graphicsState.ColorAttachments.push_back(renderTextureHandle);
-
-        dx11Framebuffer.ColorAttachments.push_back(dx11ColorAttachment);
-        dx11Framebuffer.ColorRTVs.push_back(d3dRtv.Get());
     }
-
-    //- Create DepthStencil attachment
-    dx11Framebuffer.DepthStencilClearFlags = dx11_DepthStencilClearFlag[static_cast<ui8>(graphicsStateDesc.DepthStencilType)];
-
-    if (dx11Framebuffer.DepthStencilClearFlags != 0)
+    else
     {
-        const auto& depthStencilDesc       = graphicsStateDesc.DepthStencilAttachment;
-        const auto  dxgiDepthStencilFormat = dx11_RenderTextureFormat[static_cast<ui8>(depthStencilDesc.Format)];
-
-        SNV_ASSERT(depthStencilDesc.Usage == RenderTextureUsage::Default, "Sampling DepthStencil texture is not supported");
-
-        ComPtr<ID3D11Texture2D1>       d3dTexture;
-        ComPtr<ID3D11DepthStencilView> d3dDSV;
-
-        //-- Create DepthStencil texture
-        D3D11_TEXTURE2D_DESC1 d3dDepthStencilDesc = {
-            .Width          = depthStencilDesc.Width,
-            .Height         = depthStencilDesc.Height,
-            .MipLevels      = 1,
-            .ArraySize      = 1,
-            .Format         = dxgiDepthStencilFormat,
-            .SampleDesc     = {.Count = 1, .Quality = 0},
-            .Usage          = D3D11_USAGE_DEFAULT,
-            .BindFlags      = D3D11_BIND_DEPTH_STENCIL,
-            .CPUAccessFlags = 0,
-            .MiscFlags      = 0,                              // NOTE(v.matushkin): Whats this?
-            .TextureLayout  = D3D11_TEXTURE_LAYOUT_UNDEFINED, // Can use only UNDEFINED if CPUAccessFlags = 0
-        };
-        m_device->CreateTexture2D1(&d3dDepthStencilDesc, nullptr, d3dTexture.GetAddressOf());
-        //-- Create DepthStencil view
-        D3D11_DEPTH_STENCIL_VIEW_DESC d3dDsvDesc  = {
-            .Format        = dxgiDepthStencilFormat,
+        D3D11_DEPTH_STENCIL_VIEW_DESC d3dDsvDesc = {
+            .Format        = dxgiRenderTextureFormat,
             .ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D,
             .Flags         = 0, // NOTE(v.matushkin): D3D11_DSV_READ_ONLY_* ?
             .Texture2D     = {.MipSlice = 0},
         };
-        m_device->CreateDepthStencilView(d3dTexture.Get(), &d3dDsvDesc, d3dDSV.GetAddressOf());
-
-        dx11Framebuffer.DepthStencilAttachment = {
-            .Texture    = d3dTexture,
-            .DSV        = d3dDSV,
-            .ClearValue = depthStencilDesc.ClearValue,
-            .LoadAction = depthStencilDesc.LoadAction,
-        };
-
-        const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
-        graphicsState.DepthStencilAttachment  = renderTextureHandle;
-        m_renderTextures[renderTextureHandle] = dx11Framebuffer.DepthStencilAttachment;
+        m_device->CreateDepthStencilView(d3dTexture.Get(), &d3dDsvDesc, d3dDsv.GetAddressOf());
     }
 
-    const auto framebufferHandle      = static_cast<FramebufferHandle>(g_FramebufferHandleWorkaround++);
-    graphicsState.Framebuffer         = framebufferHandle;
-    m_framebuffers[framebufferHandle] = std::move(dx11Framebuffer);
+    //- Create SRV
+    ComPtr<ID3D11ShaderResourceView> d3dSrv;
 
-    return graphicsState;
+    if (isUsageShaderRead)
+    {
+        D3D11_TEX2D_SRV d3dSrvTex2D = {
+            .MostDetailedMip = 0,
+            .MipLevels       = 1,
+        };
+        D3D11_SHADER_RESOURCE_VIEW_DESC d3dSrvDesc = {
+            .Format        = dxgiRenderTextureFormat,
+            .ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D,
+            .Texture2D     = d3dSrvTex2D,
+        };
+        m_device->CreateShaderResourceView(d3dTexture.Get(), &d3dSrvDesc, d3dSrv.GetAddressOf());
+    }
+
+    const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
+    m_renderTextures[renderTextureHandle] = {
+        .Texture    = std::move(d3dTexture),
+        .RTV        = std::move(d3dRtv),
+        .DSV        = std::move(d3dDsv),
+        .SRV        = std::move(d3dSrv),
+        .ClearValue = renderTextureDesc.ClearValue,
+        .LoadAction = renderTextureDesc.LoadAction,
+        .Type       = renderTextureType,
+    };
+
+    return renderTextureHandle;
 }
+
+RenderPassHandle DX11Backend::CreateRenderPass(const RenderPassDesc& renderPassDesc)
+{
+    DX11RenderPass dx11RenderPass;
+
+    for (const auto colorAttachmentHandle : renderPassDesc.ColorAttachments)
+    {
+        const auto& dx11RenderTexture = m_renderTextures[colorAttachmentHandle];
+        dx11RenderPass.ColorAttachments.push_back(dx11RenderTexture);
+        dx11RenderPass.ColorRTVs.push_back(dx11RenderTexture.RTV.Get());
+    }
+
+    if (renderPassDesc.DepthStencilAttachment.has_value())
+    {
+        const auto& dx11RenderTexture = m_renderTextures[renderPassDesc.DepthStencilAttachment.value()];
+        dx11RenderPass.DepthStencilAttachment = dx11RenderTexture;
+        dx11RenderPass.DepthStencilClearFlags = dx11_RenderTextureTypeToClearFlags[static_cast<ui8>(dx11RenderTexture.Type)];
+    }
+    else
+    {
+        dx11RenderPass.DepthStencilClearFlags = DX11_NO_DEPTH_STENCIL;
+    }
+
+    const auto renderPassHandle      = static_cast<RenderPassHandle>(g_RenderPassHandleWorkaround++);
+    m_renderPasses[renderPassHandle] = std::move(dx11RenderPass);
+
+    return renderPassHandle;
+}
+
 
 BufferHandle DX11Backend::CreateBuffer(
     std::span<const std::byte>              indexData,
@@ -635,7 +615,7 @@ ShaderHandle DX11Backend::CreateShader(const ShaderDesc& shaderDesc)
     m_device->CreatePixelShader(fragmentBuffer, fragmentBufferSize, nullptr, dx11Shader.FragmentShader.GetAddressOf());
 
     const auto shaderHandle = static_cast<ShaderHandle>(g_ShaderHandleWorkaround++);
-    m_shaders[shaderHandle] = dx11Shader;
+    m_shaders[shaderHandle] = std::move(dx11Shader);
 
     return shaderHandle;
 }
@@ -701,7 +681,8 @@ void DX11Backend::CreateDevice()
 
 void DX11Backend::CreateSwapchain()
 {
-    const auto& windowSettings = ApplicationSettings::WindowSettings;
+    const auto& windowSettings   = ApplicationSettings::WindowSettings;
+    const auto& graphicsSettings = EngineSettings::GraphicsSettings;
 
     //- Create Swapchain
     DXGI_SAMPLE_DESC dxgiSwapChainSampleDesc = {
@@ -720,14 +701,15 @@ void DX11Backend::CreateSwapchain()
     DXGI_SWAP_CHAIN_DESC1 dxgiSwapChainDesc = {
         .Width       = windowSettings.Width,
         .Height      = windowSettings.Height,
-        .Format      = k_SwapchainFormat,
+        // TODO(v.matushkin): <SwapchainCreation/Format>
+        .Format      = dx11_RenderTextureFormat[static_cast<ui8>(graphicsSettings.SwapchainFormat)],
         .Stereo      = false,
         .SampleDesc  = dxgiSwapChainSampleDesc,
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
         .BufferCount = 2, // TODO(v.matushkin): Hardcoded
-        .Scaling     = DXGI_SCALING_STRETCH,            // TODO(v.matushkin): Play with this
+        .Scaling     = DXGI_SCALING_STRETCH,                // TODO(v.matushkin): Play with this
         .SwapEffect  = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-        .AlphaMode   = DXGI_ALPHA_MODE_IGNORE,          // NOTE(v.matushkin): Don't know
+        .AlphaMode   = DXGI_ALPHA_MODE_IGNORE,              // NOTE(v.matushkin): Don't know
         // .Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH  // TODO(v.matushkin): I guess at least I should use this flag?
     };
 
@@ -753,18 +735,16 @@ void DX11Backend::CreateSwapchain()
     m_swapChain->GetBuffer(0, IID_PPV_ARGS(colorAttachment.Texture.GetAddressOf()));
     m_device->CreateRenderTargetView(colorAttachment.Texture.Get(), nullptr, colorAttachment.RTV.GetAddressOf());
 
-    m_swapchainFramebufferHandle                 = static_cast<FramebufferHandle>(g_FramebufferHandleWorkaround++);
-    m_framebuffers[m_swapchainFramebufferHandle] = {
+    m_swapchainRenderPassHandle                 = static_cast<RenderPassHandle>(g_RenderPassHandleWorkaround++);
+    m_renderPasses[m_swapchainRenderPassHandle] = {
         .ColorAttachments       = {colorAttachment},
         .ColorRTVs              = {colorAttachment.RTV.Get()},
         // .DepthStencilAttachment
-        .DepthStencilClearFlags = 0,
+        .DepthStencilClearFlags = DX11_NO_DEPTH_STENCIL,
     };
 
     //- Setup Viewport
     // TODO(v.matushkin): <RenderGraph/Viewport>
-    const auto& graphicsSettings = EngineSettings::GraphicsSettings;
-
     D3D11_VIEWPORT d3dViewport = {
         .Width    = static_cast<f32>(graphicsSettings.RenderWidth),
         .Height   = static_cast<f32>(graphicsSettings.RenderHeight),
@@ -775,3 +755,6 @@ void DX11Backend::CreateSwapchain()
 }
 
 } // namespace snv
+
+
+#undef DX11_NO_DEPTH_STENCIL

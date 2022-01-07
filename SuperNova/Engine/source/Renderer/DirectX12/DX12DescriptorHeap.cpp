@@ -63,6 +63,18 @@ DX12DescriptorHeap::DX12DescriptorHeap(ID3D12Device8* d3dDevice)
 }
 
 
+D3D12_CPU_DESCRIPTOR_HANDLE DX12DescriptorHeap::AllocateRTV()
+{
+    SNV_ASSERT(m_allocatedDescriptorsRTV + 1 <= MaxDescriptors::RTV, "Exceeded RTV descriptors limit");
+
+    auto d3dDescriptorHandle = m_cpuStartRTV;
+    d3dDescriptorHandle.ptr += m_descriptorSizeRTV * m_allocatedDescriptorsRTV;
+
+    m_allocatedDescriptorsRTV++;
+
+    return d3dDescriptorHandle;
+}
+
 D3D12_CPU_DESCRIPTOR_HANDLE DX12DescriptorHeap::AllocateDSV()
 {
     SNV_ASSERT(m_allocatedDescriptorsDSV + 1 <= MaxDescriptors::DSV, "Exceeded DSV descriptors limit");

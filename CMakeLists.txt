@@ -368,7 +368,6 @@ set(Renderer_SRC
     ${Renderer_SRC_DIR}/RenderContext.cpp
     ${Renderer_SRC_DIR}/Renderer.cpp
     ${Renderer_SRC_DIR}/RenderGraph.cpp
-    ${Renderer_SRC_DIR}/RenderGraphBuilder.cpp
     ${Renderer_SRC_DIR}/RenderTypes.cpp
     ${RenderPasses_SRC}
     ${OpenGL_SRC}
@@ -380,7 +379,6 @@ set(Renderer_INC_PUBLIC
     ${Renderer_INC_PUBLIC_DIR}/RenderContext.hpp
     ${Renderer_INC_PUBLIC_DIR}/Renderer.hpp
     ${Renderer_INC_PUBLIC_DIR}/RenderGraph.hpp
-    ${Renderer_INC_PUBLIC_DIR}/RenderGraphBuilder.hpp
     ${Renderer_INC_PUBLIC_DIR}/RenderTypes.hpp
     ${RenderPasses_INC_PUBLIC}
 )

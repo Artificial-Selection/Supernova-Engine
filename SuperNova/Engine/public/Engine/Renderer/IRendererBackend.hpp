@@ -27,8 +27,8 @@ public:
     // OpenGL GLuint
     // DX11   ID3D11ShaderResourceView*
     // DX12   D3D12_GPU_DESCRIPTOR_HANDLE
-    virtual [[nodiscard]] void*             GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) = 0;
-    virtual [[nodiscard]] FramebufferHandle GetSwapchainFramebuffer() = 0;
+    virtual [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) = 0;
+    virtual [[nodiscard]] RenderPassHandle GetSwapchainRenderPass() = 0;
 
     virtual void SetBlendFunction(BlendMode source, BlendMode destination) = 0;
     virtual void SetClearColor(f32 r, f32 g, f32 b, f32 a) = 0;
@@ -39,8 +39,9 @@ public:
 
     // TODO(v.matushkin): Remove, temporary method
     virtual void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) = 0;
-    virtual void BeginRenderPass(FramebufferHandle framebufferHandle) = 0;
-    virtual void BeginRenderPass(FramebufferHandle framebufferHandle, RenderTextureHandle input) = 0;
+    virtual void BeginRenderPass(RenderPassHandle renderPassHandle) = 0;
+    virtual void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) = 0;
+    virtual void EndRenderPass() = 0;
     virtual void EndFrame() = 0;
 
     // NOTE(v.matushkin): Questionable method
@@ -48,7 +49,9 @@ public:
 
     virtual [[nodiscard]] IImGuiRenderContext* CreateImGuiRenderContext() = 0;
 
-    virtual [[nodiscard]] GraphicsState CreateGraphicsState(const GraphicsStateDesc& graphicsStateDesc) = 0;
+    virtual [[nodiscard]] RenderTextureHandle CreateRenderTexture(const RenderTextureDesc& renderTextureDesc) = 0;
+    virtual [[nodiscard]] RenderPassHandle    CreateRenderPass(const RenderPassDesc& renderPassDesc) = 0;
+
     virtual [[nodiscard]] BufferHandle  CreateBuffer(
         std::span<const std::byte>              indexData,
         std::span<const std::byte>              vertexData,
