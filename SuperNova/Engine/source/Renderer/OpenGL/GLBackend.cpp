@@ -192,66 +192,64 @@ GLBackend::GLBackend()
 }
 
 
-void GLBackend::EnableBlend()
-{
-    glEnable(GL_BLEND);
-}
-
-void GLBackend::EnableDepthTest()
-{
-    glEnable(GL_DEPTH_TEST);
-}
-
-
 void* GLBackend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
 {
     return reinterpret_cast<void*>(m_renderTextures[renderTextureHandle].ID);
 }
 
 
-void GLBackend::SetBlendFunction(BlendMode source, BlendMode destination)
-{
-    const auto sourceMode      = gl_BlendMode[static_cast<ui8>(source)];
-    const auto destinationMode = gl_BlendMode[static_cast<ui8>(destination)];
-    glBlendFunc(sourceMode, destinationMode);
-}
-
-void GLBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
-{
-    glClearColor(r, g, b, a);
-}
-
-void GLBackend::SetDepthFunction(DepthCompareFunction depthCompareFunction)
-{
-    const auto function = gl_DepthFunction[static_cast<ui8>(depthCompareFunction)];
-    glDepthFunc(function);
-}
-
-void GLBackend::SetViewport(i32 x, i32 y, i32 width, i32 height)
-{
-    // NOTE: ??
-    glViewport(0, 0, width, height);
-}
-
-
-void GLBackend::Clear(BufferBit bufferBitMask)
-{
-    // TODO: Somehow make this better ???
-    ui32 mask = 0;
-    if (bufferBitMask & BufferBit::Color)
-    {
-        mask |= gl_BufferBit[0];
-    }
-    if (bufferBitMask & BufferBit::Depth)
-    {
-        mask |= gl_BufferBit[1];
-    }
-    if (bufferBitMask & BufferBit::Stencil)
-    {
-        mask |= gl_BufferBit[2];
-    }
-    glClear(mask);
-}
+// void GLBackend::EnableBlend()
+// {
+//     glEnable(GL_BLEND);
+// }
+// 
+// void GLBackend::EnableDepthTest()
+// {
+//     glEnable(GL_DEPTH_TEST);
+// }
+// 
+// void GLBackend::SetBlendFunction(BlendMode source, BlendMode destination)
+// {
+//     const auto sourceMode      = gl_BlendMode[static_cast<ui8>(source)];
+//     const auto destinationMode = gl_BlendMode[static_cast<ui8>(destination)];
+//     glBlendFunc(sourceMode, destinationMode);
+// }
+// 
+// void GLBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
+// {
+//     glClearColor(r, g, b, a);
+// }
+// 
+// void GLBackend::SetDepthFunction(CompareFunction depthCompareFunction)
+// {
+//     const auto function = gl_DepthFunction[static_cast<ui8>(depthCompareFunction)];
+//     glDepthFunc(function);
+// }
+// 
+// void GLBackend::SetViewport(i32 x, i32 y, i32 width, i32 height)
+// {
+//     // NOTE: ??
+//     glViewport(0, 0, width, height);
+// }
+// 
+// void GLBackend::Clear(BufferBit bufferBitMask)
+// {
+//     // TODO: Somehow make this better ???
+//     ui32 mask = 0;
+//     if (bufferBitMask & BufferBit::Color)
+//     {
+//         mask |= gl_BufferBit[0];
+//     }
+//     if (bufferBitMask & BufferBit::Depth)
+//     {
+//         mask |= gl_BufferBit[1];
+//     }
+//     if (bufferBitMask & BufferBit::Stencil)
+//     {
+//         mask |= gl_BufferBit[2];
+//     }
+//     glClear(mask);
+// }
 
 
 void GLBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
@@ -327,6 +325,12 @@ void GLBackend::EndFrame()
 {
     // TODO(v.matushkin): <ContextCreation/SwapBuffers>
     Window::SwapBuffers();
+}
+
+
+void GLBackend::BindShader(ShaderHandle shaderHandle)
+{
+    SNV_ASSERT(false, "Not implemented");
 }
 
 

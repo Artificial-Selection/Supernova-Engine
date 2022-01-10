@@ -4,6 +4,7 @@
 #include <Engine/Assets/Material.hpp>
 #include <Engine/Assets/Mesh.hpp>
 #include <Engine/Assets/Texture.hpp>
+#include <Engine/Assets/Shader.hpp>
 
 #include <Engine/Components/ComponentFactory.hpp>
 #include <Engine/Components/MeshRenderer.hpp>
@@ -37,6 +38,11 @@ void RenderContext::EndRenderPass() const
 void RenderContext::DrawRenderers() const
 {
     const auto meshRendererView = ComponentFactory::GetView<const MeshRenderer>();
+
+    // TODO(v.matushkin): Remove this. For now it works because there is only one shader used for GameObjects
+    const auto& firstMeshRenderer = meshRendererView.get<const MeshRenderer>(meshRendererView.front());
+    const auto shaderHandle = firstMeshRenderer.GetMaterial()->GetShader()->GetHandle();
+    m_rendererBackend->BindShader(shaderHandle);
 
     for (const auto [entity, meshRenderer] : meshRendererView.each())
     {

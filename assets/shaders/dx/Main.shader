@@ -7,7 +7,10 @@ Shader "Engine/Main"
             float4x4 _CameraView;
             float4x4 _CameraProjection;
         };
-        cbuffer PerDraw : register(b1) { float4x4 _ObjectToWorld; };
+        cbuffer PerDraw : register(b1)
+        {
+            float4x4 _ObjectToWorld;
+        };
 
 
         struct Attributes

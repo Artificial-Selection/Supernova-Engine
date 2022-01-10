@@ -7,6 +7,13 @@
 namespace snv
 {
 
+template<typename Enum>
+Enum GetEnumValue(Token valueToken)
+{
+    return EnumUtils::FromString<Enum>(std::string(valueToken.Text));
+}
+
+
 ShaderParser::ShaderParser() = default;
 ShaderParser::~ShaderParser() = default;
 
@@ -15,7 +22,12 @@ ShaderDesc ShaderParser::Parse(const std::string& shaderSource)
 {
     m_lexer = std::make_unique<Lexer>(shaderSource); // NOTE(v.matushkin): Useless allocation every time Parse is called
 
-    ShaderDesc shaderDesc;
+    ShaderDesc shaderDesc = {
+        .RasterizerStateDesc   = RasterizerStateDesc::Default(),
+        .DepthStencilStateDesc = DepthStencilStateDesc::Default(),
+        .BlendStateDesc        = BlendStateDesc::Default(),
+    };
+
     shaderDesc.Name = ParseShaderName();
     ParseShaderBody(shaderDesc);
     m_lexer->ExpectToken(TokenType::EndOfFile);
@@ -36,8 +48,8 @@ void ShaderParser::ParseShaderBody(ShaderDesc& shaderDesc)
 {
     m_lexer->ExpectToken(TokenType::OpenBrace);
 
-    bool foundShaderState = false;
-    bool foundVertexBlock = false;
+    bool foundShaderState   = false;
+    bool foundVertexBlock   = false;
     bool foundFragmentBlock = false;
 
     while (true)
@@ -60,7 +72,7 @@ void ShaderParser::ParseShaderBody(ShaderDesc& shaderDesc)
                 throw ShaderParserError("Found more than one State block");
             }
             foundShaderState = true;
-            shaderDesc.State = ParseShaderState();
+            ParseShaderState(shaderDesc);
         }
         else if (token.Type == TokenType::Vertex)
         {
@@ -126,11 +138,16 @@ std::string ShaderParser::ParseShaderStage() const
 }
 
 
-ShaderState ShaderParser::ParseShaderState()
+void ShaderParser::ParseShaderState(ShaderDesc& shaderDesc)
 {
-    auto shaderState = ShaderState::Default();
-
     m_lexer->ExpectToken(TokenType::OpenBrace);
+
+    bool foundCull         = false;
+    bool foundDepthTest    = false;
+    bool foundDepthWrite   = false;
+    bool foundDepthCompare = false;
+    bool foundBlendOp      = false;
+    bool foundBlend        = false;
 
     while (true)
     {
@@ -143,49 +160,135 @@ ShaderState ShaderParser::ParseShaderState()
 
         switch (token.Type)
         {
-        case TokenType::Blend:                shaderState.BlendState           = ParseBlendStateValue();           break;
-        case TokenType::Cull:                 shaderState.CullMode             = ParseCullModeValue();             break;
-        case TokenType::DepthCompareFunction: shaderState.DepthCompareFunction = ParseDepthCompareFunctionValue(); break;
+        case TokenType::Cull:
+            {
+                if (foundCull)
+                {
+                    throw ShaderParserError("Found more than one Cull value");
+                }
+                foundCull = true;
+                shaderDesc.RasterizerStateDesc.CullMode = ParseCullModeValue();
+            }
+            break;
+        case TokenType::DepthTest:
+            {
+            if (foundDepthTest)
+                {
+                    throw ShaderParserError("Found more than one DepthTest value");
+                }
+                foundDepthTest = true;
+                shaderDesc.DepthStencilStateDesc.DepthTestEnable = ParseDepthTestValue();
+            }
+            break;
+        case TokenType::DepthWrite:
+            {
+            if (foundDepthWrite)
+                {
+                    throw ShaderParserError("Found more than one DepthWrite value");
+                }
+                foundDepthWrite = true;
+                shaderDesc.DepthStencilStateDesc.DepthWriteEnable = ParseDepthWriteValue();
+            }
+            break;
+        case TokenType::DepthCompare:
+            {
+                if (foundDepthCompare)
+                {
+                    throw ShaderParserError("Found more than one DepthCompareFunction value");
+                }
+                foundDepthCompare = true;
+                shaderDesc.DepthStencilStateDesc.DepthCompareFunction = ParseDepthCompareValue();
+            }
+            break;
+        case TokenType::BlendOp:
+            {
+                if (foundBlendOp)
+                {
+                    throw ShaderParserError("Found more than one BlendOp value");
+                }
+                foundBlendOp = true;
+                ParseBlendOpValue(shaderDesc.BlendStateDesc);
+            }
+            break;
+        case TokenType::Blend:
+            {
+                if (foundBlend)
+                {
+                    throw ShaderParserError("Found more than one Blend value");
+                }
+                foundBlend = true;
+                ParseBlendValue(shaderDesc.BlendStateDesc);
+            }
+            break;
 
         default: throw MakeError::UnexpectedTokenType(token);
         }
     }
 
-    return shaderState;
+    if (foundBlendOp || foundBlend)
+    {
+        shaderDesc.BlendStateDesc.BlendMode = BlendMode::BlendOp;
+    }
 }
 
-BlendState ShaderParser::ParseBlendStateValue()
+
+CullMode ShaderParser::ParseCullModeValue()
 {
-    BlendState blendState;
-    blendState.ColorSrcBlendMode = EnumUtils::FromString<BlendMode>(std::string(m_lexer->ExpectToken(TokenType::Value_BlendMode).Text));
-    blendState.ColorDstBlendMode = EnumUtils::FromString<BlendMode>(std::string(m_lexer->ExpectToken(TokenType::Value_BlendMode).Text));
+    const auto cullValueToken = m_lexer->ExpectToken(TokenType::Value_CullMode, TokenType::Value_Off);
+    return EnumUtils::FromString<CullMode>(std::string(cullValueToken.Text));
+}
+
+bool ShaderParser::ParseDepthTestValue()
+{
+    const auto depthTestValueToken = m_lexer->ExpectToken(TokenType::Value_On, TokenType::Value_Off);
+    return depthTestValueToken.Type == TokenType::Value_On;
+}
+
+bool ShaderParser::ParseDepthWriteValue()
+{
+    const auto depthWriteValueToken = m_lexer->ExpectToken(TokenType::Value_On, TokenType::Value_Off);
+    return depthWriteValueToken.Type == TokenType::Value_On;
+}
+
+CompareFunction ShaderParser::ParseDepthCompareValue()
+{
+    const auto depthCompareValueToken = m_lexer->ExpectToken(TokenType::Value_CompareFunction);
+    return EnumUtils::FromString<CompareFunction>(std::string(depthCompareValueToken.Text));
+}
+
+void ShaderParser::ParseBlendOpValue(BlendStateDesc& blendStateDesc)
+{
+    blendStateDesc.ColorBlendOp = GetEnumValue<BlendOp>(m_lexer->ExpectToken(TokenType::Value_BlendOp));
 
     if (m_lexer->PeekNextToken().Type == TokenType::Comma)
     {
         m_lexer->Advance();
 
-        blendState.AlphaSrcBlendMode = EnumUtils::FromString<BlendMode>(std::string(m_lexer->ExpectToken(TokenType::Value_BlendMode).Text));
-        blendState.AlphaDstBlendMode = EnumUtils::FromString<BlendMode>(std::string(m_lexer->ExpectToken(TokenType::Value_BlendMode).Text));
+        blendStateDesc.AlphaBlendOp = GetEnumValue<BlendOp>(m_lexer->ExpectToken(TokenType::Value_BlendOp));
     }
     else
     {
-        blendState.AlphaSrcBlendMode = blendState.ColorSrcBlendMode;
-        blendState.AlphaDstBlendMode = blendState.ColorDstBlendMode;
+        blendStateDesc.AlphaBlendOp = blendStateDesc.ColorBlendOp;
     }
-
-    return blendState;
 }
 
-CullMode ShaderParser::ParseCullModeValue()
+void ShaderParser::ParseBlendValue(BlendStateDesc& blendStateDesc)
 {
-    const auto token = m_lexer->ExpectToken(TokenType::Value_CullMode, TokenType::Value_Off);
-    return EnumUtils::FromString<CullMode>(std::string(token.Text));
-}
+    blendStateDesc.ColorSrcBlendFactor = GetEnumValue<BlendFactor>(m_lexer->ExpectToken(TokenType::Value_BlendFactor));
+    blendStateDesc.ColorDstBlendFactor = GetEnumValue<BlendFactor>(m_lexer->ExpectToken(TokenType::Value_BlendFactor));
 
-DepthCompareFunction ShaderParser::ParseDepthCompareFunctionValue()
-{
-    const auto token = m_lexer->ExpectToken(TokenType::Value_DepthCompareFunction);
-    return EnumUtils::FromString<DepthCompareFunction>(std::string(token.Text));
+    if (m_lexer->PeekNextToken().Type == TokenType::Comma)
+    {
+        m_lexer->Advance();
+
+        blendStateDesc.AlphaSrcBlendFactor = GetEnumValue<BlendFactor>(m_lexer->ExpectToken(TokenType::Value_BlendFactor));
+        blendStateDesc.AlphaDstBlendFactor = GetEnumValue<BlendFactor>(m_lexer->ExpectToken(TokenType::Value_BlendFactor));
+    }
+    else
+    {
+        blendStateDesc.AlphaSrcBlendFactor = blendStateDesc.ColorSrcBlendFactor;
+        blendStateDesc.AlphaDstBlendFactor = blendStateDesc.ColorDstBlendFactor;
+    }
 }
 
 } // namespace snv

@@ -15,14 +15,19 @@ RenderTextureType RenderTextureDesc::RenderTextureType() const
     return RenderTextureType::Depth;
 }
 
-ShaderState ShaderState::Default()
+RasterizerStateDesc RasterizerStateDesc::Default()
 {
-    return ShaderState
-    {
-        .BlendState           = RenderDefaults::ShaderState::BlendState,
-        .CullMode             = RenderDefaults::ShaderState::CullMode,
-        .DepthCompareFunction = RenderDefaults::ShaderState::DepthCompareFunction,
-    };
+    return RenderDefaults::RasterizerState;
+}
+
+DepthStencilStateDesc DepthStencilStateDesc::Default()
+{
+    return RenderDefaults::DepthStencilState;
+}
+
+BlendStateDesc BlendStateDesc::Default()
+{
+    return RenderDefaults::BlendState;
 }
 
 } // namespace snv

@@ -102,24 +102,24 @@ public:
     DX12Backend();
     ~DX12Backend();
 
-    void EnableBlend() override;
-    void EnableDepthTest() override;
-
     [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
     [[nodiscard]] RenderPassHandle GetSwapchainRenderPass() override { return m_swapchainRenderPassHandle; }
 
-    void SetBlendFunction(BlendMode source, BlendMode destination) override;
-    void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
-    void SetDepthFunction(DepthCompareFunction depthCompareFunction) override;
-    void SetViewport(i32 x, i32 y, i32 width, i32 height) override;
-
-    void Clear(BufferBit bufferBitMask) override;
+    void EnableBlend() override {}
+    void EnableDepthTest() override {}
+    void SetBlendFunction(BlendMode source, BlendMode destination) override {}
+    void SetClearColor(f32 r, f32 g, f32 b, f32 a) override {}
+    void SetDepthFunction(CompareFunction depthCompareFunction) override {}
+    void SetViewport(i32 x, i32 y, i32 width, i32 height) override {}
+    void Clear(BufferBit bufferBitMask) override {}
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
     void EndRenderPass() override {}
     void EndFrame() override;
+
+    void BindShader(ShaderHandle shaderHandle) override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
 
@@ -190,7 +190,7 @@ private:
     std::unique_ptr<DX12DescriptorHeap> m_descriptorHeap;
     std::unique_ptr<DX12ShaderCompiler> m_shaderCompiler;
 
-    f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f}; // TODO(v.matushkin): Remove? Not used right now
+    // f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f}; // TODO(v.matushkin): Remove? Not used right now
 
     std::unordered_map<BufferHandle,        DX12Buffer>           m_buffers;
     std::unordered_map<RenderPassHandle,    DX12RenderPass>       m_renderPasses;

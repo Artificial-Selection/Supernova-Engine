@@ -38,24 +38,24 @@ public:
     GLBackend();
     ~GLBackend() override = default; // TODO(v.matushkin): Destroy OpenGL resources
 
-    void EnableBlend() override;
-    void EnableDepthTest() override;
-
     [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
     [[nodiscard]] RenderPassHandle GetSwapchainRenderPass() override { return m_swapchainRenderPassHandle; }
 
-    void SetBlendFunction(BlendMode source, BlendMode destination) override;
-    void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
-    void SetDepthFunction(DepthCompareFunction depthCompareFunction) override;
-    void SetViewport(i32 x, i32 y, i32 width, i32 height) override;
-
-    void Clear(BufferBit bufferBitMask) override;
+    void EnableBlend() override {}
+    void EnableDepthTest() override {}
+    void SetBlendFunction(BlendMode source, BlendMode destination) override {}
+    void SetClearColor(f32 r, f32 g, f32 b, f32 a) override {}
+    void SetDepthFunction(CompareFunction depthCompareFunction) override {}
+    void SetViewport(i32 x, i32 y, i32 width, i32 height) override {}
+    void Clear(BufferBit bufferBitMask) override {}
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
     void EndRenderPass() override {}
     void EndFrame() override;
+
+    void BindShader(ShaderHandle shaderHandle) override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
 

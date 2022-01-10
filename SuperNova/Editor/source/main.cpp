@@ -17,7 +17,7 @@ i32 main()
     snv::EngineSettings::GraphicsSettings = {
         .RenderWidth     = 1280,
         .RenderHeight    = 1000,
-        .GraphicsApi     = snv::GraphicsApi::DirectX12,
+        .GraphicsApi     = snv::GraphicsApi::DirectX11,
         .SwapchainFormat = snv::RenderTextureFormat::BGRA32,
     };
 

@@ -1,7 +1,7 @@
 #include <Engine/Utils/EnumUtils.hpp>
-#include <Engine/Utils/EnumStrings.hpp>
+
 #include <Engine/Assets/ShaderParser/Lexer.hpp>
-#include <Engine/Renderer/RenderTypes.hpp>
+#include <Engine/Utils/EnumStrings.hpp>
 
 #include <unordered_map>
 
@@ -20,10 +20,12 @@ namespace snv::EnumUtils
             TokenString::Shader,
             //-- State
             TokenString::State,
-            TokenString::Blend,
             TokenString::Cull,
+            TokenString::DepthWrite,
             TokenString::DepthTest,
-            TokenString::DepthCompareFunction,
+            TokenString::DepthCompare,
+            TokenString::BlendOp,
+            TokenString::Blend,
             //-- Shader Stage
             TokenString::Vertex,
             TokenString::Fragment,
@@ -34,9 +36,10 @@ namespace snv::EnumUtils
             //-- State Value
             TokenString::Value_On,
             TokenString::Value_Off,
-            TokenString::Value_BlendMode,
             TokenString::Value_CullMode,
-            TokenString::Value_DepthCompareFunction,
+            TokenString::Value_CompareFunction,
+            TokenString::Value_BlendOp,
+            TokenString::Value_BlendFactor,
 
             //- Common
             TokenString::OpenBrace,
@@ -53,26 +56,6 @@ namespace snv::EnumUtils
 
     // Engine/Renderer/RenderTypes.hpp
 
-    std::string ToString(BlendMode blendMode)
-    {
-        static const char* blendModeToString[]
-        {
-            BlendModeString::Zero,
-            BlendModeString::One,
-            BlendModeString::DstColor,
-            BlendModeString::SrcColor,
-            BlendModeString::OneMinusDstColor,
-            BlendModeString::SrcAlpha,
-            BlendModeString::OneMinusSrcColor,
-            BlendModeString::DstAlpha,
-            BlendModeString::OneMinusDstAlpha,
-            BlendModeString::ScrAlphaSaturate,
-            BlendModeString::OneMinusSrcAlpha,
-        };
-
-        return blendModeToString[static_cast<ui8>(blendMode)];
-    }
-
     std::string ToString(CullMode cullMode)
     {
         static const char* cullModeToString[]
@@ -85,45 +68,61 @@ namespace snv::EnumUtils
         return cullModeToString[static_cast<ui8>(cullMode)];
     }
 
-    std::string ToString(DepthCompareFunction depthCompareFunction)
+    std::string ToString(CompareFunction compareFunction)
     {
-        static const char* depthCompareFunctionToString[]
+        static const char* compareFunctionToString[]
         {
-            DepthCompareFunctionString::Never,
-            DepthCompareFunctionString::Less,
-            DepthCompareFunctionString::Equal,
-            DepthCompareFunctionString::LessEqual,
-            DepthCompareFunctionString::Greater,
-            DepthCompareFunctionString::NotEqual,
-            DepthCompareFunctionString::GreaterEqual,
-            DepthCompareFunctionString::Always,
+            CompareFunctionString::Never,
+            CompareFunctionString::Less,
+            CompareFunctionString::Equal,
+            CompareFunctionString::LessEqual,
+            CompareFunctionString::Greater,
+            CompareFunctionString::NotEqual,
+            CompareFunctionString::GreaterEqual,
+            CompareFunctionString::Always,
         };
 
-        return depthCompareFunctionToString[static_cast<ui8>(depthCompareFunction)];
+        return compareFunctionToString[static_cast<ui8>(compareFunction)];
     }
 
-
-    template<>
-    BlendMode FromString<BlendMode>(const std::string& str)
+    std::string ToString(BlendOp blendOp)
     {
-        static const std::unordered_map<std::string, BlendMode> stringToBlendMode
+        static const char* blendOpToString[]
         {
-            {BlendModeString::Zero,             BlendMode::Zero},
-            {BlendModeString::One,              BlendMode::One},
-            {BlendModeString::DstColor,         BlendMode::DstColor},
-            {BlendModeString::SrcColor,         BlendMode::SrcColor},
-            {BlendModeString::OneMinusDstColor, BlendMode::OneMinusDstColor},
-            {BlendModeString::SrcAlpha,         BlendMode::SrcAlpha},
-            {BlendModeString::OneMinusSrcColor, BlendMode::OneMinusSrcColor},
-            {BlendModeString::DstAlpha,         BlendMode::DstAlpha},
-            {BlendModeString::OneMinusDstAlpha, BlendMode::OneMinusDstAlpha},
-            {BlendModeString::ScrAlphaSaturate, BlendMode::ScrAlphaSaturate},
-            {BlendModeString::OneMinusSrcAlpha, BlendMode::OneMinusSrcAlpha},
+            BlendOpString::Add,
+            BlendOpString::Subtract,
+            BlendOpString::ReverseSubtract,
+            BlendOpString::Min,
+            BlendOpString::Max,
         };
 
-        // NOTE(v.matushkin): I'm sure this is not gonna break
-        return stringToBlendMode.find(str)->second;
+        return blendOpToString[static_cast<ui8>(blendOp)];
     }
+
+    std::string ToString(BlendFactor blendFactor)
+    {
+        static const char* blendFactorToString[]
+        {
+            BlendFactorString::Zero,
+            BlendFactorString::One,
+            BlendFactorString::SrcColor,
+            BlendFactorString::OneMinusSrcColor,
+            BlendFactorString::DstColor,
+            BlendFactorString::OneMinusDstColor,
+            BlendFactorString::SrcAlpha,
+            BlendFactorString::OneMinusSrcAlpha,
+            BlendFactorString::DstAlpha,
+            BlendFactorString::OneMinusDstAlpha,
+            BlendFactorString::ScrAlphaSaturate,
+            BlendFactorString::Src1Color,
+            BlendFactorString::OneMinusSrc1Color,
+            BlendFactorString::Src1Alpha,
+            BlendFactorString::OneMinusSrc1Alpha,
+        };
+
+        return blendFactorToString[static_cast<ui8>(blendFactor)];
+    }
+
 
     template<>
     CullMode FromString<CullMode>(const std::string& str)
@@ -136,22 +135,64 @@ namespace snv::EnumUtils
     }
 
     template<>
-    DepthCompareFunction FromString<DepthCompareFunction>(const std::string& str)
+    CompareFunction FromString<CompareFunction>(const std::string& str)
     {
-        static const std::unordered_map<std::string, DepthCompareFunction> stringToDepthCompareFunction
+        static const std::unordered_map<std::string, CompareFunction> stringToCompareFunction
         {
-            {DepthCompareFunctionString::Never,        DepthCompareFunction::Never},
-            {DepthCompareFunctionString::Less,         DepthCompareFunction::Less},
-            {DepthCompareFunctionString::Equal,        DepthCompareFunction::Equal},
-            {DepthCompareFunctionString::LessEqual,    DepthCompareFunction::LessEqual},
-            {DepthCompareFunctionString::Greater,      DepthCompareFunction::Greater},
-            {DepthCompareFunctionString::NotEqual,     DepthCompareFunction::NotEqual},
-            {DepthCompareFunctionString::GreaterEqual, DepthCompareFunction::GreaterEqual},
-            {DepthCompareFunctionString::Always,       DepthCompareFunction::Always},
+            {CompareFunctionString::Never,        CompareFunction::Never},
+            {CompareFunctionString::Less,         CompareFunction::Less},
+            {CompareFunctionString::Equal,        CompareFunction::Equal},
+            {CompareFunctionString::LessEqual,    CompareFunction::LessEqual},
+            {CompareFunctionString::Greater,      CompareFunction::Greater},
+            {CompareFunctionString::NotEqual,     CompareFunction::NotEqual},
+            {CompareFunctionString::GreaterEqual, CompareFunction::GreaterEqual},
+            {CompareFunctionString::Always,       CompareFunction::Always},
         };
 
         // NOTE(v.matushkin): I'm sure this is not gonna break
-        return stringToDepthCompareFunction.find(str)->second;
+        return stringToCompareFunction.find(str)->second;
+    }
+
+    template<>
+    BlendOp FromString<BlendOp>(const std::string& str)
+    {
+        static const std::unordered_map<std::string, BlendOp> stringToBlendOp
+        {
+            {BlendOpString::Add,             BlendOp::Add},
+            {BlendOpString::Subtract,        BlendOp::Subtract},
+            {BlendOpString::ReverseSubtract, BlendOp::ReverseSubtract},
+            {BlendOpString::Min,             BlendOp::Min},
+            {BlendOpString::Max,             BlendOp::Max},
+        };
+
+        // NOTE(v.matushkin): I'm sure this is not gonna break
+        return stringToBlendOp.find(str)->second;
+    }
+
+    template<>
+    BlendFactor FromString<BlendFactor>(const std::string& str)
+    {
+        static const std::unordered_map<std::string, BlendFactor> stringToBlendFactor
+        {
+            {BlendFactorString::Zero,              BlendFactor::Zero},
+            {BlendFactorString::One,               BlendFactor::One},
+            {BlendFactorString::SrcColor,          BlendFactor::SrcColor},
+            {BlendFactorString::OneMinusSrcColor,  BlendFactor::OneMinusSrcColor},
+            {BlendFactorString::DstColor,          BlendFactor::DstColor},
+            {BlendFactorString::OneMinusDstColor,  BlendFactor::OneMinusDstColor},
+            {BlendFactorString::SrcAlpha,          BlendFactor::SrcAlpha},
+            {BlendFactorString::OneMinusSrcAlpha,  BlendFactor::OneMinusSrcAlpha},
+            {BlendFactorString::DstAlpha,          BlendFactor::DstAlpha},
+            {BlendFactorString::OneMinusDstAlpha,  BlendFactor::OneMinusDstAlpha},
+            {BlendFactorString::ScrAlphaSaturate,  BlendFactor::ScrAlphaSaturate},
+            {BlendFactorString::Src1Color,         BlendFactor::Src1Color},
+            {BlendFactorString::OneMinusSrc1Color, BlendFactor::OneMinusSrc1Color},
+            {BlendFactorString::Src1Alpha,         BlendFactor::Src1Alpha},
+            {BlendFactorString::OneMinusSrc1Alpha, BlendFactor::OneMinusSrc1Alpha},
+        };
+
+        // NOTE(v.matushkin): I'm sure this is not gonna break
+        return stringToBlendFactor.find(str)->second;
     }
 
 } // namespace snv::EnumUtils

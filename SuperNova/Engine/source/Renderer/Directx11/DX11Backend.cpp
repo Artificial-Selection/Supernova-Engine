@@ -1,12 +1,13 @@
 #include <Engine/Renderer/Directx11/DX11Backend.hpp>
-#include <Engine/Renderer/Directx11/DX11ImGuiRenderContext.hpp>
 
 #include <Engine/EngineSettings.hpp>
 #include <Engine/Application/Window.hpp>
 #include <Engine/Core/Assert.hpp>
+#include <Engine/Renderer/RenderDefaults.hpp>
+#include <Engine/Renderer/Directx11/DX11ImGuiRenderContext.hpp>
+#include <Engine/Renderer/Directx11/DX11ShaderCompiler.hpp>
 
 #include <d3d11_4.h>
-#include <d3dcompiler.h>
 
 #include <string>
 
@@ -21,55 +22,178 @@
 //      Or at least set it in the BeginRenderPass() ?
 
 
-// TODO(v.matushkin): Find out how D3D11_APPEND_ALIGNED_ELEMENT works
-// TODO(v.matushkin): TEXCOORD to DXGI_FORMAT_R32G32_FLOAT
-static const D3D11_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
-    {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-    {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-    {"TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 2, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-};
+//- RenderTexture
 
 #define DX11_NO_DEPTH_STENCIL 0
-static const ui8 dx11_RenderTextureTypeToClearFlags[] = {
-    DX11_NO_DEPTH_STENCIL, // NOTE(v.matushkin): Only needed as a padding
-    D3D11_CLEAR_DEPTH,
-    D3D11_CLEAR_STENCIL,
-    D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
-};
+static ui8 dx11_RenderTextureTypeToClearFlags(snv::RenderTextureType renderTextureType)
+{
+    static const ui8 d3dClearFlags[] = {
+        DX11_NO_DEPTH_STENCIL, // NOTE(v.matushkin): Only needed as a padding
+        D3D11_CLEAR_DEPTH,
+        D3D11_CLEAR_STENCIL,
+        D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+    };
 
-static const DXGI_FORMAT dx11_RenderTextureFormat[] = {
-    DXGI_FORMAT_B8G8R8A8_UNORM,
-    DXGI_FORMAT_D32_FLOAT,
-};
+    return d3dClearFlags[static_cast<ui8>(renderTextureType)];
+}
+
+static DXGI_FORMAT dx11_RenderTextureFormat(snv::RenderTextureFormat renderTextureFormat)
+{
+    static const DXGI_FORMAT dxgiRenderTextureFormat[] = {
+        DXGI_FORMAT_B8G8R8A8_UNORM,
+        DXGI_FORMAT_D32_FLOAT,
+    };
+
+    return dxgiRenderTextureFormat[static_cast<ui8>(renderTextureFormat)];
+}
+
+//- Texture
 
 // NOTE(v.matushkin): What about BGRA/RGBA ?
 // NOTE(v.matushkin): Don't know if I should use UINT or UNORM
 // TODO(v.matushkin): Apparently there is no support fo 24 bit formats (like RGB8, DEPTH24) on all(almost?) gpus
 //  So I guess, I should remove this formats from TextureGraphicsFormat
-static const DXGI_FORMAT dx11_TextureFormat[] = {
-    DXGI_FORMAT_R8_UINT,
-    DXGI_FORMAT_R16_UINT,
-    DXGI_FORMAT_R16_FLOAT,
-    DXGI_FORMAT_R32_FLOAT,
-    DXGI_FORMAT_R8G8_UINT,
-    DXGI_FORMAT_R16G16_UINT,
-    // DXGI_FORMAT_R8G8B8A8_UNORM,     // RGB8
-    // DXGI_FORMAT_R16G16B16A16_UINT,  // RGB16
-    DXGI_FORMAT_R8G8B8A8_UNORM,
-    DXGI_FORMAT_R16G16B16A16_FLOAT,
-    DXGI_FORMAT_D16_UNORM,
-    // DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH24
-    DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH32
-    DXGI_FORMAT_D32_FLOAT,
-};
+static DXGI_FORMAT dx11_TextureFormat(snv::TextureFormat textureFormat)
+{
+    static const DXGI_FORMAT dxgiTextureFormat[] = {
+        DXGI_FORMAT_R8_UINT,
+        DXGI_FORMAT_R16_UINT,
+        DXGI_FORMAT_R16_FLOAT,
+        DXGI_FORMAT_R32_FLOAT,
+        DXGI_FORMAT_R8G8_UINT,
+        DXGI_FORMAT_R16G16_UINT,
+        // DXGI_FORMAT_R8G8B8A8_UNORM,     // RGB8
+        // DXGI_FORMAT_R16G16B16A16_UINT,  // RGB16
+        DXGI_FORMAT_R8G8B8A8_UNORM,
+        DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_D16_UNORM,
+        // DXGI_FORMAT_D24_UNORM_S8_UINT,  // DEPTH24
+        DXGI_FORMAT_D24_UNORM_S8_UINT, // DEPTH32
+        DXGI_FORMAT_D32_FLOAT,
+    };
 
-static const D3D11_TEXTURE_ADDRESS_MODE dx11_TextureWrapMode[] = {
-    D3D11_TEXTURE_ADDRESS_CLAMP,
-    D3D11_TEXTURE_ADDRESS_BORDER,
-    D3D11_TEXTURE_ADDRESS_MIRROR_ONCE,
-    D3D11_TEXTURE_ADDRESS_MIRROR,
-    D3D11_TEXTURE_ADDRESS_WRAP,
-};
+    return dxgiTextureFormat[static_cast<ui8>(textureFormat)];
+}
+
+static D3D11_TEXTURE_ADDRESS_MODE dx11_TextureWrapMode(snv::TextureWrapMode textureWrapMode)
+{
+    static const D3D11_TEXTURE_ADDRESS_MODE d3dTextureWrapMode[] = {
+        D3D11_TEXTURE_ADDRESS_CLAMP,
+        D3D11_TEXTURE_ADDRESS_BORDER,
+        D3D11_TEXTURE_ADDRESS_MIRROR_ONCE,
+        D3D11_TEXTURE_ADDRESS_MIRROR,
+        D3D11_TEXTURE_ADDRESS_WRAP,
+    };
+
+    return d3dTextureWrapMode[static_cast<ui8>(textureWrapMode)];
+}
+
+//- Shader states
+
+//-- RasterizerState
+static D3D11_CULL_MODE dx11_CullMode(snv::CullMode cullMode)
+{
+    static const D3D11_CULL_MODE d3dCullMode[] = {
+        D3D11_CULL_NONE,
+        D3D11_CULL_FRONT,
+        D3D11_CULL_BACK,
+    };
+
+    return d3dCullMode[static_cast<ui8>(cullMode)];
+}
+
+static D3D11_FILL_MODE dx11_PolygonMode(snv::PolygonMode polygonMode)
+{
+    static const D3D11_FILL_MODE d3dPolygonMode[] = {
+        D3D11_FILL_SOLID,
+        D3D11_FILL_WIREFRAME,
+    };
+
+    return d3dPolygonMode[static_cast<ui8>(polygonMode)];
+}
+
+static bool dx11_TriangleFrontFace(snv::TriangleFrontFace triangleFrontFace)
+{
+    return triangleFrontFace == snv::TriangleFrontFace::Clockwise ? false : true;
+}
+
+//-- DepthStencilState
+static D3D11_COMPARISON_FUNC dx11_CompareFunction(snv::CompareFunction compareFunction)
+{
+    static const D3D11_COMPARISON_FUNC d3dCompareFunction[] = {
+        D3D11_COMPARISON_NEVER,
+        D3D11_COMPARISON_LESS,
+        D3D11_COMPARISON_EQUAL,
+        D3D11_COMPARISON_LESS_EQUAL,
+        D3D11_COMPARISON_GREATER,
+        D3D11_COMPARISON_NOT_EQUAL,
+        D3D11_COMPARISON_GREATER_EQUAL,
+        D3D11_COMPARISON_ALWAYS,
+    };
+
+    return d3dCompareFunction[static_cast<ui8>(compareFunction)];
+}
+
+//-- BlendState
+static D3D11_BLEND_OP dx11_BlendOp(snv::BlendOp blendOp)
+{
+    static const D3D11_BLEND_OP d3dBlendOp[] = {
+        D3D11_BLEND_OP_ADD,
+        D3D11_BLEND_OP_SUBTRACT,
+        D3D11_BLEND_OP_REV_SUBTRACT,
+        D3D11_BLEND_OP_MIN,
+        D3D11_BLEND_OP_MAX,
+    };
+
+    return d3dBlendOp[static_cast<ui8>(blendOp)];
+}
+
+static D3D11_BLEND dx11_BlendFactor(snv::BlendFactor blendFactor)
+{
+    static const D3D11_BLEND d3dBlendFactor[] = {
+        D3D11_BLEND_ZERO,
+        D3D11_BLEND_ONE,
+        D3D11_BLEND_SRC_COLOR,
+        D3D11_BLEND_INV_SRC_COLOR,
+        D3D11_BLEND_DEST_COLOR,
+        D3D11_BLEND_INV_DEST_COLOR,
+        D3D11_BLEND_SRC_ALPHA,
+        D3D11_BLEND_INV_SRC_ALPHA,
+        D3D11_BLEND_DEST_ALPHA,
+        D3D11_BLEND_INV_DEST_ALPHA,
+        D3D11_BLEND_SRC_ALPHA_SAT,
+        D3D11_BLEND_SRC1_COLOR,
+        D3D11_BLEND_INV_SRC1_COLOR,
+        D3D11_BLEND_SRC1_ALPHA,
+        D3D11_BLEND_INV_SRC1_ALPHA,
+    };
+
+    return d3dBlendFactor[static_cast<ui8>(blendFactor)];
+}
+
+static D3D11_LOGIC_OP dx11_BlendLogicOp(snv::BlendLogicOp blendLogicOp)
+{
+    static const D3D11_LOGIC_OP d3dBlendLogicOp[] = {
+        D3D11_LOGIC_OP_CLEAR,
+        D3D11_LOGIC_OP_SET,
+        D3D11_LOGIC_OP_COPY,
+        D3D11_LOGIC_OP_COPY_INVERTED,
+        D3D11_LOGIC_OP_NOOP,
+        D3D11_LOGIC_OP_INVERT,
+        D3D11_LOGIC_OP_AND,
+        D3D11_LOGIC_OP_NAND,
+        D3D11_LOGIC_OP_OR,
+        D3D11_LOGIC_OP_NOR,
+        D3D11_LOGIC_OP_XOR,
+        D3D11_LOGIC_OP_EQUIV,
+        D3D11_LOGIC_OP_AND_REVERSE,
+        D3D11_LOGIC_OP_AND_INVERTED,
+        D3D11_LOGIC_OP_OR_REVERSE,
+        D3D11_LOGIC_OP_OR_INVERTED,
+    };
+
+    return d3dBlendLogicOp[static_cast<ui8>(blendLogicOp)];
+}
 
 
 static ui32 g_BufferHandleWorkaround        = 0;
@@ -87,28 +211,6 @@ DX11Backend::DX11Backend()
     CreateDevice();
     CreateSwapchain();
 
-    //- Setup Rasterizer
-    {
-        // NOTE(v.matuskin): Changed FrontCounterClockwise to true, everything else is default values
-        //  FrontCounterClockwise is false by default, and in OpenGL it's true by default
-        D3D11_RASTERIZER_DESC2 d3dRasterizerDesc = {
-            .FillMode              = D3D11_FILL_SOLID,
-            .CullMode              = D3D11_CULL_BACK,
-            .FrontCounterClockwise = true,
-            .DepthBias             = D3D11_DEFAULT_DEPTH_BIAS,
-            .DepthBiasClamp        = D3D11_DEFAULT_DEPTH_BIAS_CLAMP,
-            .SlopeScaledDepthBias  = D3D11_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,
-            .DepthClipEnable       = true,
-            .ScissorEnable         = false,
-            .MultisampleEnable     = false,
-            .AntialiasedLineEnable = false,
-            .ForcedSampleCount     = 0,
-            .ConservativeRaster    = D3D11_CONSERVATIVE_RASTERIZATION_MODE_OFF,
-        };
-        ID3D11RasterizerState2* d3dRasterizerState;
-        m_device->CreateRasterizerState2(&d3dRasterizerDesc, &d3dRasterizerState);
-        m_deviceContext->RSSetState(d3dRasterizerState);
-    }
     //- Create ConstantBuffers
     {
         CD3D11_BUFFER_DESC cbPerFrameDesc(sizeof(PerFrame), D3D11_BIND_CONSTANT_BUFFER);
@@ -117,6 +219,9 @@ DX11Backend::DX11Backend()
         m_device->CreateBuffer(&cbPerFrameDesc, nullptr, m_cbPerFrame.GetAddressOf());
         m_device->CreateBuffer(&cbPerDrawDesc, nullptr, m_cbPerDraw.GetAddressOf());
     }
+
+    //- Set default state
+    m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 // NOTE(v.matushkin): Doubt I need this
@@ -164,31 +269,6 @@ DX11Backend::DX11Backend()
 //}
 
 
-void DX11Backend::EnableBlend()
-{
-}
-
-void DX11Backend::EnableDepthTest()
-{
-    // NOTE(v.matushkin): Use ID3D11DepthStencilState?
-    // https://github-wiki-see.page/m/Microsoft/DirectXTK/wiki/CommonStates
-    //  DepthNone
-    //  CD3D11_DEPTH_STENCIL_DESC desc(def);
-    //  desc.DepthEnable    = FALSE;
-    //  desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
-    //  desc.DepthFunc      = D3D11_COMPARISON_LESS_EQUAL;
-    //
-    //  // DepthDefault
-    //  CD3D11_DEPTH_STENCIL_DESC desc(def);
-    //  desc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
-    //
-    //  // DepthRead
-    //  CD3D11_DEPTH_STENCIL_DESC desc(def);
-    //  desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
-    //  desc.DepthFunc      = D3D11_COMPARISON_LESS_EQUAL;
-}
-
-
 void* DX11Backend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
 {
     const auto d3dTextureSrv = m_renderTextures[renderTextureHandle].SRV;
@@ -197,33 +277,8 @@ void* DX11Backend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandl
 }
 
 
-void DX11Backend::SetBlendFunction(BlendMode source, BlendMode destination)
-{}
-
-void DX11Backend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
-{
-    m_clearColor[0] = r;
-    m_clearColor[1] = g;
-    m_clearColor[2] = b;
-    m_clearColor[3] = a;
-}
-
-void DX11Backend::SetDepthFunction(DepthCompareFunction depthCompareFunction)
-{}
-
-void DX11Backend::SetViewport(i32 x, i32 y, i32 width, i32 height)
-{}
-
-
-void DX11Backend::Clear(BufferBit bufferBitMask)
-{}
-
-
 void DX11Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
-    // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
-    const auto& shader = m_shaders.begin()->second;
-
     //- Update constant buffers
     m_cbPerFrameData._CameraProjection = cameraProjection;
     m_cbPerFrameData._CameraView       = cameraView;
@@ -233,17 +288,11 @@ void DX11Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4&
     m_deviceContext->UpdateSubresource(m_cbPerFrame.Get(), 0, nullptr, &m_cbPerFrameData, 0, 0);
     m_deviceContext->UpdateSubresource(m_cbPerDraw.Get(), 0, nullptr, &m_cbPerDrawData, 0, 0);
 
-    m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    m_deviceContext->IASetInputLayout(shader.InputLayout.Get());
-
-    //- Set Vertex shader stage
+    //- Set Vertex camera/model buffers
     {
         ID3D11Buffer* constantBuffers[]{m_cbPerFrame.Get(), m_cbPerDraw.Get()};
-        m_deviceContext->VSSetShader(shader.VertexShader.Get(), nullptr, 0);
-        m_deviceContext->VSSetConstantBuffers(0, 2, constantBuffers);
+        m_deviceContext->VSSetConstantBuffers(0, 2, constantBuffers); // NOTE(v.matushkin): VSSetConstantBuffers1 ?
     }
-    //- Set Pixel shader stage
-    m_deviceContext->PSSetShader(shader.FragmentShader.Get(), nullptr, 0);
 }
 
 void DX11Backend::BeginRenderPass(RenderPassHandle renderPassHandle)
@@ -293,6 +342,21 @@ void DX11Backend::EndFrame()
 }
 
 
+void DX11Backend::BindShader(ShaderHandle shaderHandle)
+{
+    const auto& dx11Shader = m_shaders[shaderHandle];
+
+    m_deviceContext->IASetInputLayout(dx11Shader.InputLayout.Get());
+    m_deviceContext->VSSetShader(dx11Shader.VertexShader.Get(), nullptr, 0);
+    m_deviceContext->RSSetState(dx11Shader.RasterizerState.Get());
+    m_deviceContext->PSSetShader(dx11Shader.PixelShader.Get(), nullptr, 0);
+    // TODO(v.matushkin): StencilRef ?
+    m_deviceContext->OMSetDepthStencilState(dx11Shader.DepthStencilState.Get(), D3D11_DEFAULT_STENCIL_REFERENCE);
+    // TODO(v.matushkin): BlendFactor, SampleMask ? BlendFactor = nullptr -> {1,1,1,1}
+    m_deviceContext->OMSetBlendState(dx11Shader.BlendState.Get(), nullptr, D3D11_DEFAULT_SAMPLE_MASK);
+}
+
+
 void DX11Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount)
 {
     //- Set Index/Vertex buffers
@@ -324,13 +388,13 @@ IImGuiRenderContext* DX11Backend::CreateImGuiRenderContext()
 
 RenderTextureHandle DX11Backend::CreateRenderTexture(const RenderTextureDesc& renderTextureDesc)
 {
-    const auto dxgiRenderTextureFormat = dx11_RenderTextureFormat[static_cast<ui8>(renderTextureDesc.Format)];
+    const auto dxgiRenderTextureFormat = dx11_RenderTextureFormat(renderTextureDesc.Format);
     const auto renderTextureType       = renderTextureDesc.RenderTextureType();
     const auto isColorRenderTexture    = renderTextureType == RenderTextureType::Color;
     const auto isUsageShaderRead       = renderTextureDesc.Usage == RenderTextureUsage::ShaderRead;
 
-    //- Create D3D Texture
-    ComPtr<ID3D11Texture2D1> d3dTexture;
+    //- Create RenderTexture
+    ID3D11Texture2D1* d3dRenderTexture;
     {
         ui32 d3dTextureBindFlags = isColorRenderTexture ? D3D11_BIND_RENDER_TARGET : D3D11_BIND_DEPTH_STENCIL;
         if (isUsageShaderRead)
@@ -350,36 +414,40 @@ RenderTextureHandle DX11Backend::CreateRenderTexture(const RenderTextureDesc& re
             .MiscFlags      = 0,                              // NOTE(v.matushkin): Whats this?
             .TextureLayout  = D3D11_TEXTURE_LAYOUT_UNDEFINED, // Can use only UNDEFINED if CPUAccessFlags = 0
         };
-        m_device->CreateTexture2D1(&d3dDepthStencilDesc, nullptr, d3dTexture.GetAddressOf());
+        m_device->CreateTexture2D1(&d3dDepthStencilDesc, nullptr, &d3dRenderTexture);
     }
 
     //- Create RTV or DSV
-    ComPtr<ID3D11RenderTargetView> d3dRtv;
-    ComPtr<ID3D11DepthStencilView> d3dDsv;
+    ID3D11RenderTargetView* d3dRenderTextureRtv;
+    ID3D11DepthStencilView* d3dRenderTextureDsv;
 
     if (isColorRenderTexture)
     {
+        d3dRenderTextureDsv = nullptr;
+
         // NOTE(v.matushkin): There is a D3D11_RENDER_TARGET_VIEW_DESC1, but it seems useless
         D3D11_RENDER_TARGET_VIEW_DESC d3dRtvDesc = {
             .Format        = dxgiRenderTextureFormat,
             .ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D,
             .Texture2D     = {.MipSlice = 0},
         };
-        m_device->CreateRenderTargetView(d3dTexture.Get(), &d3dRtvDesc, d3dRtv.GetAddressOf());
+        m_device->CreateRenderTargetView(d3dRenderTexture, &d3dRtvDesc, &d3dRenderTextureRtv);
     }
     else
     {
+        d3dRenderTextureRtv = nullptr;
+
         D3D11_DEPTH_STENCIL_VIEW_DESC d3dDsvDesc = {
             .Format        = dxgiRenderTextureFormat,
             .ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D,
             .Flags         = 0, // NOTE(v.matushkin): D3D11_DSV_READ_ONLY_* ?
             .Texture2D     = {.MipSlice = 0},
         };
-        m_device->CreateDepthStencilView(d3dTexture.Get(), &d3dDsvDesc, d3dDsv.GetAddressOf());
+        m_device->CreateDepthStencilView(d3dRenderTexture, &d3dDsvDesc, &d3dRenderTextureDsv);
     }
 
     //- Create SRV
-    ComPtr<ID3D11ShaderResourceView> d3dSrv;
+    ID3D11ShaderResourceView* d3dRenderTextureSrv;
 
     if (isUsageShaderRead)
     {
@@ -392,15 +460,19 @@ RenderTextureHandle DX11Backend::CreateRenderTexture(const RenderTextureDesc& re
             .ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D,
             .Texture2D     = d3dSrvTex2D,
         };
-        m_device->CreateShaderResourceView(d3dTexture.Get(), &d3dSrvDesc, d3dSrv.GetAddressOf());
+        m_device->CreateShaderResourceView(d3dRenderTexture, &d3dSrvDesc, &d3dRenderTextureSrv);
+    }
+    else
+    {
+        d3dRenderTextureSrv = nullptr;
     }
 
-    const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
+    const auto renderTextureHandle = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
     m_renderTextures[renderTextureHandle] = {
-        .Texture    = std::move(d3dTexture),
-        .RTV        = std::move(d3dRtv),
-        .DSV        = std::move(d3dDsv),
-        .SRV        = std::move(d3dSrv),
+        .Texture    = d3dRenderTexture,
+        .RTV        = d3dRenderTextureRtv,
+        .DSV        = d3dRenderTextureDsv,
+        .SRV        = d3dRenderTextureSrv,
         .ClearValue = renderTextureDesc.ClearValue,
         .LoadAction = renderTextureDesc.LoadAction,
         .Type       = renderTextureType,
@@ -424,7 +496,7 @@ RenderPassHandle DX11Backend::CreateRenderPass(const RenderPassDesc& renderPassD
     {
         const auto& dx11RenderTexture = m_renderTextures[renderPassDesc.DepthStencilAttachment.value()];
         dx11RenderPass.DepthStencilAttachment = dx11RenderTexture;
-        dx11RenderPass.DepthStencilClearFlags = dx11_RenderTextureTypeToClearFlags[static_cast<ui8>(dx11RenderTexture.Type)];
+        dx11RenderPass.DepthStencilClearFlags = dx11_RenderTextureTypeToClearFlags(dx11RenderTexture.Type);
     }
     else
     {
@@ -486,17 +558,16 @@ BufferHandle DX11Backend::CreateBuffer(
 
 TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const ui8* textureData)
 {
-    const auto dxgiTextureFormat     = dx11_TextureFormat[static_cast<ui8>(textureDesc.Format)];
-    const auto d3dTextureAddressMode = dx11_TextureWrapMode[static_cast<ui8>(textureDesc.WrapMode)];
+    const auto dxgiTextureFormat = dx11_TextureFormat(textureDesc.Format);
 
     DX11Texture dx11Texture;
     //- Create Texture
     {
         DXGI_SAMPLE_DESC      dxgiSampleDesc = {.Count = 1, .Quality = 0};
         D3D11_TEXTURE2D_DESC1 d3dTextureDesc = {
-            .Width          = textureDesc.Width, // TODO(v.matushkin): Make Width/Height ui32?
+            .Width          = textureDesc.Width,
             .Height         = textureDesc.Height,
-            .MipLevels      = 1, // TODO(v.matushkin): No way to use texture without mip, 0 =  generate a full set of subtextures?
+            .MipLevels      = 1, // TODO(v.matushkin): No way to use texture without mip, 0 = generate a full set of subtextures?
             .ArraySize      = 1,
             .Format         = dxgiTextureFormat,
             .SampleDesc     = dxgiSampleDesc,
@@ -530,10 +601,12 @@ TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const u
     }
     //- Create Texture Sampler
     {
+        const auto d3dTextureWrapMode = dx11_TextureWrapMode(textureDesc.WrapMode);
+
         D3D11_SAMPLER_DESC d3dSamplerDesc = {
             .Filter         = D3D11_FILTER_MIN_MAG_MIP_POINT,
-            .AddressU       = d3dTextureAddressMode,
-            .AddressV       = d3dTextureAddressMode,
+            .AddressU       = d3dTextureWrapMode,
+            .AddressV       = d3dTextureWrapMode,
             .AddressW       = D3D11_TEXTURE_ADDRESS_CLAMP, // NOTE(v.matushkin): How to handle this for 2D textures?
             .MipLODBias     = 0,
             .MaxAnisotropy  = 0, // NOTE(v.matushkin): Only used for ANISOTROPIC filter?
@@ -553,69 +626,149 @@ TextureHandle DX11Backend::CreateTexture(const TextureDesc& textureDesc, const u
 
 ShaderHandle DX11Backend::CreateShader(const ShaderDesc& shaderDesc)
 {
-    // TODO(v.matushkin): D3DCompile2 ?
-    ComPtr<ID3DBlob> d3dVertexBlob;
-    ComPtr<ID3DBlob> d3dVertexErrorBlob;
-    auto hr = D3DCompile(
-        shaderDesc.VertexSource.data(),
-        shaderDesc.VertexSource.length(),
-        "Vertex Shader Name", // NOTE(v.matushkin): Can be nullptr, don't know where/how it will be used
-        nullptr,
-        nullptr, // TODO(v.matushkin): I need to use this ID3DInclude
-        "main",
-        "vs_5_0",
-        0, // TODO(v.matushkin): Use this, especially D3DCOMPILE_OPTIMIZATION_LEVEL* and may be D3DCOMPILE_PACK_MATRIX_ROW_MAJOR
-        0,
-        d3dVertexBlob.GetAddressOf(),
-        d3dVertexErrorBlob.GetAddressOf()
-    );
-    if (FAILED(hr))
+    // https://github-wiki-see.page/m/Microsoft/DirectXTK/wiki/CommonStates
+
+    //- Create RasterizerState
+    ID3D11RasterizerState2* d3dRasterizerState;
     {
-        // TODO(v.matushkin): For D3DX11CompileFromFile, vertexErrorBlob == nullptr means shader file wasn't found,
-        //  so with D3DCompile this cannot happen?
-        SNV_ASSERT(d3dVertexErrorBlob != nullptr, "Could this ever happen?");
-        LOG_ERROR("Vertex shader compilation error:\n{}", (char*) d3dVertexErrorBlob->GetBufferPointer());
-    }
-    const auto vertexBuffer     = d3dVertexBlob->GetBufferPointer();
-    const auto vertexBufferSize = d3dVertexBlob->GetBufferSize();
+        const auto rasterizerStateDesc = shaderDesc.RasterizerStateDesc;
 
-    ComPtr<ID3DBlob> d3dFragmentBlob;
-    ComPtr<ID3DBlob> d3dFragmentErrorBlob;
-    hr = D3DCompile(
-        shaderDesc.FragmentSource.data(),
-        shaderDesc.FragmentSource.length(),
-        "Fragment Shader Name",     // NOTE(v.matushkin): Can be nullptr, don't know where/how it will be used
-        nullptr,
-        nullptr,                    // TODO(v.matushkin): I need to use this ID3DInclude
-        "main",
-        "ps_5_0",
-        0, // TODO(v.matushkin): Use this, especially D3DCOMPILE_OPTIMIZATION_LEVEL* and may be D3DCOMPILE_PACK_MATRIX_ROW_MAJOR
-        0,
-        d3dFragmentBlob.GetAddressOf(),
-        d3dFragmentErrorBlob.GetAddressOf()
-    );
-    if (FAILED(hr))
+        // NOTE(v.matuskin): Changed FrontCounterClockwise to true, everything else is default values
+        //  FrontCounterClockwise is false by default, and in OpenGL it's true by default
+        D3D11_RASTERIZER_DESC2 d3dRasterizerStateDesc = {
+            .FillMode              = dx11_PolygonMode(rasterizerStateDesc.PolygonMode),
+            .CullMode              = dx11_CullMode(rasterizerStateDesc.CullMode),
+            .FrontCounterClockwise = dx11_TriangleFrontFace(rasterizerStateDesc.FrontFace),
+            .DepthBias             = D3D11_DEFAULT_DEPTH_BIAS,
+            .DepthBiasClamp        = D3D11_DEFAULT_DEPTH_BIAS_CLAMP,
+            .SlopeScaledDepthBias  = D3D11_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,
+            .DepthClipEnable       = true,
+            .ScissorEnable         = false, // NOTE(v.matushkin): ImGui needs 'true' ?
+            .MultisampleEnable     = false,
+            .AntialiasedLineEnable = false,
+            .ForcedSampleCount     = 0,
+            .ConservativeRaster    = D3D11_CONSERVATIVE_RASTERIZATION_MODE_OFF,
+        };
+        m_device->CreateRasterizerState2(&d3dRasterizerStateDesc, &d3dRasterizerState);
+
+        if (d3dRasterizerState == nullptr)
+        {
+            LOG_ERROR("Failed to create ID3D11RasterizerState2 for '{}' shader", shaderDesc.Name);
+        }
+    }
+    //- Create DepthStencilState
+    ID3D11DepthStencilState* d3dDepthStencilState;
     {
-        SNV_ASSERT(d3dFragmentErrorBlob != nullptr, "Could this ever happen?");
-        LOG_ERROR("Fragment shader compilation error:\n{}", (char*) d3dFragmentErrorBlob->GetBufferPointer());
+        const auto depthStencilStateDesc = shaderDesc.DepthStencilStateDesc;
+
+        D3D11_DEPTH_STENCILOP_DESC d3dDepthStencilOpDesc = {
+            .StencilFailOp      = D3D11_STENCIL_OP_KEEP,
+            .StencilDepthFailOp = D3D11_STENCIL_OP_KEEP,
+            .StencilPassOp      = D3D11_STENCIL_OP_KEEP,
+            .StencilFunc        = D3D11_COMPARISON_ALWAYS,
+        };
+        D3D11_DEPTH_STENCIL_DESC d3dDepthStencilStateDesc = {
+            .DepthEnable      = depthStencilStateDesc.DepthTestEnable,
+            .DepthWriteMask   = depthStencilStateDesc.DepthWriteEnable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO,
+            .DepthFunc        = dx11_CompareFunction(depthStencilStateDesc.DepthCompareFunction),
+            .StencilEnable    = false,
+            .StencilReadMask  = 0,                          // Default is 'D3D11_DEFAULT_STENCIL_READ_MASK'
+            .StencilWriteMask = 0,                          // Default is 'D3D11_DEFAULT_STENCIL_WRITE_MASK'
+            .FrontFace        = d3dDepthStencilOpDesc,
+            .BackFace         = d3dDepthStencilOpDesc,
+        };
+        m_device->CreateDepthStencilState(&d3dDepthStencilStateDesc, &d3dDepthStencilState);
+
+        if (d3dDepthStencilState == nullptr)
+        {
+            LOG_ERROR("Failed to create ID3D11DepthStencilState for '{}' shader", shaderDesc.Name);
+        }
     }
-    const auto fragmentBuffer     = d3dFragmentBlob->GetBufferPointer();
-    const auto fragmentBufferSize = d3dFragmentBlob->GetBufferSize();
+    //- Create BlendState
+    ID3D11BlendState1* d3dBlendState;
+    {
+        const auto blendStateDesc = shaderDesc.BlendStateDesc;
 
-    DX11Shader dx11Shader;
+        D3D11_RENDER_TARGET_BLEND_DESC1 d3dRenderTargetBlendDesc;
+        // NOTE(v.matushkin): May be there is no need to set this if BlendMode::Off ?
+        d3dRenderTargetBlendDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+        if (blendStateDesc.BlendMode == BlendMode::Off)
+        {
+            d3dRenderTargetBlendDesc.BlendEnable   = false;
+            d3dRenderTargetBlendDesc.LogicOpEnable = false;
+        }
+        else
+        {
+            if (blendStateDesc.BlendMode == BlendMode::BlendOp)
+            {
+                d3dRenderTargetBlendDesc.BlendEnable   = true;
+                d3dRenderTargetBlendDesc.LogicOpEnable = false;
+                d3dRenderTargetBlendDesc.BlendOp       = dx11_BlendOp(blendStateDesc.ColorBlendOp);
+                d3dRenderTargetBlendDesc.BlendOpAlpha  = dx11_BlendOp(blendStateDesc.AlphaBlendOp);
+            }
+            else // BlendMode::LogicOp
+            {
+                d3dRenderTargetBlendDesc.BlendEnable   = false;
+                d3dRenderTargetBlendDesc.LogicOpEnable = true;
+                d3dRenderTargetBlendDesc.LogicOp       = dx11_BlendLogicOp(blendStateDesc.LogicOp);
+            }
 
-    m_device->CreateInputLayout(
-        k_InputElementDesc,
-        ARRAYSIZE(k_InputElementDesc),
-        vertexBuffer,
-        vertexBufferSize,
-        dx11Shader.InputLayout.GetAddressOf()
-    );
-    m_device->CreateVertexShader(vertexBuffer, vertexBufferSize, nullptr, dx11Shader.VertexShader.GetAddressOf());
-    m_device->CreatePixelShader(fragmentBuffer, fragmentBufferSize, nullptr, dx11Shader.FragmentShader.GetAddressOf());
+            d3dRenderTargetBlendDesc.SrcBlend       = dx11_BlendFactor(blendStateDesc.ColorSrcBlendFactor);
+            d3dRenderTargetBlendDesc.DestBlend      = dx11_BlendFactor(blendStateDesc.ColorDstBlendFactor);
+            d3dRenderTargetBlendDesc.SrcBlendAlpha  = dx11_BlendFactor(blendStateDesc.AlphaSrcBlendFactor);
+            d3dRenderTargetBlendDesc.DestBlendAlpha = dx11_BlendFactor(blendStateDesc.AlphaDstBlendFactor);
+        }
+
+        D3D11_BLEND_DESC1 d3dBlendStateDesc;
+        d3dBlendStateDesc.AlphaToCoverageEnable  = false;
+        d3dBlendStateDesc.IndependentBlendEnable = RenderDefaults::IndependentBlendEnable;
+        d3dBlendStateDesc.RenderTarget[0]        = d3dRenderTargetBlendDesc;
+
+        m_device->CreateBlendState1(&d3dBlendStateDesc, &d3dBlendState);
+
+        if (d3dBlendState == nullptr)
+        {
+            LOG_ERROR("Failed to create ID3D11BlendState1 for '{}' shader", shaderDesc.Name);
+        }
+    }
+
+    //- Create InputLayout and shaders
+    ID3D11InputLayout*  d3dInputLayout;
+    ID3D11VertexShader* d3dVertexShader;
+    ID3D11PixelShader*  d3dPixelShader;
+    {
+        // NOTE(v.matushkin): How to handle shader compilation errors?
+        const auto dx11ShaderCompiler = DX11ShaderCompiler(shaderDesc);
+
+        const auto d3dInputLayoutDesc = dx11ShaderCompiler.GetInputLayoutDesc();
+        const auto vertexShaderBuffer = dx11ShaderCompiler.GetVertexShaderBuffer();
+        const auto pixelShaderBuffer  = dx11ShaderCompiler.GetPixelShaderBuffer();
+
+        const auto d3dCreateInputResult = m_device->CreateInputLayout(
+            d3dInputLayoutDesc.data(),
+            d3dInputLayoutDesc.size(),
+            vertexShaderBuffer.Ptr,
+            vertexShaderBuffer.Size,
+            &d3dInputLayout
+        );
+        if (FAILED(d3dCreateInputResult))
+        {
+            LOG_ERROR("Failed to create ID3D11InputLayout for '{}' shader", shaderDesc.Name);
+        }
+
+        m_device->CreateVertexShader(vertexShaderBuffer.Ptr, vertexShaderBuffer.Size, nullptr, &d3dVertexShader);
+        m_device->CreatePixelShader(pixelShaderBuffer.Ptr, pixelShaderBuffer.Size, nullptr, &d3dPixelShader);
+    }
 
     const auto shaderHandle = static_cast<ShaderHandle>(g_ShaderHandleWorkaround++);
-    m_shaders[shaderHandle] = std::move(dx11Shader);
+    m_shaders[shaderHandle] = {
+        .InputLayout       = d3dInputLayout,
+        .VertexShader      = d3dVertexShader,
+        .RasterizerState   = d3dRasterizerState,
+        .PixelShader       = d3dPixelShader,
+        .DepthStencilState = d3dDepthStencilState,
+        .BlendState        = d3dBlendState,
+    };
 
     return shaderHandle;
 }
@@ -702,7 +855,7 @@ void DX11Backend::CreateSwapchain()
         .Width       = windowSettings.Width,
         .Height      = windowSettings.Height,
         // TODO(v.matushkin): <SwapchainCreation/Format>
-        .Format      = dx11_RenderTextureFormat[static_cast<ui8>(graphicsSettings.SwapchainFormat)],
+        .Format      = dx11_RenderTextureFormat(graphicsSettings.SwapchainFormat),
         .Stereo      = false,
         .SampleDesc  = dxgiSwapChainSampleDesc,
         .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,

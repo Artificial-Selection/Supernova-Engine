@@ -16,13 +16,17 @@ struct ID3D11Device5;
 struct ID3D11DeviceContext4;
 struct ID3D11RenderTargetView;
 struct ID3D11DepthStencilView;
-struct ID3D11InputLayout;
-struct ID3D11VertexShader;
-struct ID3D11PixelShader;
 struct ID3D11Buffer;
 struct ID3D11SamplerState;
 struct ID3D11ShaderResourceView;
 struct ID3D11Texture2D1;
+
+struct ID3D11InputLayout;
+struct ID3D11VertexShader;
+struct ID3D11RasterizerState2;
+struct ID3D11PixelShader;
+struct ID3D11DepthStencilState;
+struct ID3D11BlendState1;
 
 
 namespace snv
@@ -65,9 +69,12 @@ class DX11Backend final : public IRendererBackend
 
     struct DX11Shader
     {
-        ComPtr<ID3D11InputLayout>  InputLayout;
-        ComPtr<ID3D11VertexShader> VertexShader;
-        ComPtr<ID3D11PixelShader>  FragmentShader;
+        ComPtr<ID3D11InputLayout>       InputLayout;
+        ComPtr<ID3D11VertexShader>      VertexShader;
+        ComPtr<ID3D11RasterizerState2>  RasterizerState;
+        ComPtr<ID3D11PixelShader>       PixelShader;
+        ComPtr<ID3D11DepthStencilState> DepthStencilState;
+        ComPtr<ID3D11BlendState1>       BlendState;
     };
 
     struct DX11Texture
@@ -93,24 +100,24 @@ public:
     DX11Backend();
     ~DX11Backend() = default;
 
-    void EnableBlend() override;
-    void EnableDepthTest() override;
-
     [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) override;
     [[nodiscard]] RenderPassHandle GetSwapchainRenderPass() override { return m_swapchainRenderPassHandle; }
 
-    void SetBlendFunction(BlendMode source, BlendMode destination) override;
-    void SetClearColor(f32 r, f32 g, f32 b, f32 a) override;
-    void SetDepthFunction(DepthCompareFunction depthCompareFunction) override;
-    void SetViewport(i32 x, i32 y, i32 width, i32 height) override;
-
-    void Clear(BufferBit bufferBitMask) override;
+    void EnableBlend() override {}
+    void EnableDepthTest() override {}
+    void SetBlendFunction(BlendMode source, BlendMode destination) override {}
+    void SetClearColor(f32 r, f32 g, f32 b, f32 a) override {}
+    void SetDepthFunction(CompareFunction depthCompareFunction) override {}
+    void SetViewport(i32 x, i32 y, i32 width, i32 height) override {}
+    void Clear(BufferBit bufferBitMask) override {}
 
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
     void EndRenderPass() override {}
     void EndFrame() override;
+
+    void BindShader(ShaderHandle shaderHandle) override;
 
     void DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHandle, i32 indexCount, i32 vertexCount) override;
 
@@ -144,12 +151,8 @@ private:
 
     ComPtr<ID3D11Buffer>         m_cbPerFrame;
     ComPtr<ID3D11Buffer>         m_cbPerDraw;
-
-
-    f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f}; // TODO(v.matushkin): Remove? Not used right now
-
-    PerFrame m_cbPerFrameData;
-    PerDraw  m_cbPerDrawData;
+    PerFrame                     m_cbPerFrameData;
+    PerDraw                      m_cbPerDrawData;
 
     std::unordered_map<BufferHandle,        DX11Buffer>        m_buffers;
     std::unordered_map<RenderPassHandle,    DX11RenderPass>    m_renderPasses;

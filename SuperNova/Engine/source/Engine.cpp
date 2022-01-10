@@ -33,13 +33,13 @@ void Engine::OnCreate()
     const auto renderWidth  = EngineSettings::GraphicsSettings.RenderWidth;
     const auto renderHeight = EngineSettings::GraphicsSettings.RenderHeight;
 
+    AssetDatabase::Init(k_AssetDir);
+
     Renderer::Init();
     Renderer::SetViewport(0, 0, renderWidth, renderHeight);
     Renderer::SetClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     Renderer::EnableDepthTest();
-    Renderer::SetDepthFunction(DepthCompareFunction::Less);
-
-    AssetDatabase::Init(k_AssetDir);
+    Renderer::SetDepthFunction(CompareFunction::Less);
 
     (void) AssetDatabase::LoadAsset<Shader>(k_ShaderName);
 

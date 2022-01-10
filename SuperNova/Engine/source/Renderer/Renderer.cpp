@@ -64,17 +64,6 @@ void Renderer::Shutdown()
 }
 
 
-void Renderer::EnableBlend()
-{
-    s_rendererBackend->EnableBlend();
-}
-
-void Renderer::EnableDepthTest()
-{
-    s_rendererBackend->EnableDepthTest();
-}
-
-
 void* Renderer::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
 {
     return s_rendererBackend->GetNativeRenderTexture(renderTextureHandle);
@@ -86,6 +75,16 @@ RenderPassHandle Renderer::GetSwapchainRenderPass()
 }
 
 
+void Renderer::EnableBlend()
+{
+    s_rendererBackend->EnableBlend();
+}
+
+void Renderer::EnableDepthTest()
+{
+    s_rendererBackend->EnableDepthTest();
+}
+
 void Renderer::SetBlendFunction(BlendMode source, BlendMode destination)
 {
     s_rendererBackend->SetBlendFunction(source, destination);
@@ -96,7 +95,7 @@ void Renderer::SetClearColor(f32 r, f32 g, f32 b, f32 a)
     s_rendererBackend->SetClearColor(r, g, b, a);
 }
 
-void Renderer::SetDepthFunction(DepthCompareFunction depthCompareFunction)
+void Renderer::SetDepthFunction(CompareFunction depthCompareFunction)
 {
     s_rendererBackend->SetDepthFunction(depthCompareFunction);
 }

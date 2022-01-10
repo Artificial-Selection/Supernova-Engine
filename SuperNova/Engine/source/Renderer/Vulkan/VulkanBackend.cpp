@@ -204,8 +204,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
     const VkAllocationCallbacks*              alloc_callbacks,
     VkDebugUtilsMessengerEXT*                 debug_messenger)
 {
-    auto func =
-        reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+    auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
     if (func == nullptr)
     {
         return VK_ERROR_EXTENSION_NOT_PRESENT;
@@ -220,8 +219,7 @@ static VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
     const VkAllocationCallbacks* pAllocator
 )
 {
-    auto func =
-        reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
+    auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
     if (func != nullptr)
     {
         func(instance, messenger, pAllocator);
@@ -357,31 +355,6 @@ VulkanBackend::~VulkanBackend()
 #endif
     vkDestroyInstance(m_instance, nullptr);
 }
-
-
-void VulkanBackend::EnableBlend()
-{}
-
-void VulkanBackend::EnableDepthTest()
-{}
-
-void VulkanBackend::SetBlendFunction(BlendMode source, BlendMode destination)
-{}
-
-void VulkanBackend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
-{
-    m_clearValues[0].color = {.float32 = {r, g, b, a}};
-}
-
-void VulkanBackend::SetDepthFunction(DepthCompareFunction depthCompareFunction)
-{}
-
-void VulkanBackend::SetViewport(i32 x, i32 y, i32 width, i32 height)
-{}
-
-
-void VulkanBackend::Clear(BufferBit bufferBitMask)
-{}
 
 
 void VulkanBackend::BeginFrame(
@@ -522,6 +495,12 @@ void VulkanBackend::EndFrame()
     vkQueuePresentKHR(m_graphicsQueue, &vkPresentInfo);
 
     m_currentFrame = (m_currentFrame + 1) % k_BackBufferFrames;
+}
+
+
+void VulkanBackend::BindShader(ShaderHandle shaderHandle)
+{
+    SNV_ASSERT(false, "Not implemented");
 }
 
 

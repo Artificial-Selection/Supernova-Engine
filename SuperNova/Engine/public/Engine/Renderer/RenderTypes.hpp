@@ -19,31 +19,13 @@ enum class TextureHandle       : ui32 { InvalidHandle = k_InvalidHandle };
 enum class ShaderHandle        : ui32 { InvalidHandle = k_InvalidHandle };
 
 
-// NOTE(v.matushkin): Unity has 'Off' BlendMode, what does it do?
-// NOTE(v.matushkin): Graphics APIs have more options
-enum class BlendMode : ui8
-{
-    Zero,
-    One,
-    DstColor,
-    SrcColor,
-    OneMinusDstColor,
-    SrcAlpha,
-    OneMinusSrcColor,
-    DstAlpha,
-    OneMinusDstAlpha,
-    ScrAlphaSaturate,
-    OneMinusSrcAlpha,
-};
+//- Shader states
 
-// TODO(v.matushkin): Bring back enum class?
-// Or use something from this https://walbourn.github.io/modern-c++-bitmask-types/
-enum BufferBit : ui32
+//-- RasterizerState
+enum class PolygonMode : ui8
 {
-    Color   = 1 << 0,
-    Depth   = 1 << 1,
-    // Accum = 0x00000200,
-    Stencil = 1 << 2,
+    Fill,
+    Wireframe,
 };
 
 enum class CullMode : ui8
@@ -54,7 +36,21 @@ enum class CullMode : ui8
     // OpenGl and Vulkan have FrontAndBack
 };
 
-enum class DepthCompareFunction : ui8
+enum class TriangleFrontFace : ui8
+{
+    Clockwise,
+    CounterClockwise,
+};
+
+//-- DepthStencilState
+enum class DepthTest : ui8
+{
+    Off,
+    ReadOnly,
+    ReadWrite,
+};
+
+enum class CompareFunction : ui8
 {
     Never,
     Less,
@@ -64,6 +60,75 @@ enum class DepthCompareFunction : ui8
     NotEqual,
     GreaterEqual,
     Always,
+};
+
+//-- BlendState
+enum class BlendMode : ui8
+{
+    Off,
+    BlendOp,
+    LogicOp,
+};
+
+enum class BlendOp : ui8
+{
+    Add,
+    Subtract,
+    ReverseSubtract,
+    Min,
+    Max,
+};
+
+// NOTE(v.matushkin): OpenGL/Vulkan have more options
+enum class BlendFactor : ui8
+{
+    Zero,
+    One,
+    SrcColor,
+    OneMinusSrcColor,
+    DstColor,
+    OneMinusDstColor,
+    SrcAlpha,
+    OneMinusSrcAlpha,
+    DstAlpha,
+    OneMinusDstAlpha,
+    ScrAlphaSaturate,
+    // TODO(v.matushkin): How this '*1*' values work?
+    Src1Color,
+    OneMinusSrc1Color,
+    Src1Alpha,
+    OneMinusSrc1Alpha,
+};
+
+enum class BlendLogicOp : ui8
+{
+    Clear,
+    Set,
+    Copy,
+    CopyInversed,
+    Noop,
+    Invert,
+    And,
+    Nand,
+    Or,
+    Nor,
+    Xor,
+    Equivalent,
+    AndReverse,
+    AndInverted,
+    OrReverse,
+    OrInverted,
+};
+
+
+// TODO(v.matushkin): Bring back enum class?
+// Or use something from this https://walbourn.github.io/modern-c++-bitmask-types/
+enum BufferBit : ui32
+{
+    Color   = 1 << 0,
+    Depth   = 1 << 1,
+    // Accum = 0x00000200,
+    Stencil = 1 << 2,
 };
 
 enum class VertexAttribute : ui8
@@ -192,28 +257,45 @@ struct RenderPassDesc
     std::optional<RenderTextureHandle> DepthStencilAttachment;
 };
 
-struct BlendState
+struct RasterizerStateDesc
 {
-    BlendMode ColorSrcBlendMode;
-    BlendMode ColorDstBlendMode;
-    BlendMode AlphaSrcBlendMode;
-    BlendMode AlphaDstBlendMode;
+    PolygonMode       PolygonMode;
+    CullMode          CullMode;
+    TriangleFrontFace FrontFace;
+
+    static RasterizerStateDesc Default();
 };
 
-struct ShaderState
+struct DepthStencilStateDesc
 {
-    BlendState           BlendState;
-    CullMode             CullMode;
-    DepthCompareFunction DepthCompareFunction;
+    bool            DepthTestEnable;
+    bool            DepthWriteEnable;
+    CompareFunction DepthCompareFunction;
 
-    static ShaderState Default();
+    static DepthStencilStateDesc Default();
+};
+
+struct BlendStateDesc
+{
+    BlendMode    BlendMode;
+    BlendFactor  ColorSrcBlendFactor;
+    BlendFactor  ColorDstBlendFactor;
+    BlendOp      ColorBlendOp;
+    BlendFactor  AlphaSrcBlendFactor;
+    BlendFactor  AlphaDstBlendFactor;
+    BlendOp      AlphaBlendOp;
+    BlendLogicOp LogicOp;
+
+    static BlendStateDesc Default();
 };
 
 struct ShaderDesc
 {
     std::string Name;
 
-    ShaderState State;
+    RasterizerStateDesc   RasterizerStateDesc;
+    DepthStencilStateDesc DepthStencilStateDesc;
+    BlendStateDesc        BlendStateDesc;
 
     std::string VertexSource;
     std::string FragmentSource;

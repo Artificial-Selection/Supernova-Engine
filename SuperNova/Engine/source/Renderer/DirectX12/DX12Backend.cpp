@@ -302,39 +302,10 @@ DX12Backend::~DX12Backend()
 }
 
 
-void DX12Backend::EnableBlend()
-{}
-
-void DX12Backend::EnableDepthTest()
-{}
-
-
 void* DX12Backend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle)
 {
     return (void*) m_renderTextures[renderTextureHandle]->SrvGpuDescriptor.ptr;
 }
-
-
-void DX12Backend::SetBlendFunction(BlendMode source, BlendMode destination)
-{}
-
-void DX12Backend::SetClearColor(f32 r, f32 g, f32 b, f32 a)
-{
-    m_clearColor[0] = r;
-    m_clearColor[1] = g;
-    m_clearColor[2] = b;
-    m_clearColor[3] = a;
-}
-
-void DX12Backend::SetDepthFunction(DepthCompareFunction depthCompareFunction)
-{}
-
-void DX12Backend::SetViewport(i32 x, i32 y, i32 width, i32 height)
-{}
-
-
-void DX12Backend::Clear(BufferBit bufferBitMask)
-{}
 
 
 void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
@@ -515,6 +486,12 @@ void DX12Backend::EndFrame()
     m_swapChain->Present(0, 0);
 
     WaitForPreviousFrame();
+}
+
+
+void DX12Backend::BindShader(ShaderHandle shaderHandle)
+{
+    SNV_ASSERT(false, "Not implemented");
 }
 
 

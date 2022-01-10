@@ -7,6 +7,7 @@
 namespace snv
 {
 
+// NOTE(v.matushkin): May be it's not a good idea to forward these
 class Texture;
 class Shader;
 

@@ -28,11 +28,17 @@ private:
                   void        ParseShaderBody(ShaderDesc& shaderDesc);
     [[nodiscard]] std::string ParseShaderStage() const;
 
-    // ShaderState
-    [[nodiscard]] ShaderState          ParseShaderState();
-    [[nodiscard]] BlendState           ParseBlendStateValue();
-    [[nodiscard]] CullMode             ParseCullModeValue();
-    [[nodiscard]] DepthCompareFunction ParseDepthCompareFunctionValue();
+    //- ShaderState
+    [[nodiscard]] void            ParseShaderState(ShaderDesc& shaderDesc);
+    //-- RasterizerState
+    [[nodiscard]] CullMode        ParseCullModeValue();
+    //-- DepthStencilState
+    [[nodiscard]] bool            ParseDepthTestValue();
+    [[nodiscard]] bool            ParseDepthWriteValue();
+    [[nodiscard]] CompareFunction ParseDepthCompareValue();
+    //-- BlendState
+    [[nodiscard]] void            ParseBlendOpValue(BlendStateDesc& blendStateDesc);
+    [[nodiscard]] void            ParseBlendValue(BlendStateDesc& blendStateDesc);
 
 private:
     std::unique_ptr<Lexer> m_lexer;

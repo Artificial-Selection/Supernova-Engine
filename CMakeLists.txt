@@ -323,10 +323,12 @@ set(DirectX11_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/DirectX11)
 set(DirectX11_SRC
     ${DirectX11_SRC_DIR}/DX11Backend.cpp
     ${DirectX11_SRC_DIR}/DX11ImGuiRenderContext.cpp
+    ${DirectX11_SRC_DIR}/DX11ShaderCompiler.cpp
 )
 set(DirectX11_INC_PRIVATE
     ${DirectX11_INC_PRIVATE_DIR}/DX11Backend.hpp
     ${DirectX11_INC_PRIVATE_DIR}/DX11ImGuiRenderContext.hpp
+    ${DirectX11_INC_PRIVATE_DIR}/DX11ShaderCompiler.hpp
 )
 
 # ---------- DirectX 12 ----------

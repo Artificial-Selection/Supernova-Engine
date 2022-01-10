@@ -23,18 +23,16 @@ public:
     static void Init();
     static void Shutdown();
 
-    static void EnableBlend();
-    static void EnableDepthTest();
-
     // For ImGui
     static [[nodiscard]] void*            GetNativeRenderTexture(RenderTextureHandle renderTextureHandle);
     static [[nodiscard]] RenderPassHandle GetSwapchainRenderPass();
 
+    static void EnableBlend();
+    static void EnableDepthTest();
     static void SetBlendFunction(BlendMode source, BlendMode destination);
     static void SetClearColor(f32 r, f32 g, f32 b, f32 a);
-    static void SetDepthFunction(DepthCompareFunction depthCompareFunction);
+    static void SetDepthFunction(CompareFunction depthCompareFunction);
     static void SetViewport(i32 x, i32 y, i32 width, i32 height);
-
     static void Clear(BufferBit bufferBitMask);
 
     static void RenderFrame(const glm::mat4x4& localToWorld);

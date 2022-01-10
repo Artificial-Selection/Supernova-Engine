@@ -17,10 +17,12 @@ enum class TokenType : ui8
     Shader,
     //-- State
     State,
-    Blend,
     Cull,
     DepthTest,
-    DepthCompareFunction,
+    DepthWrite,
+    DepthCompare,
+    BlendOp,
+    Blend,
     //-- Shader Stage
     Vertex,
     Fragment,
@@ -31,9 +33,10 @@ enum class TokenType : ui8
     //-- State Value
     Value_On,
     Value_Off,
-    Value_BlendMode,
     Value_CullMode,
-    Value_DepthCompareFunction,
+    Value_CompareFunction,
+    Value_BlendOp,
+    Value_BlendFactor,
 
     //- Common
     OpenBrace,
