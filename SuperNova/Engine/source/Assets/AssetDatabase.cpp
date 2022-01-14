@@ -24,10 +24,21 @@
 #endif
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#undef STB_IMAGE_IMPLEMENTATION
+#ifdef SNV_ENABLE_DEBUG
+    #undef STBI_FAILURE_USERMSG
+#else
+    #undef STBI_NO_FAILURE_STRINGS
+#endif
 
 #include <fstream>
 #include <sstream>
 #include <utility>
+
+
+// TODO(v.matushkin):
+//  - <DefaultMaterial>
+//    There should be a way to get/set default shader for models/materials loading
 
 
 namespace AssimpConstants
@@ -76,7 +87,7 @@ namespace snv
 std::vector<std::shared_ptr<Material>> GetAssimpMaterials(const aiScene* scene, ShaderPtr shader);
 
 
-void AssetDatabase::Init(std::string assetDirectory)
+void AssetDatabase::Init(std::string&& assetDirectory)
 {
     // NOTE(v.matushkin): Assuming that assetDirectory ends with '/'
     m_assetDir = std::move(assetDirectory);
@@ -120,12 +131,13 @@ TexturePtr AssetDatabase::LoadAsset(const std::string& assetPath)
 template<>
 ShaderPtr AssetDatabase::LoadAsset(const std::string& assetPath)
 {
-    if (m_theOneAndOnlyForNow == nullptr)
+    auto assetIt = m_shaders.find(assetPath);
+    if (assetIt == m_shaders.end())
     {
-        m_theOneAndOnlyForNow = std::make_shared<Shader>(LoadShader(assetPath));
+        assetIt = m_shaders.emplace(assetPath, std::make_shared<Shader>(LoadShader(assetPath))).first;
     }
 
-    return m_theOneAndOnlyForNow;
+    return assetIt->second;
 }
 
 
@@ -153,7 +165,8 @@ Model AssetDatabase::LoadModel(const std::string& modelName)
         SNV_ASSERT(false, "REMOVE THIS SOMEHOW");
     }
 
-    const auto materials = GetAssimpMaterials(scene, m_theOneAndOnlyForNow);
+    // TODO(v.matushkin): <DefaultMaterial>
+    const auto materials = GetAssimpMaterials(scene, m_shaders["Main"]);
 
     std::vector<GameObject> modelGameObjects;
 
@@ -266,7 +279,7 @@ Texture AssetDatabase::LoadTexture(const std::string& texturePath)
     stbi_set_flip_vertically_on_load(true); // TODO(v.matushkin): Set only once
 
     // TODO(v.matushkin): AssetDatabase shouldn't handle path adjusting
-    std::string fullPath = "../../assets/models/Sponza/" + texturePath;
+    const std::string fullPath = "../../assets/models/Sponza/" + texturePath;
 
     i32 width, height, numComponents;
     // TODO(v.matushkin): Check for errors
@@ -291,7 +304,7 @@ Texture AssetDatabase::LoadTexture(const std::string& texturePath)
         .Width    = static_cast<ui32>(width),
         .Height   = static_cast<ui32>(height),
         .Format   = TextureFormat::RGBA8,
-        .WrapMode = TextureWrapMode::Repeat
+        .WrapMode = TextureWrapMode::Repeat,
     };
 
     return Texture(textureDesc, std::move(textureData));
@@ -311,22 +324,22 @@ Shader AssetDatabase::LoadShader(const std::string& shaderName)
     {
         shaderPath = m_glShaderDir;
     }
-    else
+    else // GraphicsApi::DX11 or GraphicsApi::DX12
     {
         shaderPath = m_dxShaderDir;
     }
     shaderPath += shaderName + ".shader";
 
-    std::ifstream vertexFile(shaderPath, std::ios::binary | std::ios::in);
-    std::stringstream buffer;
-    buffer << vertexFile.rdbuf();
+    std::ifstream shaderFile(shaderPath, std::ios::binary | std::ios::in);
+    std::stringstream shaderFileContent;
+    shaderFileContent << shaderFile.rdbuf();
 
-    // TODO(v.matushkin): Assign default material if got an error
+    // TODO(v.matushkin): <DefaultMaterial> Assign default material if got an error
     ShaderDesc shaderDesc;
     try
     {
         ShaderParser shaderParser;
-        shaderDesc = shaderParser.Parse(buffer.str());
+        shaderDesc = shaderParser.Parse(shaderFileContent.str());
     }
     catch (const ShaderParserError& error)
     {
@@ -386,7 +399,7 @@ std::vector<std::shared_ptr<Material>> GetAssimpMaterials(const aiScene* scene, 
             material->SetNormalMap(Texture::GetNormalTexture());
         }
 
-        materials.emplace_back(material);
+        materials.push_back(std::move(material));
     }
 
     return materials;

@@ -1,6 +1,6 @@
 #include <Engine/Engine.hpp>
-#include <Engine/EngineSettings.hpp>
 
+#include <Engine/EngineSettings.hpp>
 #include <Engine/Assets/AssetDatabase.hpp>
 #include <Engine/Assets/Shader.hpp>
 #include <Engine/Components/Camera.hpp>
@@ -41,6 +41,7 @@ void Engine::OnCreate()
     Renderer::EnableDepthTest();
     Renderer::SetDepthFunction(CompareFunction::Less);
 
+    // NOTE(v.matushkin): AssetDatabase::LoadAsset<Model> depends on LoadAsset<Shader>("Main"), which is bad, but can't do anything right now
     (void) AssetDatabase::LoadAsset<Shader>(k_ShaderName);
 
     const auto sponzaLoadStart = std::chrono::high_resolution_clock::now();
