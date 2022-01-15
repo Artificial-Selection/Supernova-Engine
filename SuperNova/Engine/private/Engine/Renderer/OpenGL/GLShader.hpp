@@ -11,20 +11,41 @@
 namespace snv
 {
 
-enum class GLShaderType
-{
-    Vertex   = 0x8B31,
-    Fragment = 0x8B30
-};
-
-
 class GLShader
 {
+    struct GLRasterizerState
+    {
+        ui32 PolygonMode;
+        bool FacetCullingEnable;
+        ui32 CullFace;
+        ui32 FrontFace;
+    };
+
+    struct GLDepthStencilState
+    {
+        bool DepthTestEnable;
+        bool DepthWriteEnable;
+        ui32 DepthCompareFunction;
+    };
+
+    struct GLBlendState
+    {
+        bool BlendEnable;
+        bool LogicOpEnable;
+        ui32 ColorBlendOp;
+        ui32 AlphaBlendOp;
+        ui32 ColorSrcBlendFactor;
+        ui32 ColorDstBlendFactor;
+        ui32 AlphaSrcBlendFactor;
+        ui32 AlphaDstBlendFactor;
+        ui32 LogicOp;
+    };
+
 public:
     // NOTE(v.matushkin): Can I make this move only without default constructor?
     // TODO(v.matushkin): Define destructor
     GLShader() noexcept;
-    GLShader(const std::string& vertexSource, const std::string& fragmentSource);
+    GLShader(const ShaderDesc& shaderDesc);
 
     GLShader(GLShader&& other) noexcept;
     GLShader& operator=(GLShader&& other) noexcept;
@@ -32,22 +53,24 @@ public:
     GLShader(const GLShader& other) = delete;
     GLShader& operator=(const GLShader& other) = delete;
 
-    [[nodiscard]] ShaderHandle GetHandle() const { return static_cast<ShaderHandle>(m_shaderProgramID); }
-
     void Bind() const;
 
     void SetInt1(const std::string& name, i32 value) const;
     void SetMatrix4(const std::string& name, const glm::mat4& value) const;
 
 private:
-    static ui32 CreateShader(const char* shaderSource, GLShaderType shaderType);
+    static ui32 CreateShader(const char* shaderSource, ui32 shaderType);
     static ui32 CreateShaderProgram(i32 vertexShaderID, i32 fragmentShaderID);
 
     static void CheckShaderCompilationStatus(ui32 shaderID);
     static void CheckShaderProgramLinkStatus(ui32 shaderProgramID);
 
 private:
-    ui32 m_shaderProgramID;
+    ui32                m_shaderProgramID;
+
+    GLRasterizerState   m_rasterizerState;
+    GLDepthStencilState m_depthStencilState;
+    GLBlendState        m_blendState;
 };
 
 }  // namespace snv

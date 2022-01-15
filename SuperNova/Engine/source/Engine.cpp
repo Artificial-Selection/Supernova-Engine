@@ -37,9 +37,9 @@ void Engine::OnCreate()
 
     Renderer::Init();
     Renderer::SetViewport(0, 0, renderWidth, renderHeight);
-    Renderer::SetClearColor(0.5f, 0.5f, 0.5f, 1.0f);
-    Renderer::EnableDepthTest();
-    Renderer::SetDepthFunction(CompareFunction::Less);
+    // Renderer::SetClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+    // Renderer::EnableDepthTest();
+    // Renderer::SetDepthFunction(CompareFunction::Less);
 
     // NOTE(v.matushkin): AssetDatabase::LoadAsset<Model> depends on LoadAsset<Shader>("Main"), which is bad, but can't do anything right now
     (void) AssetDatabase::LoadAsset<Shader>(k_ShaderName);

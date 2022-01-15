@@ -1,8 +1,9 @@
 #include <Engine/Renderer/OpenGL/GLBackend.hpp>
-#include <Engine/Renderer/OpenGL/GLImGuiRenderContext.hpp>
 
+#include <Engine/EngineSettings.hpp>
 #include <Engine/Application/Window.hpp>
 #include <Engine/Core/Assert.hpp>
+#include <Engine/Renderer/OpenGL/GLImGuiRenderContext.hpp>
 
 #include <glad/glad.h>
 
@@ -17,36 +18,11 @@
 //    How the fuck am I supposed to use it? Is it even worth it
 
 
-static const ui32 gl_BlendMode[] = {
-    GL_ZERO,
-    GL_ONE,
-    GL_DST_COLOR,
-    GL_SRC_COLOR,
-    GL_ONE_MINUS_DST_COLOR,
-    GL_SRC_ALPHA,
-    GL_ONE_MINUS_SRC_COLOR,
-    GL_DST_ALPHA,
-    GL_ONE_MINUS_DST_ALPHA,
-    GL_SRC_ALPHA_SATURATE,
-    GL_ONE_MINUS_SRC_ALPHA,
-};
-
 static const ui32 gl_BufferBit[] = {
     GL_COLOR_BUFFER_BIT,   // BufferBit::Color
     GL_DEPTH_BUFFER_BIT,   // BufferBit::Depth
     // GL_ACCUM_BUFFER_BIT,  // BufferBit::Accum
     GL_STENCIL_BUFFER_BIT, // BufferBit::Stencil
-};
-
-static const ui32 gl_DepthFunction[] = {
-    GL_NEVER,    // DepthFunction::Never
-    GL_LESS,     // DepthFunction::Less
-    GL_EQUAL,    // DepthFunction::Equal
-    GL_LEQUAL,   // DepthFunction::LessEqual
-    GL_GREATER,  // DepthFunction::Greater
-    GL_NOTEQUAL, // DepthFunction::NotEqual
-    GL_GEQUAL,   // DepthFunction::GreaterEqual
-    GL_ALWAYS,   // DepthFunction::Always
 };
 
 #define OPENGL_NO_DEPTH_STENCIL 0
@@ -73,7 +49,7 @@ static const ui32 gl_RenderTextureFormat[] = {
 // static ui32 g_BufferHandleWorkaround        = 0;
 static ui32 g_RenderPassHandleWorkaround    = 0;
 static ui32 g_RenderTextureHandleWorkaround = 0;
-// static ui32 g_ShaderHandleWorkaround        = 0;
+static ui32 g_ShaderHandleWorkaround        = 0;
 // static ui32 g_TextureHandleWorkaround       = 0;
 
 
@@ -169,11 +145,18 @@ GLBackend::GLBackend()
     }
 #endif // SNV_ENABLE_DEBUG
 
-    // TODO(v.matushkin) Pass this settings in some struct, instead of just hardcoding it
-    //  So different backends will give the same result
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
+    //- Set default state
+    {
+        const auto& graphicsSettings = EngineSettings::GraphicsSettings;
+        glViewport(0, 0, graphicsSettings.RenderWidth, graphicsSettings.RenderHeight);
+
+        glDisable(GL_STENCIL_TEST);
+        glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_KEEP, GL_KEEP);
+        // glStencilFuncSeparate(GL_FRONT, GL_ALWAYS, 0, );
+        glStencilOpSeparate(GL_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
+        // glStencilFuncSeparate(GL_BACK, GL_ALWAYS, 0, );
+        // glStencilMask | glStencilMaskSeparate
+    }
 
     // TODO(v.matushkin): <GLRenderPass>
     GLRenderTexture colorAttachment = {
@@ -256,12 +239,11 @@ void GLBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
 {
     // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
     // const auto& shader = m_shaders[shaderHandle];
-    const auto& shader = m_shaders.begin()->second;
+    const auto& shader = m_shaders[m_engineShaderHandle];
     shader.SetInt1("_DiffuseTexture", 0);
     shader.SetMatrix4("_ObjectToWorld", localToWorld);
     shader.SetMatrix4("_MatrixV", cameraView);
     shader.SetMatrix4("_MatrixP", cameraProjection);
-    shader.Bind();
 }
 
 void GLBackend::BeginRenderPass(RenderPassHandle renderPassHandle)
@@ -330,7 +312,8 @@ void GLBackend::EndFrame()
 
 void GLBackend::BindShader(ShaderHandle shaderHandle)
 {
-    SNV_ASSERT(false, "Not implemented");
+    const auto& openglShader = m_shaders[shaderHandle];
+    openglShader.Bind();
 }
 
 
@@ -470,11 +453,15 @@ TextureHandle GLBackend::CreateTexture(const TextureDesc& textureDesc, const ui8
 
 ShaderHandle GLBackend::CreateShader(const ShaderDesc& shaderDesc)
 {
-    GLShader   glShader(shaderDesc.VertexSource, shaderDesc.FragmentSource);
-    const auto handle = glShader.GetHandle();
-    m_shaders.emplace(handle, std::move(glShader));
+    const auto shaderHandle = static_cast<ShaderHandle>(g_ShaderHandleWorkaround++);
+    m_shaders.emplace(shaderHandle, GLShader(shaderDesc));
 
-    return handle;
+    if (shaderDesc.Name == "Engine/Main")
+    {
+        m_engineShaderHandle = shaderHandle;
+    }
+
+    return shaderHandle;
 }
 
 } // namespace snv

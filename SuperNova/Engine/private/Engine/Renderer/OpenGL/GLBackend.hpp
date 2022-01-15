@@ -75,6 +75,8 @@ public:
 private:
     RenderPassHandle m_swapchainRenderPassHandle;
 
+    ShaderHandle m_engineShaderHandle;
+
     std::unordered_map<BufferHandle,        GLBuffer>        m_buffers;
     std::unordered_map<RenderPassHandle,    GLRenderPass>    m_renderPasses;
     std::unordered_map<RenderTextureHandle, GLRenderTexture> m_renderTextures;
