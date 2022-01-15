@@ -381,8 +381,7 @@ void DX11Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHan
 
 IImGuiRenderContext* DX11Backend::CreateImGuiRenderContext()
 {
-    // NOTE(v.matushkin): Conversion from ID3D11Device5/ID3D11DeviceContext4 to ID3D11Device/ID3D11DeviceContext
-    return new DX11ImGuiRenderContext(m_device.Get(), m_deviceContext.Get());
+    return new DX11ImGuiRenderContext(m_device.Get(), m_deviceContext.Get(), m_factory.Get());
 }
 
 

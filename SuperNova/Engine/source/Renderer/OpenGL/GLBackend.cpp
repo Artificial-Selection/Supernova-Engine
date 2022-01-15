@@ -124,6 +124,7 @@ void APIENTRY openGLMessageCallback(
 
 
 GLBackend::GLBackend()
+    : m_engineShaderHandle(ShaderHandle::InvalidHandle)
 {
     LOG_INFO(
         "OpengGL Info\n"
