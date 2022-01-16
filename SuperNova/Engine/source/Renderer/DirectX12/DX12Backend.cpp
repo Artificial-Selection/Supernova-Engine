@@ -1,10 +1,11 @@
 #include <Engine/Renderer/DirectX12/DX12Backend.hpp>
-#include <Engine/Renderer/DirectX12/DX12DescriptorHeap.hpp>
-#include <Engine/Renderer/DirectX12/DX12ImGuiRenderContext.hpp>
 
 #include <Engine/EngineSettings.hpp>
 #include <Engine/Application/Window.hpp>
 #include <Engine/Core/Assert.hpp>
+#include <Engine/Renderer/RenderDefaults.hpp>
+#include <Engine/Renderer/DirectX12/DX12DescriptorHeap.hpp>
+#include <Engine/Renderer/DirectX12/DX12ImGuiRenderContext.hpp>
 
 #include <dxgi1_6.h>
 
@@ -165,6 +166,114 @@ static const DXGI_FORMAT dx12_TextureFormat[] = {
     DXGI_FORMAT_D32_FLOAT,
 };
 
+//- Shader states
+
+//-- RasterizerState
+static D3D12_CULL_MODE dx12_CullMode(snv::CullMode cullMode)
+{
+    static const D3D12_CULL_MODE d3dCullMode[] = {
+        D3D12_CULL_MODE_NONE,
+        D3D12_CULL_MODE_FRONT,
+        D3D12_CULL_MODE_BACK,
+    };
+
+    return d3dCullMode[static_cast<ui8>(cullMode)];
+}
+
+static D3D12_FILL_MODE dx12_PolygonMode(snv::PolygonMode polygonMode)
+{
+    static const D3D12_FILL_MODE d3dPolygonMode[] = {
+        D3D12_FILL_MODE_SOLID,
+        D3D12_FILL_MODE_WIREFRAME,
+    };
+
+    return d3dPolygonMode[static_cast<ui8>(polygonMode)];
+}
+
+static bool dx12_TriangleFrontFace(snv::TriangleFrontFace triangleFrontFace)
+{
+    return triangleFrontFace == snv::TriangleFrontFace::Clockwise ? false : true;
+}
+
+//-- DepthStencilState
+static D3D12_COMPARISON_FUNC dx12_CompareFunction(snv::CompareFunction compareFunction)
+{
+    static const D3D12_COMPARISON_FUNC d3dCompareFunction[] = {
+        D3D12_COMPARISON_FUNC_NEVER,
+        D3D12_COMPARISON_FUNC_LESS,
+        D3D12_COMPARISON_FUNC_EQUAL,
+        D3D12_COMPARISON_FUNC_LESS_EQUAL,
+        D3D12_COMPARISON_FUNC_GREATER,
+        D3D12_COMPARISON_FUNC_NOT_EQUAL,
+        D3D12_COMPARISON_FUNC_GREATER_EQUAL,
+        D3D12_COMPARISON_FUNC_ALWAYS,
+    };
+
+    return d3dCompareFunction[static_cast<ui8>(compareFunction)];
+}
+
+//-- BlendState
+static D3D12_BLEND_OP dx12_BlendOp(snv::BlendOp blendOp)
+{
+    static const D3D12_BLEND_OP d3dBlendOp[] = {
+        D3D12_BLEND_OP_ADD,
+        D3D12_BLEND_OP_SUBTRACT,
+        D3D12_BLEND_OP_REV_SUBTRACT,
+        D3D12_BLEND_OP_MIN,
+        D3D12_BLEND_OP_MAX,
+    };
+
+    return d3dBlendOp[static_cast<ui8>(blendOp)];
+}
+
+static D3D12_BLEND dx12_BlendFactor(snv::BlendFactor blendFactor)
+{
+    static const D3D12_BLEND d3dBlendFactor[] = {
+        D3D12_BLEND_ZERO,
+        D3D12_BLEND_ONE,
+        D3D12_BLEND_SRC_COLOR,
+        D3D12_BLEND_INV_SRC_COLOR,
+        D3D12_BLEND_DEST_COLOR,
+        D3D12_BLEND_INV_DEST_COLOR,
+        D3D12_BLEND_SRC_ALPHA,
+        D3D12_BLEND_INV_SRC_ALPHA,
+        D3D12_BLEND_DEST_ALPHA,
+        D3D12_BLEND_INV_DEST_ALPHA,
+        D3D12_BLEND_SRC_ALPHA_SAT,
+        D3D12_BLEND_SRC1_COLOR,
+        D3D12_BLEND_INV_SRC1_COLOR,
+        D3D12_BLEND_SRC1_ALPHA,
+        D3D12_BLEND_INV_SRC1_ALPHA,
+    };
+
+    return d3dBlendFactor[static_cast<ui8>(blendFactor)];
+}
+
+static D3D12_LOGIC_OP dx12_BlendLogicOp(snv::BlendLogicOp blendLogicOp)
+{
+    static const D3D12_LOGIC_OP d3dBlendLogicOp[] = {
+        D3D12_LOGIC_OP_CLEAR,
+        D3D12_LOGIC_OP_SET,
+        D3D12_LOGIC_OP_COPY,
+        D3D12_LOGIC_OP_COPY_INVERTED,
+        D3D12_LOGIC_OP_NOOP,
+        D3D12_LOGIC_OP_INVERT,
+        D3D12_LOGIC_OP_AND,
+        D3D12_LOGIC_OP_NAND,
+        D3D12_LOGIC_OP_OR,
+        D3D12_LOGIC_OP_NOR,
+        D3D12_LOGIC_OP_XOR,
+        D3D12_LOGIC_OP_EQUIV,
+        D3D12_LOGIC_OP_AND_REVERSE,
+        D3D12_LOGIC_OP_AND_INVERTED,
+        D3D12_LOGIC_OP_OR_REVERSE,
+        D3D12_LOGIC_OP_OR_INVERTED,
+    };
+
+    return d3dBlendLogicOp[static_cast<ui8>(blendLogicOp)];
+}
+
+
 namespace RootParameterIndex
 {
     static const ui32 cbPerFrame = 0;
@@ -187,9 +296,6 @@ namespace ShaderRegister
 //  Specify it in the shader? How does Unity handle this, what if I use same shader with different render texture formats.
 static const DXGI_FORMAT k_EngineColorFormat        = DXGI_FORMAT_B8G8R8A8_UNORM;
 static const DXGI_FORMAT k_EngineDepthStencilFormat = DXGI_FORMAT_D32_FLOAT;
-
-// TODO(v.matushkin): <RenderGraph>
-static bool g_IsPipelineInitialized = false;
 
 static ui32 g_BufferHandleWorkaround        = 0;
 static ui32 g_RenderPassHandleWorkaround    = 0;
@@ -310,18 +416,13 @@ void* DX12Backend::GetNativeRenderTexture(RenderTextureHandle renderTextureHandl
 
 void DX12Backend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection)
 {
-    // TODO(v.matushkin): <RenderGraph>
-    if (g_IsPipelineInitialized == false)
-    {
-        g_IsPipelineInitialized = true;
-        CreatePipeline();
-    }
-
     //- Reset CommandAllocator and CommandList
     // Command list allocators can only be reset when the associated command lists have finished execution on the GPU
     auto commandAllocator = m_commandAllocators[m_currentBackBufferIndex].Get();
     commandAllocator->Reset();
-    m_graphicsCommandList->Reset(commandAllocator, m_graphicsPipeline.Get());
+    // NOTE(v.matushkin): Remember first binded pipeline in a frame and set it on Reset ?
+    // m_graphicsCommandList->Reset(commandAllocator, m_graphicsPipeline.Get());
+    m_graphicsCommandList->Reset(commandAllocator, nullptr);
 
     //- Set RootSignature ConstantBuffer's
     m_graphicsCommandList->SetGraphicsRootSignature(m_rootSignature.Get());
@@ -491,7 +592,9 @@ void DX12Backend::EndFrame()
 
 void DX12Backend::BindShader(ShaderHandle shaderHandle)
 {
-    SNV_ASSERT(false, "Not implemented");
+    const auto& dx12Shader = m_shaders[shaderHandle];
+    // NOTE(v.matushkin): SetPipelineState1?
+    m_graphicsCommandList->SetPipelineState(dx12Shader.GraphicsPipeline.Get());
 }
 
 
@@ -963,10 +1066,132 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
 
 ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
 {
-    DX12Shader dx12Shader = {
-        .VertexShader   = m_shaderCompiler->CompileShader(L"vs_6_5", shaderDesc.VertexSource),
-        .FragmentShader = m_shaderCompiler->CompileShader(L"ps_6_5", shaderDesc.FragmentSource),
+    const auto dx12ShaderDesc = m_shaderCompiler->CompileShader(shaderDesc);
+
+    D3D12_SHADER_BYTECODE d3dVertexShaderBytecode = {
+        .pShaderBytecode = dx12ShaderDesc.VertexBytecode->GetBufferPointer(),
+        .BytecodeLength  = dx12ShaderDesc.VertexBytecode->GetBufferSize(),
     };
+    D3D12_SHADER_BYTECODE d3dPixelShaderBytecode = {
+        .pShaderBytecode = dx12ShaderDesc.PixelBytecode->GetBufferPointer(),
+        .BytecodeLength  = dx12ShaderDesc.PixelBytecode->GetBufferSize(),
+    };
+
+    //- InputLayout
+    D3D12_INPUT_LAYOUT_DESC d3dInputLayoutDesc = {
+        .pInputElementDescs = k_InputElementDesc,
+        .NumElements        = ARRAYSIZE(k_InputElementDesc),
+    };
+
+    //- RasterizerState
+    const auto rasterizerStateDesc = shaderDesc.RasterizerStateDesc;
+
+    D3D12_RASTERIZER_DESC d3dRasterizerDesc = {
+        .FillMode              = dx12_PolygonMode(rasterizerStateDesc.PolygonMode),
+        .CullMode              = dx12_CullMode(rasterizerStateDesc.CullMode),
+        .FrontCounterClockwise = dx12_TriangleFrontFace(rasterizerStateDesc.FrontFace),
+        .DepthBias             = D3D12_DEFAULT_DEPTH_BIAS,
+        .DepthBiasClamp        = D3D12_DEFAULT_DEPTH_BIAS_CLAMP,
+        .SlopeScaledDepthBias  = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,
+        .DepthClipEnable       = true,
+        .MultisampleEnable     = false,
+        .AntialiasedLineEnable = false,
+        .ForcedSampleCount     = 0,
+        .ConservativeRaster    = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF,
+    };
+
+    //- DepthStencilState
+    const auto depthStencilStateDesc = shaderDesc.DepthStencilStateDesc;
+
+    D3D12_DEPTH_STENCILOP_DESC d3dDepthStencilOpDesc = {
+        .StencilFailOp      = D3D12_STENCIL_OP_KEEP,
+        .StencilDepthFailOp = D3D12_STENCIL_OP_KEEP,
+        .StencilPassOp      = D3D12_STENCIL_OP_KEEP,
+        .StencilFunc        = D3D12_COMPARISON_FUNC_ALWAYS,
+    };
+    D3D12_DEPTH_STENCIL_DESC d3dDepthStencilDesc = {
+        .DepthEnable      = depthStencilStateDesc.DepthTestEnable,
+        .DepthWriteMask   = depthStencilStateDesc.DepthWriteEnable ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO,
+        .DepthFunc        = dx12_CompareFunction(depthStencilStateDesc.DepthCompareFunction),
+        .StencilEnable    = false,
+        .StencilReadMask  = D3D12_DEFAULT_STENCIL_READ_MASK,
+        .StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK,
+        .FrontFace        = d3dDepthStencilOpDesc,
+        .BackFace         = d3dDepthStencilOpDesc,
+    };
+
+    //- BlendState
+    const auto blendStateDesc = shaderDesc.BlendStateDesc;
+
+    D3D12_RENDER_TARGET_BLEND_DESC d3dRenderTargetBlendDesc;
+    // NOTE(v.matushkin): May be there is no need to set this if BlendMode::Off ?
+    d3dRenderTargetBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+    if (blendStateDesc.BlendMode == BlendMode::Off)
+    {
+        d3dRenderTargetBlendDesc.BlendEnable   = false;
+        d3dRenderTargetBlendDesc.LogicOpEnable = false;
+    }
+    else if (blendStateDesc.BlendMode == BlendMode::BlendOp)
+    {
+        d3dRenderTargetBlendDesc.BlendEnable    = true;
+        d3dRenderTargetBlendDesc.LogicOpEnable  = false;
+        d3dRenderTargetBlendDesc.SrcBlend       = dx12_BlendFactor(blendStateDesc.ColorSrcBlendFactor);
+        d3dRenderTargetBlendDesc.DestBlend      = dx12_BlendFactor(blendStateDesc.ColorDstBlendFactor);
+        d3dRenderTargetBlendDesc.BlendOp        = dx12_BlendOp(blendStateDesc.ColorBlendOp);
+        d3dRenderTargetBlendDesc.SrcBlendAlpha  = dx12_BlendFactor(blendStateDesc.AlphaSrcBlendFactor);
+        d3dRenderTargetBlendDesc.DestBlendAlpha = dx12_BlendFactor(blendStateDesc.AlphaDstBlendFactor);
+        d3dRenderTargetBlendDesc.BlendOpAlpha   = dx12_BlendOp(blendStateDesc.AlphaBlendOp);
+    }
+    else // blendStateDesc.BlendMode == BlendMode::LogicOp
+    {
+        d3dRenderTargetBlendDesc.BlendEnable   = false;
+        d3dRenderTargetBlendDesc.LogicOpEnable = true;
+        d3dRenderTargetBlendDesc.LogicOp       = dx12_BlendLogicOp(blendStateDesc.LogicOp);
+    }
+
+    D3D12_BLEND_DESC d3dBlendDesc = {
+        .AlphaToCoverageEnable  = false,
+        .IndependentBlendEnable = RenderDefaults::IndependentBlendEnable,
+    };
+    for (ui32 i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+    {
+        d3dBlendDesc.RenderTarget[i] = d3dRenderTargetBlendDesc;
+    }
+
+    // NOTE(v.matushkin): And who the fuck are you?
+    DXGI_SAMPLE_DESC dxgiSampleDesc = {
+        .Count   = 1,
+        .Quality = 0
+    };
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC d3dGraphicsPipelineDesc = {
+        .pRootSignature        = m_rootSignature.Get(),
+        .VS                    = d3dVertexShaderBytecode,
+        .PS                    = d3dPixelShaderBytecode,
+        // .DS                    =,
+        // .HS                    =,
+        // .GS                    =,
+        // .StreamOutput          =,
+        .BlendState            = d3dBlendDesc,
+        .SampleMask            = UINT_MAX,  // NOTE(v.matushkin): What is this?
+        .RasterizerState       = d3dRasterizerDesc,
+        .DepthStencilState     = d3dDepthStencilDesc,
+        .InputLayout           = d3dInputLayoutDesc,
+        // .IBStripCutValue       =,
+        .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+        .NumRenderTargets      = 1,
+        // .RTVFormats            =,
+        .DSVFormat             = k_EngineDepthStencilFormat,
+        .SampleDesc            = dxgiSampleDesc,
+        .NodeMask              = 0,
+        // .CachedPSO             =,
+        // .Flags                 =,
+    };
+    d3dGraphicsPipelineDesc.RTVFormats[0] = k_EngineColorFormat;
+
+    DX12Shader dx12Shader;
+    m_device->CreateGraphicsPipelineState(&d3dGraphicsPipelineDesc, IID_PPV_ARGS(dx12Shader.GraphicsPipeline.GetAddressOf()));
 
     const auto shaderHandle = static_cast<ShaderHandle>(g_ShaderHandleWorkaround++);
     m_shaders[shaderHandle] = std::move(dx12Shader);
@@ -1298,103 +1523,6 @@ void DX12Backend::CreateRootSignature()
         rootSignature->GetBufferSize(),
         IID_PPV_ARGS(m_rootSignature.GetAddressOf())
     );
-}
-
-void DX12Backend::CreatePipeline()
-{
-    // TODO(v.matushkin): Shouldn't get shader like this, tmp workaround
-    const auto& dx12Shader           = m_shaders.begin()->second;
-    const auto& dx12VertexBytecode   = dx12Shader.VertexShader;
-    const auto& dx12FragmentBytecode = dx12Shader.FragmentShader;
-
-    D3D12_SHADER_BYTECODE d3dVertexShaderBytecode = {
-        .pShaderBytecode = dx12VertexBytecode.Bytecode.get(),
-        .BytecodeLength  = dx12VertexBytecode.Length,
-    };
-    D3D12_SHADER_BYTECODE d3dFragmentShaderBytecode = {
-        .pShaderBytecode = dx12FragmentBytecode.Bytecode.get(),
-        .BytecodeLength  = dx12FragmentBytecode.Length,
-    };
-
-    D3D12_RENDER_TARGET_BLEND_DESC d3dRenderTargetBlendDesc = {
-        .BlendEnable           = false,
-        .LogicOpEnable         = false,
-        .SrcBlend              = D3D12_BLEND_ONE,
-        .DestBlend             = D3D12_BLEND_ZERO,
-        .BlendOp               = D3D12_BLEND_OP_ADD,
-        .SrcBlendAlpha         = D3D12_BLEND_ONE,
-        .DestBlendAlpha        = D3D12_BLEND_ZERO,
-        .BlendOpAlpha          = D3D12_BLEND_OP_ADD,
-        .LogicOp               = D3D12_LOGIC_OP_NOOP,
-        .RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL,
-    };
-    D3D12_BLEND_DESC d3dBlendDesc = {
-        .AlphaToCoverageEnable  = false,
-        .IndependentBlendEnable = false,
-    };
-    for (ui32 i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
-    {
-        d3dBlendDesc.RenderTarget[i] = d3dRenderTargetBlendDesc;
-    }
-
-    D3D12_RASTERIZER_DESC d3dRasterizerDesc = {
-        .FillMode              = D3D12_FILL_MODE_SOLID,
-        .CullMode              = D3D12_CULL_MODE_BACK,
-        .FrontCounterClockwise = true,
-        .DepthBias             = D3D12_DEFAULT_DEPTH_BIAS,
-        .DepthBiasClamp        = D3D12_DEFAULT_DEPTH_BIAS_CLAMP,
-        .SlopeScaledDepthBias  = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,
-        .DepthClipEnable       = true,
-        .MultisampleEnable     = false,
-        .AntialiasedLineEnable = false,
-        .ForcedSampleCount     = 0,
-        .ConservativeRaster    = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF,
-    };
-    D3D12_DEPTH_STENCIL_DESC d3dDepthStencilDesc = {
-        .DepthEnable      = true,
-        .DepthWriteMask   = D3D12_DEPTH_WRITE_MASK_ALL,
-        .DepthFunc        = D3D12_COMPARISON_FUNC_LESS,
-        .StencilEnable    = false,
-        // .StencilReadMask  = , // ui8
-        // .StencilWriteMask = , // ui8
-        // .FrontFace        = , // D3D12_DEPTH_STENCILOP_DESC
-        // .BackFace         = , // D3D12_DEPTH_STENCILOP_DESC
-    };
-    D3D12_INPUT_LAYOUT_DESC d3dInputLayoutDesc = {
-        .pInputElementDescs = k_InputElementDesc,
-        .NumElements        = ARRAYSIZE(k_InputElementDesc),
-    };
-    DXGI_SAMPLE_DESC dxgiSampleDesc = {
-        .Count   = 1,
-        .Quality = 0
-    };
-
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC d3dGraphicsPipelineDesc = {
-        .pRootSignature        = m_rootSignature.Get(),
-        .VS                    = d3dVertexShaderBytecode,
-        .PS                    = d3dFragmentShaderBytecode,
-        // .DS                    =,
-        // .HS                    =,
-        // .GS                    =,
-        // .StreamOutput          = d3dStreamOutputDesc,
-        .BlendState            = d3dBlendDesc,
-        .SampleMask            = UINT_MAX,  // NOTE(v.matushkin): What is this?
-        .RasterizerState       = d3dRasterizerDesc,
-        .DepthStencilState     = d3dDepthStencilDesc,
-        .InputLayout           = d3dInputLayoutDesc,
-        // .IBStripCutValue       =,
-        .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
-        .NumRenderTargets      = 1,
-        // .RTVFormats            =,
-        .DSVFormat             = k_EngineDepthStencilFormat,
-        .SampleDesc            = dxgiSampleDesc,
-        .NodeMask              = 0,
-        // .CachedPSO             =,
-        // .Flags                 =,
-    };
-    d3dGraphicsPipelineDesc.RTVFormats[0] = k_EngineColorFormat;
-
-    m_device->CreateGraphicsPipelineState(&d3dGraphicsPipelineDesc, IID_PPV_ARGS(m_graphicsPipeline.GetAddressOf()));
 }
 
 

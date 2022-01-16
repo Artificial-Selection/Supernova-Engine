@@ -72,8 +72,9 @@ class DX12Backend final : public IRendererBackend
 
     struct DX12Shader
     {
-        DX12ShaderBytecode VertexShader;
-        DX12ShaderBytecode FragmentShader;
+        // DX12ShaderBytecode VertexShader;
+        // DX12ShaderBytecode FragmentShader;
+        ComPtr<ID3D12PipelineState> GraphicsPipeline;
     };
 
     struct DX12Texture
@@ -146,7 +147,6 @@ private:
     void CreateConstantBuffer(ID3D12Resource2** constantBuffer, ui32 size);
 
     void CreateRootSignature();
-    void CreatePipeline();
 
     void WaitForPreviousFrame();
 
@@ -166,7 +166,6 @@ private:
     ComPtr<ID3D12GraphicsCommandList6> m_graphicsCommandList;
 
     ComPtr<ID3D12RootSignature>        m_rootSignature;
-    ComPtr<ID3D12PipelineState>        m_graphicsPipeline;
 
     DX12RenderPass                     m_swapchainRenderPasses[k_BackBufferFrames];
     RenderPassHandle                   m_swapchainRenderPassHandle;
