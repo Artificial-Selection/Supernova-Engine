@@ -2,6 +2,7 @@
 
 #include <Engine/Core/Core.hpp>
 
+#include <string>
 #include <vector>
 
 
@@ -23,8 +24,8 @@ class DX11ShaderCompiler
 public:
     struct ShaderBuffer
     {
-        void* Ptr;
-        ui64  Size;
+        const void* Ptr;
+        ui64        Size;
     };
 
 
@@ -32,16 +33,22 @@ public:
     ~DX11ShaderCompiler();
 
     [[nodiscard]] ShaderBuffer GetVertexShaderBuffer() const;
-    [[nodiscard]] ShaderBuffer GetPixelShaderBuffer()  const;
+    [[nodiscard]] ShaderBuffer GetPixelShaderBuffer() const;
 
     [[nodiscard]] std::vector<D3D11_INPUT_ELEMENT_DESC> GetInputLayoutDesc() const;
 
 private:
-    ID3DBlob* m_vertexShaderBlob;
-    ID3DBlob* m_pixelShaderBlob;
+    [[nodiscard]] static  ID3DBlob* CompileShader(
+        const std::string& shaderStageSource,
+        const char* shaderName,
+        const char* shaderTarget
+    );
 
-    bool                    m_separateStreams;
+private:
+    ID3DBlob*               m_vertexShaderBlob;
+    ID3DBlob*               m_pixelShaderBlob;
     ID3D11ShaderReflection* m_vertexShaderReflection;
+    const bool              m_isImGuiShader;
 };
 
 } // namespace snv

@@ -2,6 +2,7 @@
 
 #include <Engine/Core/Core.hpp>
 #include <Engine/Renderer/IImGuiRenderContext.hpp>
+#include <Engine/Renderer/RenderTypes.hpp>
 
 #include <imgui.h> // NOTE(v.matushkin): Because of ImVec2
 
@@ -11,27 +12,26 @@ struct ID3D11Device5;
 struct ID3D11DeviceContext4;
 struct ID3D11Buffer;
 struct ID3D11Buffer;
-struct ID3D11VertexShader;
-struct ID3D11InputLayout;
 struct ID3D11Buffer;
-struct ID3D11PixelShader;
 struct ID3D11SamplerState;
 struct ID3D11ShaderResourceView;
-struct ID3D11RasterizerState;
-struct ID3D11BlendState;
-struct ID3D11DepthStencilState;
-
-
-// struct ImGuiViewport;
 
 
 namespace snv
 {
 
+class DX11Backend;
+
+
 class DX11ImGuiRenderContext final : public IImGuiRenderContext
 {
 public:
-    DX11ImGuiRenderContext(ID3D11Device5* d3dDevice, ID3D11DeviceContext4* d3dDeviceContext, IDXGIFactory5* d3dFactory);
+    DX11ImGuiRenderContext(
+        DX11Backend*          dx11Backend,
+        ID3D11Device5*        d3dDevice,
+        ID3D11DeviceContext4* d3dDeviceContext,
+        IDXGIFactory5*        d3dFactory
+    );
     ~DX11ImGuiRenderContext() override;
 
     void BeginFrame() override;
@@ -61,20 +61,17 @@ private:
     static void ImGui_ImplDX11_SwapBuffers(ImGuiViewport* viewport, void*);
 
 private:
+    DX11Backend*              m_dx11Backend;
+    ShaderHandle              m_imguiShaderHandle;
+
     ID3D11Device5*            m_pd3dDevice;
     ID3D11DeviceContext4*     m_pd3dDeviceContext;
     IDXGIFactory5*            m_pFactory;
     ID3D11Buffer*             m_pVB;
     ID3D11Buffer*             m_pIB;
-    ID3D11VertexShader*       m_pVertexShader;
-    ID3D11InputLayout*        m_pInputLayout;
     ID3D11Buffer*             m_pVertexConstantBuffer;
-    ID3D11PixelShader*        m_pPixelShader;
     ID3D11SamplerState*       m_pFontSampler;
     ID3D11ShaderResourceView* m_pFontTextureView;
-    ID3D11RasterizerState*    m_pRasterizerState;
-    ID3D11BlendState*         m_pBlendState;
-    ID3D11DepthStencilState*  m_pDepthStencilState;
     i32                       m_VertexBufferSize;
     i32                       m_IndexBufferSize;
 };

@@ -140,15 +140,18 @@ enum class VertexAttribute : ui8
 
 enum class VertexAttributeFormat : ui8
 {
-    Int8,
-    Int16,
-    Int32,
+    SInt8,
+    SInt16,
+    SInt32,
     UInt8,
     UInt16,
     UInt32,
+    SNorm8,
+    SNorm16,
+    UNorm8,
+    UNorm16,
     Float16,
     Float32,
-    Float64
 };
 
 enum class RenderTextureLoadAction : ui8

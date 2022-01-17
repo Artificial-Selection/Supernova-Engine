@@ -16,8 +16,8 @@ Shader "Engine/Main"
         struct Attributes
         {
             float3 positionOS : POSITION;
-            float3 normalOS : NORMAL;
-            float3 texCoord0 : TEXCOORD0;
+            float3 normalOS   : NORMAL;
+            float3 texCoord0  : TEXCOORD0;
         };
         struct Varyings
         {

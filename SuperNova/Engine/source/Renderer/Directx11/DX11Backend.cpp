@@ -222,6 +222,11 @@ DX11Backend::DX11Backend()
 
     //- Set default state
     m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    m_deviceContext->GSSetShader(nullptr, nullptr, 0);
+    m_deviceContext->HSSetShader(nullptr, nullptr, 0);
+    m_deviceContext->DSSetShader(nullptr, nullptr, 0);
+    m_deviceContext->CSSetShader(nullptr, nullptr, 0);
 }
 
 // NOTE(v.matushkin): Doubt I need this
@@ -381,7 +386,7 @@ void DX11Backend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferHan
 
 IImGuiRenderContext* DX11Backend::CreateImGuiRenderContext()
 {
-    return new DX11ImGuiRenderContext(m_device.Get(), m_deviceContext.Get(), m_factory.Get());
+    return new DX11ImGuiRenderContext(this, m_device.Get(), m_deviceContext.Get(), m_factory.Get());
 }
 
 
@@ -631,18 +636,17 @@ ShaderHandle DX11Backend::CreateShader(const ShaderDesc& shaderDesc)
     ID3D11RasterizerState2* d3dRasterizerState;
     {
         const auto rasterizerStateDesc = shaderDesc.RasterizerStateDesc;
+        const auto isImGuiShader       = shaderDesc.Name == RenderDefaults::ImGuiShaderName;
 
-        // NOTE(v.matuskin): Changed FrontCounterClockwise to true, everything else is default values
-        //  FrontCounterClockwise is false by default, and in OpenGL it's true by default
         D3D11_RASTERIZER_DESC2 d3dRasterizerStateDesc = {
             .FillMode              = dx11_PolygonMode(rasterizerStateDesc.PolygonMode),
             .CullMode              = dx11_CullMode(rasterizerStateDesc.CullMode),
-            .FrontCounterClockwise = dx11_TriangleFrontFace(rasterizerStateDesc.FrontFace),
+            .FrontCounterClockwise = !isImGuiShader,
             .DepthBias             = D3D11_DEFAULT_DEPTH_BIAS,
             .DepthBiasClamp        = D3D11_DEFAULT_DEPTH_BIAS_CLAMP,
             .SlopeScaledDepthBias  = D3D11_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,
             .DepthClipEnable       = true,
-            .ScissorEnable         = false, // NOTE(v.matushkin): ImGui needs 'true' ?
+            .ScissorEnable         = isImGuiShader,
             .MultisampleEnable     = false,
             .AntialiasedLineEnable = false,
             .ForcedSampleCount     = 0,
@@ -688,34 +692,25 @@ ShaderHandle DX11Backend::CreateShader(const ShaderDesc& shaderDesc)
     {
         const auto blendStateDesc = shaderDesc.BlendStateDesc;
 
-        D3D11_RENDER_TARGET_BLEND_DESC1 d3dRenderTargetBlendDesc;
-        // NOTE(v.matushkin): May be there is no need to set this if BlendMode::Off ?
-        d3dRenderTargetBlendDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-        if (blendStateDesc.BlendMode == BlendMode::Off)
-        {
-            d3dRenderTargetBlendDesc.BlendEnable   = false;
-            d3dRenderTargetBlendDesc.LogicOpEnable = false;
-        }
-        else
-        {
-            if (blendStateDesc.BlendMode == BlendMode::BlendOp)
-            {
-                d3dRenderTargetBlendDesc.BlendEnable   = true;
-                d3dRenderTargetBlendDesc.LogicOpEnable = false;
-                d3dRenderTargetBlendDesc.BlendOp       = dx11_BlendOp(blendStateDesc.ColorBlendOp);
-                d3dRenderTargetBlendDesc.BlendOpAlpha  = dx11_BlendOp(blendStateDesc.AlphaBlendOp);
-            }
-            else // BlendMode::LogicOp
-            {
-                d3dRenderTargetBlendDesc.BlendEnable   = false;
-                d3dRenderTargetBlendDesc.LogicOpEnable = true;
-                d3dRenderTargetBlendDesc.LogicOp       = dx11_BlendLogicOp(blendStateDesc.LogicOp);
-            }
+        D3D11_RENDER_TARGET_BLEND_DESC1 d3dRenderTargetBlendDesc = {
+            // NOTE(v.matushkin): May be there is no need to set this if BlendMode::Off ?
+            .RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL,
+        };
 
+        if (blendStateDesc.BlendMode == BlendMode::BlendOp)
+        {
+            d3dRenderTargetBlendDesc.BlendEnable    = true;
             d3dRenderTargetBlendDesc.SrcBlend       = dx11_BlendFactor(blendStateDesc.ColorSrcBlendFactor);
             d3dRenderTargetBlendDesc.DestBlend      = dx11_BlendFactor(blendStateDesc.ColorDstBlendFactor);
+            d3dRenderTargetBlendDesc.BlendOp        = dx11_BlendOp(blendStateDesc.ColorBlendOp);
             d3dRenderTargetBlendDesc.SrcBlendAlpha  = dx11_BlendFactor(blendStateDesc.AlphaSrcBlendFactor);
             d3dRenderTargetBlendDesc.DestBlendAlpha = dx11_BlendFactor(blendStateDesc.AlphaDstBlendFactor);
+            d3dRenderTargetBlendDesc.BlendOpAlpha   = dx11_BlendOp(blendStateDesc.AlphaBlendOp);
+        }
+        else if (blendStateDesc.BlendMode == BlendMode::LogicOp)
+        {
+            d3dRenderTargetBlendDesc.LogicOpEnable = true;
+            d3dRenderTargetBlendDesc.LogicOp       = dx11_BlendLogicOp(blendStateDesc.LogicOp);
         }
 
         D3D11_BLEND_DESC1 d3dBlendStateDesc;

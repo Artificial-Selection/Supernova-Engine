@@ -1123,19 +1123,14 @@ ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
     //- BlendState
     const auto blendStateDesc = shaderDesc.BlendStateDesc;
 
-    D3D12_RENDER_TARGET_BLEND_DESC d3dRenderTargetBlendDesc;
-    // NOTE(v.matushkin): May be there is no need to set this if BlendMode::Off ?
-    d3dRenderTargetBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+    D3D12_RENDER_TARGET_BLEND_DESC d3dRenderTargetBlendDesc = {
+        // NOTE(v.matushkin): May be there is no need to set this if BlendMode::Off ?
+        .RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL,
+    };
 
-    if (blendStateDesc.BlendMode == BlendMode::Off)
-    {
-        d3dRenderTargetBlendDesc.BlendEnable   = false;
-        d3dRenderTargetBlendDesc.LogicOpEnable = false;
-    }
-    else if (blendStateDesc.BlendMode == BlendMode::BlendOp)
+    if (blendStateDesc.BlendMode == BlendMode::BlendOp)
     {
         d3dRenderTargetBlendDesc.BlendEnable    = true;
-        d3dRenderTargetBlendDesc.LogicOpEnable  = false;
         d3dRenderTargetBlendDesc.SrcBlend       = dx12_BlendFactor(blendStateDesc.ColorSrcBlendFactor);
         d3dRenderTargetBlendDesc.DestBlend      = dx12_BlendFactor(blendStateDesc.ColorDstBlendFactor);
         d3dRenderTargetBlendDesc.BlendOp        = dx12_BlendOp(blendStateDesc.ColorBlendOp);
@@ -1143,9 +1138,8 @@ ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
         d3dRenderTargetBlendDesc.DestBlendAlpha = dx12_BlendFactor(blendStateDesc.AlphaDstBlendFactor);
         d3dRenderTargetBlendDesc.BlendOpAlpha   = dx12_BlendOp(blendStateDesc.AlphaBlendOp);
     }
-    else // blendStateDesc.BlendMode == BlendMode::LogicOp
+    else if (blendStateDesc.BlendMode == BlendMode::LogicOp)
     {
-        d3dRenderTargetBlendDesc.BlendEnable   = false;
         d3dRenderTargetBlendDesc.LogicOpEnable = true;
         d3dRenderTargetBlendDesc.LogicOp       = dx12_BlendLogicOp(blendStateDesc.LogicOp);
     }
@@ -1154,6 +1148,7 @@ ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
         .AlphaToCoverageEnable  = false,
         .IndependentBlendEnable = RenderDefaults::IndependentBlendEnable,
     };
+    // TODO(v.matushkin): Get RenderTargets count from reflection and set only needed, not all?
     for (ui32 i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
     {
         d3dBlendDesc.RenderTarget[i] = d3dRenderTargetBlendDesc;
