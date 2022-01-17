@@ -234,7 +234,8 @@ std::vector<D3D11_INPUT_ELEMENT_DESC> DX11ShaderCompiler::GetInputLayoutDesc() c
             }
             else
             {
-                SNV_ASSERT(false, "Unexpected '{}' SemanticName in the ImGui shader", d3dSignatureParameterDesc.SemanticName);
+                // NOTE(v.matushkin): Should log d3dSignatureParameterDesc.SemanticName, but need to modify SNV_ASSERT
+                SNV_ASSERT(false, "Unexpected '{}' SemanticName in the ImGui shader");
             }
         }
         else
@@ -261,7 +262,8 @@ std::vector<D3D11_INPUT_ELEMENT_DESC> DX11ShaderCompiler::GetInputLayoutDesc() c
             }
             else
             {
-                SNV_ASSERT(false, "Unsupported '{}' SemanticName in the shader", d3dSignatureParameterDesc.SemanticName);
+                // NOTE(v.matushkin): Should log d3dSignatureParameterDesc.SemanticName, but need to modify SNV_ASSERT
+                SNV_ASSERT(false, "Unsupported '{}' SemanticName in the shader");
             }
         }
 
