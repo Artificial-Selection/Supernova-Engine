@@ -38,7 +38,7 @@ public:
     [[nodiscard]] std::vector<D3D11_INPUT_ELEMENT_DESC> GetInputLayoutDesc() const;
 
 private:
-    [[nodiscard]] static  ID3DBlob* CompileShader(
+    static [[nodiscard]] ID3DBlob* CompileShader(
         const std::string& shaderStageSource,
         const char* shaderName,
         const char* shaderTarget

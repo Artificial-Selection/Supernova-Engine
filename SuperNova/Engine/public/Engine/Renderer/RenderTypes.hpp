@@ -246,6 +246,17 @@ struct TextureDesc
     TextureWrapMode WrapMode;
 };
 
+// NOTE(v.matushkin): Not sure about this and VertexAttributeDesc struct, about naming and if it should be in this header
+//  May be I will know better when I'm gonna rework mesh loading/creation
+struct VertexInputAttributeDesc
+{
+    ui16                  Offset;
+    VertexAttributeFormat Format;
+    ui8                   Dimension;
+    // NOTE(v.matushkin): Stream/InputSlot/Location/Binding which is the good name?
+    ui8 InputSlot;
+};
+
 struct VertexAttributeDesc
 {
     VertexAttribute       Attribute;
@@ -266,7 +277,7 @@ struct RasterizerStateDesc
     CullMode          CullMode;
     TriangleFrontFace FrontFace;
 
-    static RasterizerStateDesc Default();
+    static [[nodiscard]] RasterizerStateDesc Default();
 };
 
 struct DepthStencilStateDesc
@@ -275,7 +286,7 @@ struct DepthStencilStateDesc
     bool            DepthWriteEnable;
     CompareFunction DepthCompareFunction;
 
-    static DepthStencilStateDesc Default();
+    static [[nodiscard]] DepthStencilStateDesc Default();
 };
 
 struct BlendStateDesc
@@ -289,7 +300,7 @@ struct BlendStateDesc
     BlendOp      AlphaBlendOp;
     BlendLogicOp LogicOp;
 
-    static BlendStateDesc Default();
+    static [[nodiscard]] BlendStateDesc Default();
 };
 
 struct ShaderDesc
@@ -302,6 +313,8 @@ struct ShaderDesc
 
     std::string VertexSource;
     std::string FragmentSource;
+
+    [[nodiscard]] bool IsImGuiShader() const; // NOTE(v.matushkin): Assert is name is empty?
 };
 
 } // namespace snv

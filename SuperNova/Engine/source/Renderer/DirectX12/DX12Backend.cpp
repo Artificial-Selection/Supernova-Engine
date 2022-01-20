@@ -6,6 +6,8 @@
 #include <Engine/Renderer/RenderDefaults.hpp>
 #include <Engine/Renderer/DirectX12/DX12DescriptorHeap.hpp>
 #include <Engine/Renderer/DirectX12/DX12ImGuiRenderContext.hpp>
+#include <Engine/Renderer/DirectX12/DX12ShaderCompiler.hpp>
+#include <Engine/Renderer/GpuApiCommon/DXCommon.hpp>
 
 #include <dxgi1_6.h>
 
@@ -125,12 +127,6 @@
 // }
 
 
-static const D3D12_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
-    {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-    {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-    {"TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-};
-
 #define DX12_NO_DEPTH_STENCIL 0
 #define DX12_NO_DEPTH_STENCIL_CLEAR_FLAG static_cast<D3D12_CLEAR_FLAGS>(DX12_NO_DEPTH_STENCIL)
 static const D3D12_CLEAR_FLAGS dx12_RenderTextureTypeToClearFlags[] = {
@@ -188,11 +184,6 @@ static D3D12_FILL_MODE dx12_PolygonMode(snv::PolygonMode polygonMode)
     };
 
     return d3dPolygonMode[static_cast<ui8>(polygonMode)];
-}
-
-static bool dx12_TriangleFrontFace(snv::TriangleFrontFace triangleFrontFace)
-{
-    return triangleFrontFace == snv::TriangleFrontFace::Clockwise ? false : true;
 }
 
 //-- DepthStencilState
@@ -365,7 +356,6 @@ namespace snv
 {
 
 DX12Backend::DX12Backend()
-    : m_shaderCompiler(std::make_unique<DX12ShaderCompiler>())
 {
     CreateDevice();
 
@@ -1066,21 +1056,18 @@ TextureHandle DX12Backend::CreateTexture(const TextureDesc& textureDesc, const u
 
 ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
 {
-    const auto dx12ShaderDesc = m_shaderCompiler->CompileShader(shaderDesc);
-
-    D3D12_SHADER_BYTECODE d3dVertexShaderBytecode = {
-        .pShaderBytecode = dx12ShaderDesc.VertexBytecode->GetBufferPointer(),
-        .BytecodeLength  = dx12ShaderDesc.VertexBytecode->GetBufferSize(),
-    };
-    D3D12_SHADER_BYTECODE d3dPixelShaderBytecode = {
-        .pShaderBytecode = dx12ShaderDesc.PixelBytecode->GetBufferPointer(),
-        .BytecodeLength  = dx12ShaderDesc.PixelBytecode->GetBufferSize(),
-    };
+    // NOTE(v.matushkin): How to handle shader compilation errors?
+    // NOTE(v.matushkin): Not sure about creating this class instance every time I need to compile a shader,
+    //  but keeping this through all programm lifetime seems wrong too.
+    //  At least there should be a way to compile a bunch of shaders at once.
+    const auto dx12ShaderCompiler = DX12ShaderCompiler(shaderDesc);
+    const auto isImGuiShader      = shaderDesc.IsImGuiShader();
 
     //- InputLayout
+    const auto d3dInputElementsDesc = dx12ShaderCompiler.GetInputLayoutDesc();
     D3D12_INPUT_LAYOUT_DESC d3dInputLayoutDesc = {
-        .pInputElementDescs = k_InputElementDesc,
-        .NumElements        = ARRAYSIZE(k_InputElementDesc),
+        .pInputElementDescs = d3dInputElementsDesc.data(),
+        .NumElements        = static_cast<ui32>(d3dInputElementsDesc.size()),
     };
 
     //- RasterizerState
@@ -1089,7 +1076,7 @@ ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
     D3D12_RASTERIZER_DESC d3dRasterizerDesc = {
         .FillMode              = dx12_PolygonMode(rasterizerStateDesc.PolygonMode),
         .CullMode              = dx12_CullMode(rasterizerStateDesc.CullMode),
-        .FrontCounterClockwise = dx12_TriangleFrontFace(rasterizerStateDesc.FrontFace),
+        .FrontCounterClockwise = dx_TriangleFrontFace(rasterizerStateDesc.FrontFace, isImGuiShader),
         .DepthBias             = D3D12_DEFAULT_DEPTH_BIAS,
         .DepthBiasClamp        = D3D12_DEFAULT_DEPTH_BIAS_CLAMP,
         .SlopeScaledDepthBias  = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,
@@ -1162,8 +1149,8 @@ ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC d3dGraphicsPipelineDesc = {
         .pRootSignature        = m_rootSignature.Get(),
-        .VS                    = d3dVertexShaderBytecode,
-        .PS                    = d3dPixelShaderBytecode,
+        .VS                    = dx12ShaderCompiler.GetVertexShaderBuffer(),
+        .PS                    = dx12ShaderCompiler.GetPixelShaderBuffer(),
         // .DS                    =,
         // .HS                    =,
         // .GS                    =,
@@ -1185,11 +1172,11 @@ ShaderHandle DX12Backend::CreateShader(const ShaderDesc& shaderDesc)
     };
     d3dGraphicsPipelineDesc.RTVFormats[0] = k_EngineColorFormat;
 
-    DX12Shader dx12Shader;
-    m_device->CreateGraphicsPipelineState(&d3dGraphicsPipelineDesc, IID_PPV_ARGS(dx12Shader.GraphicsPipeline.GetAddressOf()));
+    ID3D12PipelineState* d3dGraphicsPipeline;
+    m_device->CreateGraphicsPipelineState(&d3dGraphicsPipelineDesc, IID_PPV_ARGS(&d3dGraphicsPipeline));
 
     const auto shaderHandle = static_cast<ShaderHandle>(g_ShaderHandleWorkaround++);
-    m_shaders[shaderHandle] = std::move(dx12Shader);
+    m_shaders[shaderHandle] = DX12Shader{.GraphicsPipeline = d3dGraphicsPipeline};
 
     return shaderHandle;
 }

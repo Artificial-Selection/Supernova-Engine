@@ -1,16 +1,14 @@
 #include <Engine/Renderer/Directx11/DX11ShaderCompiler.hpp>
 
 #include <Engine/Core/Assert.hpp>
-#include <Engine/Renderer/RenderDefaults.hpp>
 #include <Engine/Renderer/RenderTypes.hpp>
+#include <Engine/Renderer/GpuApiCommon/DXCommon.hpp>
 
 #include <d3d11_4.h>
 #include <d3dcompiler.h>
 
-#include <string_view>
 
-
-// This is an InputLayout for my main shader
+// This is the InputLayout for my main shader
 // TODO(v.matushkin): Find out how D3D11_APPEND_ALIGNED_ELEMENT works
 // TODO(v.matushkin): TEXCOORD to DXGI_FORMAT_R32G32_FLOAT
 // static const D3D11_INPUT_ELEMENT_DESC k_InputElementDesc[] = {
@@ -23,86 +21,6 @@ static const char* k_ShaderEntryPoint   = "main";
 static const char* k_VertexShaderTarget = "vs_5_0";
 static const char* k_PixelShaderTarget  = "ps_5_0";
 
-namespace SemanticName
-{
-    static const std::string_view Position = "POSITION";
-    static const std::string_view Normal   = "NORMAL";
-    static const std::string_view TexCoord = "TEXCOORD";
-    static const std::string_view Color    = "COLOR";
-}
-
-
-DXGI_FORMAT dx11_VertexAttributeFormat(snv::VertexAttributeFormat format, ui8 dimension)
-{
-    static const DXGI_FORMAT dxgiVertexFormat[] = {
-        // SInt8
-        DXGI_FORMAT_R8_SINT,
-        DXGI_FORMAT_R8G8_SINT,
-        DXGI_FORMAT_UNKNOWN,
-        DXGI_FORMAT_R8G8B8A8_SINT,
-        // SInt16
-        DXGI_FORMAT_R16_SINT,
-        DXGI_FORMAT_R16G16_SINT,
-        DXGI_FORMAT_UNKNOWN,
-        DXGI_FORMAT_R16G16B16A16_SINT,
-        // SInt32
-        DXGI_FORMAT_R32_SINT,
-        DXGI_FORMAT_R32G32_SINT,
-        DXGI_FORMAT_R32G32B32_SINT,
-        DXGI_FORMAT_R32G32B32A32_SINT,
-        // UInt8
-        DXGI_FORMAT_R8_UINT,
-        DXGI_FORMAT_R8G8_UINT,
-        DXGI_FORMAT_UNKNOWN,
-        DXGI_FORMAT_R8G8B8A8_UINT,
-        // UInt16
-        DXGI_FORMAT_R16_UINT,
-        DXGI_FORMAT_R16G16_UINT,
-        DXGI_FORMAT_UNKNOWN,
-        DXGI_FORMAT_R16G16B16A16_UINT,
-        // UInt32
-        DXGI_FORMAT_R32_UINT,
-        DXGI_FORMAT_R32G32_UINT,
-        DXGI_FORMAT_R32G32B32_UINT,
-        DXGI_FORMAT_R32G32B32A32_UINT,
-        // SNorm8
-        DXGI_FORMAT_R8_SNORM,
-        DXGI_FORMAT_R8G8_SNORM,
-        DXGI_FORMAT_UNKNOWN,
-        DXGI_FORMAT_R8G8B8A8_SNORM,
-        // SNorm16
-        DXGI_FORMAT_R16_SNORM,
-        DXGI_FORMAT_R16G16_SNORM,
-        DXGI_FORMAT_UNKNOWN,
-        DXGI_FORMAT_R16G16B16A16_SNORM,
-        // UNorm8
-        DXGI_FORMAT_R8_UNORM,
-        DXGI_FORMAT_R8G8_UNORM,
-        DXGI_FORMAT_UNKNOWN,
-        DXGI_FORMAT_R8G8B8A8_UNORM,
-        // UNorm16
-        DXGI_FORMAT_R16_UNORM,
-        DXGI_FORMAT_R16G16_UNORM,
-        DXGI_FORMAT_UNKNOWN,
-        DXGI_FORMAT_R16G16B16A16_UNORM,
-        // Float16
-        DXGI_FORMAT_R16_FLOAT,
-        DXGI_FORMAT_R16G16_FLOAT,
-        DXGI_FORMAT_UNKNOWN,
-        DXGI_FORMAT_R16G16B16A16_FLOAT,
-        // Float32
-        DXGI_FORMAT_R32_FLOAT,
-        DXGI_FORMAT_R32G32_FLOAT,
-        DXGI_FORMAT_R32G32B32_FLOAT,
-        DXGI_FORMAT_R32G32B32A32_FLOAT,
-    };
-
-    SNV_ASSERT(dimension >= 1 && dimension <= 4, "Vertex attribute dimension must be in [1,4] range");
-    const auto dxgiFormat = dxgiVertexFormat[static_cast<ui8>(format) * 4 + dimension - 1];
-    SNV_ASSERT(dxgiFormat != DXGI_FORMAT_UNKNOWN, "Unsupported vertex format/dimension combination");
-
-    return dxgiFormat;
-}
 
 // DXGI_FORMAT dx11_ComponentTypeToFormat(ui8 mask, D3D_REGISTER_COMPONENT_TYPE d3dComponentType)
 // {
@@ -147,7 +65,7 @@ namespace snv
 {
 
 DX11ShaderCompiler::DX11ShaderCompiler(const ShaderDesc& shaderDesc)
-    : m_isImGuiShader(shaderDesc.Name == RenderDefaults::ImGuiShaderName)
+    : m_isImGuiShader(shaderDesc.IsImGuiShader())
 {
     m_vertexShaderBlob = CompileShader(shaderDesc.VertexSource, shaderDesc.Name.data(), k_VertexShaderTarget);
     m_pixelShaderBlob  = CompileShader(shaderDesc.FragmentSource, shaderDesc.Name.data(), k_PixelShaderTarget);
@@ -192,88 +110,31 @@ DX11ShaderCompiler::ShaderBuffer DX11ShaderCompiler::GetPixelShaderBuffer() cons
 std::vector<D3D11_INPUT_ELEMENT_DESC> DX11ShaderCompiler::GetInputLayoutDesc() const
 {
     //- Get Vertex shader info
-    D3D11_SHADER_DESC d3dShaderDesc;
-    m_vertexShaderReflection->GetDesc(&d3dShaderDesc);
+    D3D11_SHADER_DESC d3dVertexShaderDesc;
+    m_vertexShaderReflection->GetDesc(&d3dVertexShaderDesc);
 
     //- Read input layout description from vertex shader info
     std::vector<D3D11_INPUT_ELEMENT_DESC> inputLayoutDesc;
-    inputLayoutDesc.reserve(d3dShaderDesc.InputParameters);
+    inputLayoutDesc.reserve(d3dVertexShaderDesc.InputParameters);
 
-    for (ui32 i = 0; i < d3dShaderDesc.InputParameters; i++)
+    for (ui32 i = 0; i < d3dVertexShaderDesc.InputParameters; i++)
     {
         D3D11_SIGNATURE_PARAMETER_DESC d3dSignatureParameterDesc;
         m_vertexShaderReflection->GetInputParameterDesc(i, &d3dSignatureParameterDesc);
 
-        VertexAttributeFormat vertexAttributeFormat;
-        ui8                   vertexAttributeDimension;
-        ui8                   inputSlot;
-        ui32                  alignedByteOffset;
-
-        if (m_isImGuiShader)
-        {
-            // NOTE(v.matushkin): Can I just use D3D11_APPEND_ALIGNED_ELEMENT for alignedByteOffset ?
-            inputSlot = 0;
-
-            if (d3dSignatureParameterDesc.SemanticName == SemanticName::Position)
-            {
-                vertexAttributeFormat    = RenderDefaults::ImGuiVertexInputLayout.PositionFormat;
-                vertexAttributeDimension = RenderDefaults::ImGuiVertexInputLayout.PositionDimension;
-                alignedByteOffset        = RenderDefaults::ImGuiVertexInputLayout.PositionOffset;
-            }
-            else if (d3dSignatureParameterDesc.SemanticName == SemanticName::TexCoord)
-            {
-                vertexAttributeFormat    = RenderDefaults::ImGuiVertexInputLayout.TexCoor0Format;
-                vertexAttributeDimension = RenderDefaults::ImGuiVertexInputLayout.TexCoor0Dimension;
-                alignedByteOffset        = RenderDefaults::ImGuiVertexInputLayout.TexCoor0Offset;
-            }
-            else if (d3dSignatureParameterDesc.SemanticName == SemanticName::Color)
-            {
-                vertexAttributeFormat    = RenderDefaults::ImGuiVertexInputLayout.ColorFormat;
-                vertexAttributeDimension = RenderDefaults::ImGuiVertexInputLayout.ColorDimension;
-                alignedByteOffset        = RenderDefaults::ImGuiVertexInputLayout.ColorOffset;
-            }
-            else
-            {
-                // NOTE(v.matushkin): Should log d3dSignatureParameterDesc.SemanticName, but need to modify SNV_ASSERT
-                SNV_ASSERT(false, "Unexpected '{}' SemanticName in the ImGui shader");
-            }
-        }
-        else
-        {
-            alignedByteOffset = 0;
-
-            if (d3dSignatureParameterDesc.SemanticName == SemanticName::Position)
-            {
-                vertexAttributeFormat    = RenderDefaults::EngineVertexInputLayout.PositionFormat;
-                vertexAttributeDimension = RenderDefaults::EngineVertexInputLayout.PositionDimension;
-                inputSlot                = RenderDefaults::EngineVertexInputLayout.PositionStream;
-            }
-            else if (d3dSignatureParameterDesc.SemanticName == SemanticName::Normal)
-            {
-                vertexAttributeFormat    = RenderDefaults::EngineVertexInputLayout.NormalFormat;
-                vertexAttributeDimension = RenderDefaults::EngineVertexInputLayout.NormalDimension;
-                inputSlot                = RenderDefaults::EngineVertexInputLayout.NormalStream;
-            }
-            else if (d3dSignatureParameterDesc.SemanticName == SemanticName::TexCoord)
-            {
-                vertexAttributeFormat    = RenderDefaults::EngineVertexInputLayout.TexCoor0Format;
-                vertexAttributeDimension = RenderDefaults::EngineVertexInputLayout.TexCoor0Dimension;
-                inputSlot                = RenderDefaults::EngineVertexInputLayout.TexCoor0Stream;
-            }
-            else
-            {
-                // NOTE(v.matushkin): Should log d3dSignatureParameterDesc.SemanticName, but need to modify SNV_ASSERT
-                SNV_ASSERT(false, "Unsupported '{}' SemanticName in the shader");
-            }
-        }
+        const auto vertexInputAttributeDesc  = dx_VertexInputAttribute(d3dSignatureParameterDesc.SemanticName, m_isImGuiShader);
+        const auto dxgiVertexAttributeFormat = dx_VertexAttributeFormat(
+            vertexInputAttributeDesc.Format,
+            vertexInputAttributeDesc.Dimension
+        );
 
         // NOTE(v.matushkin): Should be careful with SemanticName, probably its lifetime tied to m_vertexShaderReflection
         D3D11_INPUT_ELEMENT_DESC d3dInputElementDesc = {
             .SemanticName         = d3dSignatureParameterDesc.SemanticName,
             .SemanticIndex        = d3dSignatureParameterDesc.SemanticIndex,
-            .Format               = dx11_VertexAttributeFormat(vertexAttributeFormat, vertexAttributeDimension),
-            .InputSlot            = inputSlot,
-            .AlignedByteOffset    = alignedByteOffset,
+            .Format               = dxgiVertexAttributeFormat,
+            .InputSlot            = vertexInputAttributeDesc.InputSlot,
+            .AlignedByteOffset    = vertexInputAttributeDesc.Offset,
             .InputSlotClass       = D3D11_INPUT_PER_VERTEX_DATA,
             .InstanceDataStepRate = 0,
         };

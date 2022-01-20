@@ -284,6 +284,17 @@ set(Renderer_SRC_DIR         ${SuperNovaEngine_SRC_DIR}/Renderer)
 set(Renderer_INC_PUBLIC_DIR  ${SuperNovaEngine_INC_PUBLIC_DIR}/Renderer)
 set(Renderer_INC_PRIVATE_DIR ${SuperNovaEngine_INC_PRIVATE_DIR}/Renderer)
 
+# --------- GpuApiCommon ---------
+set(GpuApiCommon_SRC_DIR         ${Renderer_SRC_DIR}/GpuApiCommon)
+set(GpuApiCommon_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/GpuApiCommon)
+
+set(DXCommon_SRC
+    ${GpuApiCommon_SRC_DIR}/DXCommon.cpp
+)
+set(DXCommon_INC_PRIVATE
+    ${GpuApiCommon_INC_PRIVATE_DIR}/DXCommon.hpp
+)
+
 # ------------ OpenGL ------------
 set(OpenGL_SRC_DIR         ${Renderer_SRC_DIR}/OpenGL)
 set(OpenGL_INC_PRIVATE_DIR ${Renderer_INC_PRIVATE_DIR}/OpenGL)
@@ -394,10 +405,12 @@ set(Renderer_INC_PRIVATE
 
 if(SNV_PLATFORM_WINDOWS)
     set(Renderer_SRC ${Renderer_SRC}
+        ${DXCommon_SRC}
         ${DirectX11_SRC}
         ${DirectX12_SRC}
     )
     set(Renderer_INC_PRIVATE ${Renderer_INC_PRIVATE}
+        ${DXCommon_INC_PRIVATE}
         ${DirectX11_INC_PRIVATE}
         ${DirectX12_INC_PRIVATE}
     )

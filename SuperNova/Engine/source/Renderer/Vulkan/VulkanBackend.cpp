@@ -515,7 +515,7 @@ void VulkanBackend::DrawBuffer(TextureHandle textureHandle, BufferHandle bufferH
     // TODO(v.matushkin): Vertex type shouldn't be hardcoded
     vkCmdBindIndexBuffer(commandBuffer, buffer.Index, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindVertexBuffers(commandBuffer, 0, 3, vkVertexBuffers, vkOffsets);
-    
+
     //- Set Material Texture
     const auto& texture = m_textures[textureHandle];
     vkCmdBindDescriptorSets(

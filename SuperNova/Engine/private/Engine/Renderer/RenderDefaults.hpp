@@ -9,54 +9,60 @@ namespace snv::RenderDefaults
 {
     inline const std::string_view ImGuiShaderName = "Engine/ImGui";
 
-
+    // NOTE(v.matushkin): Not sure about this structs naming
     struct EngineInputLayout
     {
-        VertexAttributeFormat PositionFormat;
-        ui8                   PositionDimension;
-        ui8                   PositionStream; // NOTE(v.matushkin): Stream/InputSlot/Location/Binding which is the good name?
-        VertexAttributeFormat NormalFormat;
-        ui8                   NormalDimension;
-        ui8                   NormalStream;
-        VertexAttributeFormat TexCoor0Format;
-        ui8                   TexCoor0Dimension;
-        ui8                   TexCoor0Stream;
+        VertexInputAttributeDesc Position;
+        VertexInputAttributeDesc Normal;
+        VertexInputAttributeDesc TexCoord0;
     };
     struct ImGuiInputLayout
     {
-        VertexAttributeFormat PositionFormat;
-        ui8                   PositionDimension;
-        ui8                   PositionOffset;
-        VertexAttributeFormat TexCoor0Format;
-        ui8                   TexCoor0Dimension;
-        ui8                   TexCoor0Offset;
-        VertexAttributeFormat ColorFormat;
-        ui8                   ColorDimension;
-        ui8                   ColorOffset;
+        VertexInputAttributeDesc Position;
+        VertexInputAttributeDesc TexCoord0;
+        VertexInputAttributeDesc Color;
     };
 
     inline const EngineInputLayout EngineVertexInputLayout = {
-        .PositionFormat    = VertexAttributeFormat::Float32,
-        .PositionDimension = 3,
-        .PositionStream    = 0,
-        .NormalFormat      = VertexAttributeFormat::Float32,
-        .NormalDimension   = 3,
-        .NormalStream      = 1,
-        .TexCoor0Format    = VertexAttributeFormat::Float32,
-        .TexCoor0Dimension = 3,
-        .TexCoor0Stream    = 2,
+        .Position = {
+            .Offset    = 0,
+            .Format    = VertexAttributeFormat::Float32,
+            .Dimension = 3,
+            .InputSlot = 0,
+        },
+        .Normal = {
+            .Offset    = 0,
+            .Format    = VertexAttributeFormat::Float32,
+            .Dimension = 3,
+            .InputSlot = 1,
+        },
+        .TexCoord0 = {
+            .Offset    = 0,
+            .Format    = VertexAttributeFormat::Float32,
+            .Dimension = 3,
+            .InputSlot = 2,
+        },
     };
 
     inline const ImGuiInputLayout ImGuiVertexInputLayout = {
-        .PositionFormat    = VertexAttributeFormat::Float32,
-        .PositionDimension = 2,
-        .PositionOffset    = 0,
-        .TexCoor0Format    = VertexAttributeFormat::Float32,
-        .TexCoor0Dimension = 2,
-        .TexCoor0Offset    = 8,
-        .ColorFormat       = VertexAttributeFormat::UNorm8,
-        .ColorDimension    = 4,
-        .ColorOffset       = 16,
+        .Position = {
+            .Offset    = 0,
+            .Format    = VertexAttributeFormat::Float32,
+            .Dimension = 2,
+            .InputSlot = 0,
+        },
+        .TexCoord0 = {
+            .Offset    = 8,
+            .Format    = VertexAttributeFormat::Float32,
+            .Dimension = 2,
+            .InputSlot = 0,
+        },
+        .Color = {
+            .Offset    = 16,
+            .Format    = VertexAttributeFormat::UNorm8,
+            .Dimension = 4,
+            .InputSlot = 0,
+        },
     };
 
 

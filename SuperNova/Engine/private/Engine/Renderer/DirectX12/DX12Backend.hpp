@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Engine/Renderer/IRendererBackend.hpp>
-#include <Engine/Renderer/DirectX12/DX12ShaderCompiler.hpp>
 
 #include <d3d12.h>
 #include <glm/ext/matrix_float4x4.hpp>
@@ -72,6 +71,7 @@ class DX12Backend final : public IRendererBackend
 
     struct DX12Shader
     {
+        // NOTE(v.matushkin): I'm sure compiled shader blobs will be needed, but not know
         // DX12ShaderBytecode VertexShader;
         // DX12ShaderBytecode FragmentShader;
         ComPtr<ID3D12PipelineState> GraphicsPipeline;
@@ -187,7 +187,6 @@ private:
 
 
     std::unique_ptr<DX12DescriptorHeap> m_descriptorHeap;
-    std::unique_ptr<DX12ShaderCompiler> m_shaderCompiler;
 
     // f32 m_clearColor[4] = {0.098f, 0.439f, 0.439f, 1.000f}; // TODO(v.matushkin): Remove? Not used right now
 

@@ -1,12 +1,14 @@
 #pragma once
 
 #include <Engine/Core/Core.hpp>
+#include <Engine/Core/Assert.hpp>
 #include <Engine/Renderer/RenderTypes.hpp>
 
 #include <string>
 
 
 // TODO(v.matushkin): std::string -> std::string_view ?
+
 
 namespace snv
 {
@@ -29,7 +31,11 @@ namespace snv::EnumUtils
 template<typename T>
 [[nodiscard]] T FromString(const std::string& str)
 {
-    static_assert(false, "No, I don't think so");
+    // NOTE(v.matushkin): With 'VS 2022 17.1.0 Preview 3.0' update microsoft broke this static_assert for me.
+    //  Can't find the reason, so I'll just wait for it to go away.
+    //  Remove #include <Engine/Core/Assert.hpp> when this will be fixed
+    // static_assert(false, "No, I don't think so");
+    SNV_ASSERT(false, str);
 }
 
 // Engine/Renderer/RenderTypes.hpp

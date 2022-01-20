@@ -6,6 +6,7 @@
 #include <Engine/Renderer/RenderDefaults.hpp>
 #include <Engine/Renderer/Directx11/DX11ImGuiRenderContext.hpp>
 #include <Engine/Renderer/Directx11/DX11ShaderCompiler.hpp>
+#include <Engine/Renderer/GpuApiCommon/DXCommon.hpp>
 
 #include <d3d11_4.h>
 
@@ -110,11 +111,6 @@ static D3D11_FILL_MODE dx11_PolygonMode(snv::PolygonMode polygonMode)
     };
 
     return d3dPolygonMode[static_cast<ui8>(polygonMode)];
-}
-
-static bool dx11_TriangleFrontFace(snv::TriangleFrontFace triangleFrontFace)
-{
-    return triangleFrontFace == snv::TriangleFrontFace::Clockwise ? false : true;
 }
 
 //-- DepthStencilState
@@ -636,12 +632,12 @@ ShaderHandle DX11Backend::CreateShader(const ShaderDesc& shaderDesc)
     ID3D11RasterizerState2* d3dRasterizerState;
     {
         const auto rasterizerStateDesc = shaderDesc.RasterizerStateDesc;
-        const auto isImGuiShader       = shaderDesc.Name == RenderDefaults::ImGuiShaderName;
+        const auto isImGuiShader       = shaderDesc.IsImGuiShader();
 
         D3D11_RASTERIZER_DESC2 d3dRasterizerStateDesc = {
             .FillMode              = dx11_PolygonMode(rasterizerStateDesc.PolygonMode),
             .CullMode              = dx11_CullMode(rasterizerStateDesc.CullMode),
-            .FrontCounterClockwise = !isImGuiShader,
+            .FrontCounterClockwise = dx_TriangleFrontFace(rasterizerStateDesc.FrontFace, isImGuiShader),
             .DepthBias             = D3D11_DEFAULT_DEPTH_BIAS,
             .DepthBiasClamp        = D3D11_DEFAULT_DEPTH_BIAS_CLAMP,
             .SlopeScaledDepthBias  = D3D11_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,

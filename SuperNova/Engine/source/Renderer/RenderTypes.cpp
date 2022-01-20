@@ -30,4 +30,9 @@ BlendStateDesc BlendStateDesc::Default()
     return RenderDefaults::BlendState;
 }
 
+bool ShaderDesc::IsImGuiShader() const
+{
+    return Name == RenderDefaults::ImGuiShaderName;
+}
+
 } // namespace snv
