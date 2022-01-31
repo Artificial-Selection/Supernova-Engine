@@ -48,9 +48,10 @@ class RenderGraph
     };
 
 
-    using RenderTextureUsageMap = std::unordered_map<RenderTextureID, std::stack<AttachmentUsage>>;
-    using RenderPassIDMap       = std::unordered_map<std::string, RenderPassID>;
-    using RenderTextureIDMap    = std::unordered_map<std::string, RenderTextureID>;
+    using RenderTextureUsageMap  = std::unordered_map<RenderTextureID, std::stack<AttachmentUsage>>;
+    using RenderPassIDMap        = std::unordered_map<std::string, RenderPassID>;
+    using RenderTextureNameMap   = std::unordered_map<std::string, RenderTextureID>;
+    using RenderTextureHandleMap = std::unordered_map<RenderTextureHandle, RenderTextureID>;
 
 public:
     RenderGraph() = default;
@@ -71,8 +72,9 @@ private:
     RenderTextureUsageMap     m_renderTextureUsages;
 
     // Render passes schedule info
-    RenderPassIDMap    m_renderPassNameToID;
-    RenderTextureIDMap m_renderTextureNameToID;
+    RenderPassIDMap        m_renderPassNameToID;
+    RenderTextureNameMap   m_renderTextureNameToID;
+    RenderTextureHandleMap m_renderTextureHandleToID;
 
     std::vector<RenderGraphNode>     m_renderGraphNodes;
     std::vector<RenderTextureAccess> m_renderTexturesAccess;
@@ -83,11 +85,11 @@ class RenderPassScheduler
 {
     friend RenderGraph;
 
-    using RenderGraphNode     = RenderGraph::RenderGraphNode;
-    using RenderTextureAccess = RenderGraph::RenderTextureAccess;
-    using RenderPassID        = RenderGraph::RenderPassID;
-    using RenderTextureID     = RenderGraph::RenderTextureID;
-    using RenderTextureIDMap  = RenderGraph::RenderTextureIDMap;
+    using RenderGraphNode      = RenderGraph::RenderGraphNode;
+    using RenderTextureAccess  = RenderGraph::RenderTextureAccess;
+    using RenderPassID         = RenderGraph::RenderPassID;
+    using RenderTextureID      = RenderGraph::RenderTextureID;
+    using RenderTextureNameMap = RenderGraph::RenderTextureNameMap;
 
 public:
     // NOTE(v.matushkin): Return RenderTextureID so there is no need to use m_renderTextureNameToID in RenderPassBuilder ?
@@ -101,7 +103,7 @@ private:
 
 private:
     const RenderPassID                m_renderPassID;
-    RenderTextureIDMap&               m_renderTextureNameToID;
+    RenderTextureNameMap&             m_renderTextureNameToID;
     RenderGraphNode&                  m_renderGraphNode;
     std::vector<RenderTextureAccess>& m_renderTexturesAccess;
 };
@@ -111,11 +113,12 @@ class RenderPassBuilder
 {
     friend RenderGraph;
 
-    using AttachmentUsage       = RenderGraph::AttachmentUsage;
-    using RenderTextureAccess   = RenderGraph::RenderTextureAccess;
-    using RenderPassID          = RenderGraph::RenderPassID;
-    using RenderTextureUsageMap = RenderGraph::RenderTextureUsageMap;
-    using RenderTextureIDMap    = RenderGraph::RenderTextureIDMap;
+    using AttachmentUsage        = RenderGraph::AttachmentUsage;
+    using RenderTextureAccess    = RenderGraph::RenderTextureAccess;
+    using RenderPassID           = RenderGraph::RenderPassID;
+    using RenderTextureUsageMap  = RenderGraph::RenderTextureUsageMap;
+    using RenderTextureNameMap   = RenderGraph::RenderTextureNameMap;
+    using RenderTextureHandleMap = RenderGraph::RenderTextureHandleMap;
 
 public:
     // Needed by RenderPasses
@@ -131,17 +134,21 @@ public:
         const RenderTextureClearValue& clearValue
     );
     [[nodiscard]] RenderPassHandle    CreateRenderPass(
-        const std::vector<RenderTextureHandle>&& colorAttachments,
-        std::optional<RenderTextureHandle>       depthStencilAttachment
+        const std::vector<RenderTextureHandle>& colorAttachments,
+        std::optional<RenderTextureHandle>      depthStencilAttachment,
+        SubpassDesc&&                           subpassDesc
     );
 
 private:
     RenderPassBuilder(RenderGraph& renderGraph);
 
+    [[nodiscard]] AttachmentDesc CreateAttachmentDesc(RenderTextureHandle renderTextureHandle);
+
 private:
     std::unordered_map<std::string, RenderTextureHandle>& m_renderTextures;
     RenderTextureUsageMap&                                m_renderTextureUsages;
-    RenderTextureIDMap&                                   m_renderTextureNameToID;
+    RenderTextureNameMap&                                 m_renderTextureNameToID;
+    RenderTextureHandleMap&                               m_renderTextureHandleToID;
     std::vector<RenderTextureAccess>&                     m_renderTexturesAccess;
 };
 

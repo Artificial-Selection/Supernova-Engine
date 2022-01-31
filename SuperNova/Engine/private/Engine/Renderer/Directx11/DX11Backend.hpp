@@ -55,16 +55,25 @@ class DX11Backend final : public IRendererBackend
         ComPtr<ID3D11DepthStencilView>   DSV;
         ComPtr<ID3D11ShaderResourceView> SRV;        // NOTE(v.matushkin): Can be not set
         RenderTextureClearValue          ClearValue;
-        RenderTextureLoadAction          LoadAction;
         RenderTextureType                Type;       // NOTE(v.matushkin): May be store DepthStencilClearFlags instead of type?
     };
 
+    struct DX11Subpass
+    {
+        std::vector<ID3D11RenderTargetView*> RTVs;
+        ID3D11DepthStencilView*              DSV;
+    };
+
+    // NOTE(v.matushkin): No connection to RenderTextures, which is bad?
     struct DX11RenderPass
     {
-        std::vector<DX11RenderTexture>       ColorAttachments;
-        std::vector<ID3D11RenderTargetView*> ColorRTVs;
-        DX11RenderTexture                    DepthStencilAttachment;
+        std::vector<ID3D11RenderTargetView*> ClearRTVs;
+        std::vector<ClearColorValue>         ClearColorValues;
+        ID3D11DepthStencilView*              ClearDSV;
+        ClearDepthStencilValue               ClearDepthStencilValue;
         ui32                                 DepthStencilClearFlags;
+
+        DX11Subpass Subpass;
     };
 
     struct DX11Shader
@@ -114,7 +123,7 @@ public:
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
-    void EndRenderPass() override {}
+    void EndRenderPass() override;
     void EndFrame() override;
 
     void BindShader(ShaderHandle shaderHandle) override;
@@ -147,6 +156,7 @@ private:
     ComPtr<ID3D11DeviceContext4> m_deviceContext;
     ComPtr<IDXGISwapChain4>      m_swapChain;
 
+    RenderTextureHandle          m_swapchainRenderTextureHandle; // NOTE(v.matushkin): Not used
     RenderPassHandle             m_swapchainRenderPassHandle;
 
     ComPtr<ID3D11Buffer>         m_cbPerFrame;

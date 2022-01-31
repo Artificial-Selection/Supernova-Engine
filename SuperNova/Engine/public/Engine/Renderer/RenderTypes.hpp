@@ -155,11 +155,29 @@ enum class VertexAttributeFormat : ui8
     Float32,
 };
 
-enum class RenderTextureLoadAction : ui8
+enum class AttachmentLoadAction : ui8
 {
+    Load,
     Clear,
     DontCare,
-    Load,
+    // None,
+};
+
+enum class AttachmentStoreAction : ui8
+{
+    Store,
+    DontCare,
+    // None,
+    // D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_RESOLVE ?
+};
+
+// NOTE(v.matushkin): It will be hard to unite VkImageLayout and D3D12_RESOURCE_STATES under one enum
+//  Check VK_KHR_synchronization2 and VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR/VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+enum class AttachmentLayout
+{
+    Render,
+    ShaderSample,
+    Present,
 };
 
 // NOTE(v.matushkin): Not sure about this enum and the naming
@@ -213,16 +231,23 @@ enum class TextureWrapMode : ui8
 };
 
 
-// NOTE(v.matushkin): Default Color/DepthStencil clear values?
+// TODO(v.matushkin): Add Default method
+struct ClearColorValue
+{
+    f32 Value[4];
+};
+
+// TODO(v.matushkin): Add Default method
 struct ClearDepthStencilValue
 {
     f32 Depth;
     ui8 Stencil;
 };
 
+// TODO(v.matushkin): Add DefaultColor/DefaultDepthStencil methods
 union RenderTextureClearValue
 {
-    f32                    Color[4];
+    ClearColorValue        Color;
     ClearDepthStencilValue DepthStencil;
 };
 
@@ -233,7 +258,6 @@ struct RenderTextureDesc
     ui32                    Width;
     ui32                    Height;
     RenderTextureFormat     Format;
-    RenderTextureLoadAction LoadAction;
     RenderTextureUsage      Usage;
 
     [[nodiscard]] RenderTextureType RenderTextureType() const;
@@ -266,10 +290,29 @@ struct VertexAttributeDesc
     ui32                  Offset;
 };
 
+struct AttachmentDesc
+{
+    RenderTextureHandle   RenderTextureHandle;
+    AttachmentLoadAction  LoadAction;
+    AttachmentStoreAction StoreAction;
+    AttachmentLayout      InitialLayout;
+    AttachmentLayout      FinalLayout;
+};
+
+struct SubpassDesc
+{
+    std::vector<ui8>   ColorAttachmentIndices;
+    bool               UseDepthStencilAttachment;
+    // std::vector<ui8>   InputAttachmentIndices;
+};
+
+// NOTE(v.matushkin): Add support for multiple DepthStencilAttachments? Is there any use case for this?
+//  May be combine ColorAttachments and DepthStencilAttachment?
 struct RenderPassDesc
 {
-    std::vector<RenderTextureHandle>   ColorAttachments;
-    std::optional<RenderTextureHandle> DepthStencilAttachment;
+    std::vector<AttachmentDesc>   ColorAttachments;
+    std::optional<AttachmentDesc> DepthStencilAttachment;
+    SubpassDesc                   Subpass; // NOTE(v.matushkin): Only one for now
 };
 
 struct RasterizerStateDesc

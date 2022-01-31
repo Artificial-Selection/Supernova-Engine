@@ -7,6 +7,8 @@
 
 #include <glad/glad.h>
 
+#include <unordered_set>
+
 
 // TODO(v.matushkin):
 //  - <ContextCreation>
@@ -33,17 +35,23 @@ static const ui32 gl_DepthStencilAttachment[] = {
     GL_DEPTH_STENCIL_ATTACHMENT,
 };
 
-static const ui32 gl_DepthStencilType[] = {
-    OPENGL_NO_DEPTH_STENCIL, // NOTE(v.matushkin): Only needed as a padding
-    GL_DEPTH,
-    GL_STENCIL,
-    GL_DEPTH_STENCIL,
-};
+// static const ui32 gl_DepthStencilType[] = {
+//     OPENGL_NO_DEPTH_STENCIL, // NOTE(v.matushkin): Only needed as a padding
+//     GL_DEPTH,
+//     GL_STENCIL,
+//     GL_DEPTH_STENCIL,
+// };
 
-static const ui32 gl_RenderTextureFormat[] = {
-    GL_RGBA8, // TODO(v.matushkin): The fuck am I supposed to do with this RGBA/BGRA shit, I cannot specify BGRA in OpenGL
-    GL_DEPTH_COMPONENT32F,
-};
+static ui32 gl_RenderTextureFormat(snv::RenderTextureFormat renderTextureFormat)
+{
+    static const ui32 glRenderTextureFormat[] = {
+        // TODO(v.matushkin): The fuck am I supposed to do with this RGBA/BGRA shit, I cannot specify BGRA in OpenGL
+        GL_RGBA8,
+        GL_DEPTH_COMPONENT32F,
+    };
+
+    return glRenderTextureFormat[static_cast<ui8>(renderTextureFormat)];
+}
 
 // TODO(v.matushkin): Remove GetHandle() methods from GLShader/GLTexture/GLBuffer classes and use this
 // static ui32 g_BufferHandleWorkaround        = 0;
@@ -160,18 +168,18 @@ GLBackend::GLBackend()
     }
 
     // TODO(v.matushkin): <GLRenderPass>
-    GLRenderTexture colorAttachment = {
-        .ID         = static_cast<ui32>(RenderTextureHandle::InvalidHandle),  // NOTE(v.matushkin): And how the fuck this ID will work?
-        .ClearValue = {.Color = {0.f, 0.f, 0.f, 0.f}},
-        .LoadAction = RenderTextureLoadAction::Clear,
-    };
-
     m_swapchainRenderPassHandle = static_cast<RenderPassHandle>(g_RenderPassHandleWorkaround++);
-    m_renderPasses[m_swapchainRenderPassHandle] = {
-        .FramebufferID    = 0,
-        .ColorAttachments = {colorAttachment},
-        // .DepthStencilAttachment
-        .DepthStencilType = OPENGL_NO_DEPTH_STENCIL,
+    m_renderPasses[m_swapchainRenderPassHandle] = GLRenderPass{
+        .Subpass = {
+            .FramebufferID           = 0,
+            .DepthStencilType        = OPENGL_NO_DEPTH_STENCIL,
+            .ClearColorIndices       = {0},
+            .ClearColorValues        = {
+                {.Value = {0.f, 0.f, 0.f, 0.f}}
+            },
+            // .ClearDepthStencilValue = ,
+            .ShouldClearDepthStencil = false,
+        },
     };
 }
 
@@ -249,52 +257,43 @@ void GLBackend::BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& c
 
 void GLBackend::BeginRenderPass(RenderPassHandle renderPassHandle)
 {
-    const auto& glRenderPass = m_renderPasses[renderPassHandle];
+    const auto& glSubpass       = m_renderPasses[renderPassHandle].Subpass;
+    const auto  glFramebufferID = glSubpass.FramebufferID;
 
-    const auto glFramebufferID = glRenderPass.FramebufferID;
+    //- Bind Framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, glFramebufferID);
 
-    //- Clear Color attachments
-    const auto& colorAttachments = glRenderPass.ColorAttachments;
-
-    for (ui32 i = 0; i < colorAttachments.size(); ++i)
+    //- Clear Subpass attachments
+    //-- Color
+    for (ui32 i = 0; i < glSubpass.ClearColorIndices.size(); ++i)
     {
-        const auto& colorAttachment = colorAttachments[i];
-        if (colorAttachment.LoadAction == RenderTextureLoadAction::Clear)
-        {
-            // NOTE(v.matushkin): Why the fuck it doesn't work with GL_DRAW_BUFFER0 + i ?
-            glClearNamedFramebufferfv(glFramebufferID, GL_COLOR, i, colorAttachment.ClearValue.Color);
-        }
+        const auto  bufferIndex = glSubpass.ClearColorIndices[i];
+        const auto* clearValue  = glSubpass.ClearColorValues[i].Value;
+        // NOTE(v.matushkin): Why the fuck it doesn't work with GL_DRAW_BUFFER0 + i ?
+        glClearNamedFramebufferfv(glFramebufferID, GL_COLOR, bufferIndex, clearValue);
     }
-
-    //- Clear DepthStencil attachment
-    const auto depthStencilType = glRenderPass.DepthStencilType;
-
-    if (depthStencilType != OPENGL_NO_DEPTH_STENCIL)
+    //-- DepthStencil
+    const auto depthStencilType = glSubpass.DepthStencilType;
+    if (glSubpass.ShouldClearDepthStencil)
     {
-        const auto& depthStencilAttachment = glRenderPass.DepthStencilAttachment;
+        const auto clearValue = glSubpass.ClearDepthStencilValue;
 
-        if (depthStencilAttachment.LoadAction == RenderTextureLoadAction::Clear)
+        if (depthStencilType == GL_DEPTH)
         {
-            const auto depthStencilClearValue = depthStencilAttachment.ClearValue.DepthStencil;
-
-            if (depthStencilType == GL_DEPTH)
-            {
-                glClearNamedFramebufferfv(glFramebufferID, GL_DEPTH, 0, &depthStencilClearValue.Depth);
-            }
-            else if (depthStencilType == GL_STENCIL)
-            {
-                i32 stencilClearValue = depthStencilClearValue.Stencil;
-                glClearNamedFramebufferiv(glFramebufferID, GL_STENCIL, 0, &stencilClearValue);
-            }
-            else if (depthStencilType == GL_DEPTH_STENCIL)
-            {
-                glClearNamedFramebufferfi(glFramebufferID, GL_DEPTH_STENCIL, 0, depthStencilClearValue.Depth, depthStencilClearValue.Stencil);
-            }
-            else
-            {
-                SNV_ASSERT(false, "DepthStencil GLRenderTexture::Type holds an invalid value");
-            }
+            glClearNamedFramebufferfv(glFramebufferID, GL_DEPTH, 0, &clearValue.Depth);
+        }
+        else if (depthStencilType == GL_STENCIL)
+        {
+            i32 stencilClearValue = clearValue.Stencil;
+            glClearNamedFramebufferiv(glFramebufferID, GL_STENCIL, 0, &stencilClearValue);
+        }
+        else if (depthStencilType == GL_DEPTH_STENCIL)
+        {
+            glClearNamedFramebufferfi(glFramebufferID, GL_DEPTH_STENCIL, 0, clearValue.Depth, clearValue.Stencil);
+        }
+        else
+        {
+            SNV_ASSERT(false, "DepthStencil GLRenderTexture::Type holds an invalid value");
         }
     }
 }
@@ -303,6 +302,9 @@ void GLBackend::BeginRenderPass(RenderPassHandle renderPassHandle, RenderTexture
 {
     BeginRenderPass(renderPassHandle);
 }
+
+void GLBackend::EndRenderPass()
+{}
 
 void GLBackend::EndFrame()
 {
@@ -339,7 +341,7 @@ IImGuiRenderContext* GLBackend::CreateImGuiRenderContext()
 
 RenderTextureHandle GLBackend::CreateRenderTexture(const RenderTextureDesc& renderTextureDesc)
 {
-    const auto glRenderTextureFormat = gl_RenderTextureFormat[static_cast<ui8>(renderTextureDesc.Format)];
+    const auto glRenderTextureFormat = gl_RenderTextureFormat(renderTextureDesc.Format);
 
     bool isRenderbuffer = renderTextureDesc.Usage == RenderTextureUsage::Default;
     ui32 glRenderTextureID;
@@ -359,7 +361,6 @@ RenderTextureHandle GLBackend::CreateRenderTexture(const RenderTextureDesc& rend
         .ID                         = glRenderTextureID,
         .DepthStencilAttachmentType = gl_DepthStencilAttachment[static_cast<ui8>(renderTextureDesc.RenderTextureType())],
         .ClearValue                 = renderTextureDesc.ClearValue,
-        .LoadAction                 = renderTextureDesc.LoadAction,
         .IsRenderbuffer             = isRenderbuffer,
     };
 
@@ -372,55 +373,88 @@ RenderTextureHandle GLBackend::CreateRenderTexture(const RenderTextureDesc& rend
 RenderPassHandle GLBackend::CreateRenderPass(const RenderPassDesc& renderPassDesc)
 {
     GLRenderPass glRenderPass;
-    glCreateFramebuffers(1, &glRenderPass.FramebufferID);
+    glRenderPass.Subpass.ShouldClearDepthStencil = false;
 
-    //- Bind Color attachment to Framebuffer
-    const auto& colorAttachmentHandles = renderPassDesc.ColorAttachments;
+    glCreateFramebuffers(1, &glRenderPass.Subpass.FramebufferID);
 
-    for (ui32 i = 0; i < colorAttachmentHandles.size(); ++i)
+    std::unordered_set<ui8> clearedAttachmentIndices;
+    bool                    clearedDepthStencilAttachment = false;
+
+    //- Subpass attachments
+    const auto glFramebufferID = glRenderPass.Subpass.FramebufferID;
+    //-- Color
+    for (ui32 i = 0; i < renderPassDesc.Subpass.ColorAttachmentIndices.size(); ++i)
     {
-        const auto& glRenderTexture = m_renderTextures[colorAttachmentHandles[i]];
-    
+        const auto  colorAttachmentIndex = renderPassDesc.Subpass.ColorAttachmentIndices[i];
+        const auto& colorAttachmentDesc  = renderPassDesc.ColorAttachments[colorAttachmentIndex];
+        const auto& glRenderTexture      = m_renderTextures[colorAttachmentDesc.RenderTextureHandle];
+
+        //--- Bind attachment to Framebuffer
+        // TODO(v.matushkin): GL_COLOR_ATTACHMENT0 + i is not tested
         if (glRenderTexture.IsRenderbuffer)
         {
-            glNamedFramebufferRenderbuffer(glRenderPass.FramebufferID, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, glRenderTexture.ID);
+            glNamedFramebufferRenderbuffer(glFramebufferID, GL_COLOR_ATTACHMENT0 + i, GL_RENDERBUFFER, glRenderTexture.ID);
         }
         else
         {
-            glNamedFramebufferTexture(glRenderPass.FramebufferID, GL_COLOR_ATTACHMENT0, glRenderTexture.ID, 0);
+            glNamedFramebufferTexture(glFramebufferID, GL_COLOR_ATTACHMENT0 + i, glRenderTexture.ID, 0);
         }
-    
-        glRenderPass.ColorAttachments.push_back(glRenderTexture);
+        //--- Get clear info
+        if (colorAttachmentDesc.LoadAction == AttachmentLoadAction::Clear)
+        {
+            if (clearedAttachmentIndices.contains(colorAttachmentIndex) == false)
+            {
+                clearedAttachmentIndices.insert(colorAttachmentIndex);
+
+                glRenderPass.Subpass.ClearColorIndices.push_back(i);
+                glRenderPass.Subpass.ClearColorValues.push_back(glRenderTexture.ClearValue.Color);
+            }
+        }
     }
-
-    //- Bind DepthStencil attachment to Framebuffer
-    const auto& depthStencilAttachmentHandle = renderPassDesc.DepthStencilAttachment;
-
-    if (depthStencilAttachmentHandle.has_value())
+    //-- DepthStencil
+    if (renderPassDesc.Subpass.UseDepthStencilAttachment)
     {
-        const auto& glRenderTexture = m_renderTextures[depthStencilAttachmentHandle.value()];
-        const auto  depthStencilAttachmentType = glRenderTexture.DepthStencilAttachmentType;
+        SNV_ASSERT(
+            renderPassDesc.DepthStencilAttachment.has_value(),
+            "Using DepthStencilAttachment in Subpass when there is none of them in the RenderPass"
+        );
 
+        const auto  depthStencilAttachmentDesc   = renderPassDesc.DepthStencilAttachment.value();
+        const auto& glRenderTexture              = m_renderTextures[depthStencilAttachmentDesc.RenderTextureHandle];
+        const auto  glDepthStencilAttachmentType = glRenderTexture.DepthStencilAttachmentType;
+
+        //--- Bind attachment to Framebuffer
         if (glRenderTexture.IsRenderbuffer)
         {
-            glNamedFramebufferRenderbuffer(glRenderPass.FramebufferID, depthStencilAttachmentType, GL_RENDERBUFFER, glRenderTexture.ID);
+            glNamedFramebufferRenderbuffer(glFramebufferID, glDepthStencilAttachmentType, GL_RENDERBUFFER, glRenderTexture.ID);
         }
         else
         {
-            glNamedFramebufferTexture(glRenderPass.FramebufferID, depthStencilAttachmentType, glRenderTexture.ID, 0);
+            glNamedFramebufferTexture(glFramebufferID, glDepthStencilAttachmentType, glRenderTexture.ID, 0);
         }
 
-        glRenderPass.DepthStencilAttachment = glRenderTexture;
-        switch (depthStencilAttachmentType)
+        switch (glDepthStencilAttachmentType)
         {
-            case GL_DEPTH_ATTACHMENT:         glRenderPass.DepthStencilType = GL_DEPTH;         break;
-            case GL_STENCIL_ATTACHMENT:       glRenderPass.DepthStencilType = GL_STENCIL;       break;
-            case GL_DEPTH_STENCIL_ATTACHMENT: glRenderPass.DepthStencilType = GL_DEPTH_STENCIL; break;
+            case GL_DEPTH_ATTACHMENT:         glRenderPass.Subpass.DepthStencilType = GL_DEPTH;         break;
+            case GL_STENCIL_ATTACHMENT:       glRenderPass.Subpass.DepthStencilType = GL_STENCIL;       break;
+            case GL_DEPTH_STENCIL_ATTACHMENT: glRenderPass.Subpass.DepthStencilType = GL_DEPTH_STENCIL; break;
+        }
+
+        //--- Get clear info
+        if (depthStencilAttachmentDesc.LoadAction == AttachmentLoadAction::Clear)
+        {
+            if (clearedDepthStencilAttachment == false)
+            {
+                clearedDepthStencilAttachment = true;
+
+                glRenderPass.Subpass.ClearDepthStencilValue  = glRenderTexture.ClearValue.DepthStencil;
+                glRenderPass.Subpass.ShouldClearDepthStencil = true;
+            }
         }
     }
     else
     {
-        glRenderPass.DepthStencilType = OPENGL_NO_DEPTH_STENCIL;
+        glRenderPass.Subpass.DepthStencilType = OPENGL_NO_DEPTH_STENCIL;
     }
 
     const auto renderPassHandle      = static_cast<RenderPassHandle>(g_RenderPassHandleWorkaround++);

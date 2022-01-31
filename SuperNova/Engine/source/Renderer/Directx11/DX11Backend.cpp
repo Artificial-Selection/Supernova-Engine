@@ -38,6 +38,7 @@ static ui8 dx11_RenderTextureTypeToClearFlags(snv::RenderTextureType renderTextu
     return d3dClearFlags[static_cast<ui8>(renderTextureType)];
 }
 
+// TODO(v.matushkin): Move this to DXCommon
 static DXGI_FORMAT dx11_RenderTextureFormat(snv::RenderTextureFormat renderTextureFormat)
 {
     static const DXGI_FORMAT dxgiRenderTextureFormat[] = {
@@ -50,6 +51,7 @@ static DXGI_FORMAT dx11_RenderTextureFormat(snv::RenderTextureFormat renderTextu
 
 //- Texture
 
+// TODO(v.matushkin): Move this to DXCommon
 // NOTE(v.matushkin): What about BGRA/RGBA ?
 // NOTE(v.matushkin): Don't know if I should use UINT or UNORM
 // TODO(v.matushkin): Apparently there is no support fo 24 bit formats (like RGB8, DEPTH24) on all(almost?) gpus
@@ -300,34 +302,31 @@ void DX11Backend::BeginRenderPass(RenderPassHandle renderPassHandle)
 {
     const auto& dx11RenderPass = m_renderPasses[renderPassHandle];
 
-    const auto& dx11DepthStencilRenderTexture = dx11RenderPass.DepthStencilAttachment;
-    const auto  d3dDepthStencilClearFlags     = dx11RenderPass.DepthStencilClearFlags;
+    // NOTE(v.matushkin): Don't know what's better, clear all RenderPass attachments in the beginning
+    //  or clear them with the first usage in subpasses
 
-    auto* d3dDepthStencilView = d3dDepthStencilClearFlags != DX11_NO_DEPTH_STENCIL
-                              ? dx11DepthStencilRenderTexture.DSV.Get()
-                              : nullptr;
-
-    //- Set RenderTargets
-    m_deviceContext->OMSetRenderTargets(dx11RenderPass.ColorRTVs.size(), dx11RenderPass.ColorRTVs.data(), d3dDepthStencilView);
-
-    //- Clear Color attachments
-    for (const auto& colorAttachment : dx11RenderPass.ColorAttachments)
+    //- Clear attachments
+    //-- Color
+    for (ui32 i = 0; i < dx11RenderPass.ClearRTVs.size(); ++i)
     {
-        if (colorAttachment.LoadAction == RenderTextureLoadAction::Clear)
-        {
-            m_deviceContext->ClearRenderTargetView(colorAttachment.RTV.Get(), colorAttachment.ClearValue.Color);
-        }
+        m_deviceContext->ClearRenderTargetView(dx11RenderPass.ClearRTVs[i], dx11RenderPass.ClearColorValues[i].Value);
     }
-    //- Clear DepthStencil attachment
-    if (d3dDepthStencilView != nullptr && dx11DepthStencilRenderTexture.LoadAction == RenderTextureLoadAction::Clear)
+    //-- DepthStencil
+    if (dx11RenderPass.DepthStencilClearFlags != DX11_NO_DEPTH_STENCIL)
     {
-        const auto depthStencilClearValue = dx11DepthStencilRenderTexture.ClearValue.DepthStencil;
+        const auto depthStencilClearValue = dx11RenderPass.ClearDepthStencilValue;
         m_deviceContext->ClearDepthStencilView(
-            d3dDepthStencilView,
-            d3dDepthStencilClearFlags,
+            dx11RenderPass.ClearDSV,
+            dx11RenderPass.DepthStencilClearFlags,
             depthStencilClearValue.Depth,
             depthStencilClearValue.Stencil
         );
+    }
+
+    //- Set RenderTargets
+    {
+        const auto& dx11Subpass = dx11RenderPass.Subpass;
+        m_deviceContext->OMSetRenderTargets(dx11Subpass.RTVs.size(), dx11Subpass.RTVs.data(), dx11Subpass.DSV);
     }
 }
 
@@ -335,6 +334,9 @@ void DX11Backend::BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextu
 {
     BeginRenderPass(renderPassHandle);
 }
+
+void DX11Backend::EndRenderPass()
+{}
 
 void DX11Backend::EndFrame()
 {
@@ -393,8 +395,12 @@ RenderTextureHandle DX11Backend::CreateRenderTexture(const RenderTextureDesc& re
     const auto isColorRenderTexture    = renderTextureType == RenderTextureType::Color;
     const auto isUsageShaderRead       = renderTextureDesc.Usage == RenderTextureUsage::ShaderRead;
 
+    ID3D11Texture2D1*         d3dRenderTexture;
+    ID3D11RenderTargetView*   d3dRenderTextureRtv;
+    ID3D11DepthStencilView*   d3dRenderTextureDsv;
+    ID3D11ShaderResourceView* d3dRenderTextureSrv;
+
     //- Create RenderTexture
-    ID3D11Texture2D1* d3dRenderTexture;
     {
         ui32 d3dTextureBindFlags = isColorRenderTexture ? D3D11_BIND_RENDER_TARGET : D3D11_BIND_DEPTH_STENCIL;
         if (isUsageShaderRead)
@@ -418,9 +424,6 @@ RenderTextureHandle DX11Backend::CreateRenderTexture(const RenderTextureDesc& re
     }
 
     //- Create RTV or DSV
-    ID3D11RenderTargetView* d3dRenderTextureRtv;
-    ID3D11DepthStencilView* d3dRenderTextureDsv;
-
     if (isColorRenderTexture)
     {
         d3dRenderTextureDsv = nullptr;
@@ -447,8 +450,6 @@ RenderTextureHandle DX11Backend::CreateRenderTexture(const RenderTextureDesc& re
     }
 
     //- Create SRV
-    ID3D11ShaderResourceView* d3dRenderTextureSrv;
-
     if (isUsageShaderRead)
     {
         D3D11_TEX2D_SRV d3dSrvTex2D = {
@@ -474,7 +475,6 @@ RenderTextureHandle DX11Backend::CreateRenderTexture(const RenderTextureDesc& re
         .DSV        = d3dRenderTextureDsv,
         .SRV        = d3dRenderTextureSrv,
         .ClearValue = renderTextureDesc.ClearValue,
-        .LoadAction = renderTextureDesc.LoadAction,
         .Type       = renderTextureType,
     };
 
@@ -483,24 +483,63 @@ RenderTextureHandle DX11Backend::CreateRenderTexture(const RenderTextureDesc& re
 
 RenderPassHandle DX11Backend::CreateRenderPass(const RenderPassDesc& renderPassDesc)
 {
-    DX11RenderPass dx11RenderPass;
+    DX11RenderPass dx11RenderPass = {
+        .ClearDSV               = nullptr,
+        .DepthStencilClearFlags = DX11_NO_DEPTH_STENCIL,
+        .Subpass                = {.DSV = nullptr},
+    };
 
-    for (const auto colorAttachmentHandle : renderPassDesc.ColorAttachments)
+    // NOTE(v.matushkin): Retrieving same RenderTextures from m_renderTextures multiple times,
+    //  may be get them once at the start?
+
+    //- Clear attachments
+    //-- Color
+    for (const auto& colorAttachmentDesc : renderPassDesc.ColorAttachments)
     {
-        const auto& dx11RenderTexture = m_renderTextures[colorAttachmentHandle];
-        dx11RenderPass.ColorAttachments.push_back(dx11RenderTexture);
-        dx11RenderPass.ColorRTVs.push_back(dx11RenderTexture.RTV.Get());
-    }
+        if (colorAttachmentDesc.LoadAction == AttachmentLoadAction::Clear)
+        {
+            const auto& dx11RenderTexture = m_renderTextures[colorAttachmentDesc.RenderTextureHandle];
 
+            dx11RenderPass.ClearRTVs.push_back(dx11RenderTexture.RTV.Get());
+            dx11RenderPass.ClearColorValues.push_back(dx11RenderTexture.ClearValue.Color);
+        }
+    }
+    //-- DepthStencil
     if (renderPassDesc.DepthStencilAttachment.has_value())
     {
-        const auto& dx11RenderTexture = m_renderTextures[renderPassDesc.DepthStencilAttachment.value()];
-        dx11RenderPass.DepthStencilAttachment = dx11RenderTexture;
-        dx11RenderPass.DepthStencilClearFlags = dx11_RenderTextureTypeToClearFlags(dx11RenderTexture.Type);
+        const auto depthStencilAttachmentDesc = renderPassDesc.DepthStencilAttachment.value();
+
+        if (depthStencilAttachmentDesc.LoadAction == AttachmentLoadAction::Clear)
+        {
+            const auto& dx11RenderTexture = m_renderTextures[depthStencilAttachmentDesc.RenderTextureHandle];
+
+            dx11RenderPass.ClearDSV               = dx11RenderTexture.DSV.Get();
+            dx11RenderPass.ClearDepthStencilValue = dx11RenderTexture.ClearValue.DepthStencil;
+            dx11RenderPass.DepthStencilClearFlags = dx11_RenderTextureTypeToClearFlags(dx11RenderTexture.Type);
+        }
     }
-    else
+
+    //- Subpass RenderTargets
+    //-- Color
+    for (const auto colorAttachmentIndex : renderPassDesc.Subpass.ColorAttachmentIndices)
     {
-        dx11RenderPass.DepthStencilClearFlags = DX11_NO_DEPTH_STENCIL;
+        const auto  colorAttachmentDesc = renderPassDesc.ColorAttachments[colorAttachmentIndex];
+        const auto& dx11RenderTexture   = m_renderTextures[colorAttachmentDesc.RenderTextureHandle];
+
+        dx11RenderPass.Subpass.RTVs.push_back(dx11RenderTexture.RTV.Get());
+    }
+    //-- DepthStencil
+    if (renderPassDesc.Subpass.UseDepthStencilAttachment)
+    {
+        SNV_ASSERT(
+            renderPassDesc.DepthStencilAttachment.has_value(),
+            "Using DepthStencilAttachment in Subpass when there is none of them in the RenderPass"
+        );
+
+        const auto  depthStencilAttachmentDesc = renderPassDesc.DepthStencilAttachment.value();
+        const auto& dx11RenderTexture          = m_renderTextures[depthStencilAttachmentDesc.RenderTextureHandle];
+
+        dx11RenderPass.Subpass.DSV = dx11RenderTexture.DSV.Get();
     }
 
     const auto renderPassHandle      = static_cast<RenderPassHandle>(g_RenderPassHandleWorkaround++);
@@ -868,23 +907,41 @@ void DX11Backend::CreateSwapchain()
     );
     dxgiSwapChain.As(&m_swapChain);
 
-    //- Create Swapchain Framebuffer
-    DX11RenderTexture colorAttachment = {
-        .DSV        = nullptr,
-        .SRV        = nullptr,
-        .ClearValue = {.Color = {0.0f, 0.0f, 0.0f, 0.0f}},
-        .LoadAction = RenderTextureLoadAction::Clear
-    };
-    m_swapChain->GetBuffer(0, IID_PPV_ARGS(colorAttachment.Texture.GetAddressOf()));
-    m_device->CreateRenderTargetView(colorAttachment.Texture.Get(), nullptr, colorAttachment.RTV.GetAddressOf());
+    //- Create Swapchain RenderTextures/RenderPasses
+    {
+        ID3D11Texture2D1*         d3dRenderTexture;
+        ID3D11RenderTargetView*   d3dRenderTextureRtv;
 
-    m_swapchainRenderPassHandle                 = static_cast<RenderPassHandle>(g_RenderPassHandleWorkaround++);
-    m_renderPasses[m_swapchainRenderPassHandle] = {
-        .ColorAttachments       = {colorAttachment},
-        .ColorRTVs              = {colorAttachment.RTV.Get()},
-        // .DepthStencilAttachment
-        .DepthStencilClearFlags = DX11_NO_DEPTH_STENCIL,
-    };
+        m_swapChain->GetBuffer(0, IID_PPV_ARGS(&d3dRenderTexture));
+        m_device->CreateRenderTargetView(d3dRenderTexture, nullptr, &d3dRenderTextureRtv);
+
+        m_swapchainRenderTextureHandle = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
+        m_renderTextures[m_swapchainRenderTextureHandle] = DX11RenderTexture{
+            .Texture    = d3dRenderTexture,
+            .RTV        = d3dRenderTextureRtv,
+            .DSV        = nullptr,
+            .SRV        = nullptr,
+            .ClearValue = {.Color = {0.0f, 0.0f, 0.0f, 0.0f}},
+            .Type       = RenderTextureType::Color,
+        };
+
+        m_swapchainRenderPassHandle = CreateRenderPass(RenderPassDesc{
+            .ColorAttachments = {
+                {
+                    .RenderTextureHandle = m_swapchainRenderTextureHandle,
+                    .LoadAction          = AttachmentLoadAction::Clear,
+                    .StoreAction         = AttachmentStoreAction::Store,
+                    .InitialLayout       = AttachmentLayout::Present,
+                    .FinalLayout         = AttachmentLayout::Present,
+                },
+            },
+            // .DepthStencilAttachment = ,
+            .Subpass = {
+                .ColorAttachmentIndices = {0},
+                // .UseDepthStencilAttachment = ,
+            },
+        });
+    }
 
     //- Setup Viewport
     // TODO(v.matushkin): <RenderGraph/Viewport>

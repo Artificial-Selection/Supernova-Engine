@@ -46,7 +46,14 @@ void EngineRenderPass::OnCreate(RenderPassBuilder& renderPassBuilder)
         {.DepthStencil = {.Depth = 1.f, .Stencil = 0}}
     );
 
-    m_renderPassHandle = renderPassBuilder.CreateRenderPass({engineColorRenderTextureHandle}, engineDepthRenderTextureHandle);
+    m_renderPassHandle = renderPassBuilder.CreateRenderPass(
+        {engineColorRenderTextureHandle},
+        engineDepthRenderTextureHandle,
+        SubpassDesc{
+            .ColorAttachmentIndices    = {0},
+            .UseDepthStencilAttachment = true,
+        }
+    );
 }
 
 void EngineRenderPass::OnRender(const RenderContext& renderContext) const

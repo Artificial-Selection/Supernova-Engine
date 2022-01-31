@@ -7,7 +7,9 @@
 #include <wrl/client.h>
 
 #include <memory>
+#include <optional>
 #include <unordered_map>
+#include <vector>
 
 
 struct IDXGIFactory7;
@@ -54,19 +56,25 @@ class DX12Backend final : public IRendererBackend
         D3D12_CPU_DESCRIPTOR_HANDLE Descriptor;
         D3D12_CPU_DESCRIPTOR_HANDLE SrvCpuDescriptor;
         D3D12_GPU_DESCRIPTOR_HANDLE SrvGpuDescriptor;
-        D3D12_RESOURCE_STATES       CurrentState;
-        RenderTextureClearValue     ClearValue;
-        RenderTextureLoadAction     LoadAction;
+        D3D12_CLEAR_VALUE           ClearValue; // NOTE(v.matushkin): For DX12Subpass creation
         RenderTextureType           Type; // NOTE(v.matushkin): May be store DepthStencilClearFlags instead of type?
     };
     using DX12RenderTexturePtr = std::shared_ptr<DX12RenderTexture>;
 
+    struct DX12Subpass
+    {
+        std::vector<D3D12_RENDER_PASS_RENDER_TARGET_DESC>   ColorAttachments;
+        std::optional<D3D12_RENDER_PASS_DEPTH_STENCIL_DESC> DepthStencilAttachment;
+    };
+
+    // NOTE(v.matushkin): No connection to RenderTextures, which is bad?
     struct DX12RenderPass
     {
-        std::vector<DX12RenderTexturePtr>        ColorAttachments;
-        std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> ColorDescriptors;
-        DX12RenderTexturePtr                     DepthStencilAttachment;
-        D3D12_CLEAR_FLAGS                        DepthStencilClearFlags;
+        // TODO: Can I combine FinalBarriers with InitialBarriers of the next RenderPass?
+        std::vector<D3D12_RESOURCE_BARRIER> InitialBarriers;
+        std::vector<D3D12_RESOURCE_BARRIER> FinalBarriers;
+
+        DX12Subpass Subpass;
     };
 
     struct DX12Shader
@@ -117,7 +125,7 @@ public:
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
-    void EndRenderPass() override {}
+    void EndRenderPass() override;
     void EndFrame() override;
 
     void BindShader(ShaderHandle shaderHandle) override;
@@ -167,9 +175,13 @@ private:
 
     ComPtr<ID3D12RootSignature>        m_rootSignature;
 
-    DX12RenderPass                     m_swapchainRenderPasses[k_BackBufferFrames];
+    // NOTE(v.matushkin): Actually there are k_BackBufferFrames of Swapchain RenderTextures/RenderPasses
+    // m_swapchainRender*Handle + 0, m_swapchainRender*Handle + 1, ... , m_swapchainRender*Handle + k_BackBufferFrames - 1
+    RenderTextureHandle                m_swapchainRenderTextureHandle; // NOTE(v.matushkin): Not used
     RenderPassHandle                   m_swapchainRenderPassHandle;
     ui32                               m_currentBackBufferIndex;
+
+    DX12RenderPass*                    m_currentRenderPass;
 
     ComPtr<ID3D12Resource2>            m_cbPerFrame;
     ComPtr<ID3D12Resource2>            m_cbPerDraw;

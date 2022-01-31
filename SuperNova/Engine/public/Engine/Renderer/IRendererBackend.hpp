@@ -39,6 +39,7 @@ public:
     // TODO(v.matushkin): Remove, temporary method
     virtual void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) = 0;
     virtual void BeginRenderPass(RenderPassHandle renderPassHandle) = 0;
+    // TODO(v.matushkin): Remove this overload, I misunderstood what VkSubpassDescription InputAttachments were for
     virtual void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) = 0;
     virtual void EndRenderPass() = 0;
     virtual void EndFrame() = 0;

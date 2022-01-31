@@ -22,16 +22,23 @@ class GLBackend final : public IRendererBackend
         ui32                    ID;
         ui32                    DepthStencilAttachmentType; // NOTE(v.matushkin): Do I need to store it here and in GLRenderPass?
         RenderTextureClearValue ClearValue;
-        RenderTextureLoadAction LoadAction;
         bool                    IsRenderbuffer;
+    };
+
+    struct GLSubpass
+    {
+        ui32                         FramebufferID;
+        ui32                         DepthStencilType;
+        std::vector<ui8>             ClearColorIndices;
+        std::vector<ClearColorValue> ClearColorValues;
+        ClearDepthStencilValue       ClearDepthStencilValue;
+        // Will only be set when DepthStencilType != OPENGL_NO_DEPTH_STENCIL
+        bool                         ShouldClearDepthStencil;
     };
 
     struct GLRenderPass
     {
-        ui32                         FramebufferID;
-        std::vector<GLRenderTexture> ColorAttachments;
-        GLRenderTexture              DepthStencilAttachment;
-        ui32                         DepthStencilType;
+        GLSubpass Subpass;
     };
 
 public:
@@ -52,7 +59,7 @@ public:
     void BeginFrame(const glm::mat4x4& localToWorld, const glm::mat4x4& cameraView, const glm::mat4x4& cameraProjection) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle) override;
     void BeginRenderPass(RenderPassHandle renderPassHandle, RenderTextureHandle input) override;
-    void EndRenderPass() override {}
+    void EndRenderPass() override;
     void EndFrame() override;
 
     void BindShader(ShaderHandle shaderHandle) override;
@@ -74,8 +81,7 @@ public:
 
 private:
     RenderPassHandle m_swapchainRenderPassHandle;
-
-    ShaderHandle m_engineShaderHandle;
+    ShaderHandle     m_engineShaderHandle;
 
     std::unordered_map<BufferHandle,        GLBuffer>        m_buffers;
     std::unordered_map<RenderPassHandle,    GLRenderPass>    m_renderPasses;

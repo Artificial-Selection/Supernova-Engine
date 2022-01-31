@@ -11,7 +11,10 @@
 //
 //  - <GetNativeRenderTexture>
 //    This method probably can be removed when I'll replace '#include <imgui_impl_*.h>' with my own implementation
-
+//
+//  - <AttachmentLayout>
+//    - First InitialLayout in the frame should be equal to the last FinalLayout in the frame
+//    - Add AttachmentLayout::Present support
 
 namespace snv
 {
@@ -141,6 +144,7 @@ RenderPassBuilder::RenderPassBuilder(RenderGraph& renderGraph)
     : m_renderTextures(renderGraph.m_renderTextures)
     , m_renderTextureUsages(renderGraph.m_renderTextureUsages)
     , m_renderTextureNameToID(renderGraph.m_renderTextureNameToID)
+    , m_renderTextureHandleToID(renderGraph.m_renderTextureHandleToID)
     , m_renderTexturesAccess(renderGraph.m_renderTexturesAccess)
 {}
 
@@ -188,18 +192,88 @@ RenderTextureHandle RenderPassBuilder::CreateRenderTexture(
     const auto renderTextureHandle = Renderer::CreateRenderTexture(renderTextureDesc);
     m_renderTextures[name]         = renderTextureHandle;
 
+    m_renderTextureHandleToID[renderTextureHandle] = renderTextureID;
+
     return renderTextureHandle;
 }
 
 RenderPassHandle RenderPassBuilder::CreateRenderPass(
-    const std::vector<RenderTextureHandle>&& colorAttachments,
-    std::optional<RenderTextureHandle>       depthStencilAttachment
+    const std::vector<RenderTextureHandle>& colorAttachments,
+    std::optional<RenderTextureHandle>      depthStencilAttachment,
+    SubpassDesc&&                           subpassDesc
 )
 {
-    return Renderer::CreateRenderPass(RenderPassDesc{
-        .ColorAttachments       = std::move(colorAttachments),
-        .DepthStencilAttachment = depthStencilAttachment,
-    });
+    RenderPassDesc renderPassDesc = {
+        .Subpass = std::move(subpassDesc),
+    };
+
+    for (const auto renderTextureHandle : colorAttachments)
+    {
+        renderPassDesc.ColorAttachments.push_back(CreateAttachmentDesc(renderTextureHandle));
+    }
+    if (depthStencilAttachment.has_value())
+    {
+        renderPassDesc.DepthStencilAttachment = CreateAttachmentDesc(depthStencilAttachment.value());
+    }
+
+    return Renderer::CreateRenderPass(renderPassDesc);
+}
+
+
+AttachmentDesc RenderPassBuilder::CreateAttachmentDesc(RenderTextureHandle renderTextureHandle)
+{
+    const auto renderTextureID       = m_renderTextureHandleToID[renderTextureHandle];
+    auto&      colorAttachmentUsages = m_renderTextureUsages[renderTextureID];
+
+     //- Initial layout
+    AttachmentLayout initialLayout;
+    {
+        const auto attachmentUsage = colorAttachmentUsages.top();
+        colorAttachmentUsages.pop();
+
+        initialLayout = attachmentUsage == AttachmentUsage::Create
+                      ? AttachmentLayout::Render
+                      : AttachmentLayout::ShaderSample;
+    }
+
+    //- Final layout
+    AttachmentLayout finalLayout;
+    // NOTE(v.matushkin): If stack is empty -> this was the last usage -> back to default color RenderTexture state
+    if (colorAttachmentUsages.empty())
+    {
+        finalLayout = AttachmentLayout::Render;
+    }
+    else
+    {
+        const auto attachmentUsage = colorAttachmentUsages.top();
+        SNV_ASSERT(attachmentUsage != AttachmentUsage::Create, "This shouldn't happen");
+        finalLayout = AttachmentLayout::ShaderSample;
+    }
+
+    //- Load action
+    // NOTE(v.matushkin): Not sure about this one, but there is not much options to test with.
+    //  Not sure about default case. And when to use DontCare?
+    AttachmentLoadAction loadAction;
+    switch (initialLayout)
+    {
+    case AttachmentLayout::Render:       loadAction = AttachmentLoadAction::Clear;    break;
+    case AttachmentLayout::ShaderSample: loadAction = AttachmentLoadAction::Load;     break;
+    default:                             loadAction = AttachmentLoadAction::DontCare; break;
+    }
+
+    //- Store action
+    // NOTE(v.matushkin): Not sure about this one also. What if finalLayout = Present ?
+    const auto storeAction = finalLayout == AttachmentLayout::Render
+                           ? AttachmentStoreAction::DontCare
+                           : AttachmentStoreAction::Store;
+
+    return AttachmentDesc{
+        .RenderTextureHandle = renderTextureHandle,
+        .LoadAction          = loadAction,
+        .StoreAction         = storeAction,
+        .InitialLayout       = initialLayout,
+        .FinalLayout         = finalLayout,
+    };
 }
 
 } // namespace snv
