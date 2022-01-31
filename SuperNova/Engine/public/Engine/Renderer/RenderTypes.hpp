@@ -138,6 +138,7 @@ enum class VertexAttribute : ui8
     TexCoord0,
 };
 
+// NOTE(v.matushkin): Seems like OpenGL/Vulkan support more formats (VK_FORMAT_R64_SFLOAT for example)
 enum class VertexAttributeFormat : ui8
 {
     SInt8,

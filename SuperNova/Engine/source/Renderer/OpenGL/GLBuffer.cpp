@@ -11,17 +11,31 @@
 #define UINT_TO_VOID_PTR(ui) (void*)(ui64)(ui)
 
 
-constexpr ui32 gl_VertexAttributeFormat[] = {
-    GL_BYTE ,          // VertexAttributeFormat::Int8
-    GL_SHORT,          // VertexAttributeFormat::Int16
-    GL_INT,            // VertexAttributeFormat::Int32
-    GL_UNSIGNED_BYTE,  // VertexAttributeFormat::UInt8
-    GL_UNSIGNED_SHORT, // VertexAttributeFormat::UInt16
-    GL_UNSIGNED_INT,   // VertexAttributeFormat::UInt32
-    GL_HALF_FLOAT,     // VertexAttributeFormat::Float16
-    GL_FLOAT,          // VertexAttributeFormat::Float32
-    GL_DOUBLE          // VertexAttributeFormat::Float64
+struct GLVertexAttribute
+{
+    ui32 Format;
+    bool Normalized;
 };
+
+static GLVertexAttribute gl_VertexAttribute(snv::VertexAttributeFormat vertexAttributeFormat)
+{
+    static const GLVertexAttribute gl_VertexAttribute[] = {
+        {GL_BYTE,           false},
+        {GL_SHORT,          false},
+        {GL_INT,            false},
+        {GL_UNSIGNED_BYTE,  false},
+        {GL_UNSIGNED_SHORT, false},
+        {GL_UNSIGNED_INT,   false},
+        {GL_BYTE,           true},
+        {GL_SHORT,          true},
+        {GL_UNSIGNED_BYTE,  true},
+        {GL_UNSIGNED_SHORT, true},
+        {GL_HALF_FLOAT,     false},
+        {GL_FLOAT,          false},
+    };
+
+    return gl_VertexAttribute[static_cast<ui8>(vertexAttributeFormat)];
+}
 
 
 namespace snv
@@ -54,10 +68,10 @@ GLBuffer::GLBuffer(
     for (const auto& vertexAttribute : vertexLayout)
     {
         const auto attribute = static_cast<ui8>(vertexAttribute.Attribute);
-        const auto format    = gl_VertexAttributeFormat[static_cast<ui8>(vertexAttribute.Format)];
-        
+        const auto [format, normalized] = gl_VertexAttribute(vertexAttribute.Format);
+
         glEnableVertexAttribArray(attribute);
-        glVertexAttribPointer(attribute, vertexAttribute.Dimension, format, GL_FALSE, 0, UINT_TO_VOID_PTR(vertexAttribute.Offset));
+        glVertexAttribPointer(attribute, vertexAttribute.Dimension, format, normalized, 0, UINT_TO_VOID_PTR(vertexAttribute.Offset));
     }
 }
 
