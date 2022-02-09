@@ -27,6 +27,7 @@ class GLBackend final : public IRendererBackend
 
     struct GLSubpass
     {
+        // NOTE(v.matuhskin): In Vulkan there is one Framebuffer for all subpasses? Can I make it in OpenGL?
         ui32                         FramebufferID;
         ui32                         DepthStencilType;
         std::vector<ui8>             ClearColorIndices;

@@ -173,8 +173,10 @@ enum class AttachmentStoreAction : ui8
 
 // NOTE(v.matushkin): It will be hard to unite VkImageLayout and D3D12_RESOURCE_STATES under one enum
 //  Check VK_KHR_synchronization2 and VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR/VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+// NOTE(v.matushkin): For DX12 Common and Present are same value
 enum class AttachmentLayout
 {
+    Undefined,
     Render,
     ShaderSample,
     Present,

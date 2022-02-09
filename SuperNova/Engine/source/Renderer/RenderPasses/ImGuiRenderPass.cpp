@@ -23,17 +23,13 @@
 namespace snv
 {
 
-ImGuiRenderPass::ImGuiRenderPass(RenderPassScheduler& renderPassScheduler)
-    : m_imguiContext(nullptr)
+ImGuiRenderPass::ImGuiRenderPass()
+    : m_name("ImGui")
+    , m_imguiContext(nullptr)
     , m_swapchainRenderPassHandle(RenderPassHandle::InvalidHandle)
     , m_engineOutputRenderTexture(RenderTextureHandle::InvalidHandle)
     , m_engineOutputNativeRenderTexture(nullptr)
-{
-    LOG_INFO("ImGuiRenderPass::ImGuiRenderPass");
-    // TODO(v.matushkin): This is a hack until I can teach RenderGraph how to connect its passes to swapchain
-    renderPassScheduler.CreateTexture(ResourceNames::EditorUI);
-    renderPassScheduler.ReadTexture(ResourceNames::EngineColor);
-}
+{}
 
 ImGuiRenderPass::~ImGuiRenderPass()
 {
@@ -41,14 +37,23 @@ ImGuiRenderPass::~ImGuiRenderPass()
 }
 
 
+void ImGuiRenderPass::OnSchedule(RenderPassScheduler& renderPassScheduler) const
+{
+    LOG_INFO("ImGuiRenderPass::OnSchedule");
+    // TODO(v.matushkin): This is a hack until I can teach RenderGraph how to connect its passes to swapchain
+    renderPassScheduler.CreateTexture(ResourceNames::EditorUI);
+    renderPassScheduler.ReadTexture(ResourceNames::EngineColor);
+}
+
 void ImGuiRenderPass::OnCreate(RenderPassBuilder& renderPassBuilder)
 {
     LOG_INFO("ImGuiRenderPass::OnCreate");
+    // NOTE(v.matushkin): ImGuiContext should be created before GetNativeRenderTexture calls, because of Vulkan
+    m_imguiContext = new ImGuiContext();
+
     m_swapchainRenderPassHandle       = renderPassBuilder.GetSwapchainRenderPass();
     m_engineOutputRenderTexture       = renderPassBuilder.GetRenderTexture(ResourceNames::EngineColor);
     m_engineOutputNativeRenderTexture = renderPassBuilder.GetNativeRenderTexture(m_engineOutputRenderTexture);
-
-    m_imguiContext = new ImGuiContext();
 }
 
 void ImGuiRenderPass::OnRender(const RenderContext& renderContext) const

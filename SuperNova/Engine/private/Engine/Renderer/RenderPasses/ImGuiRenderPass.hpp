@@ -17,13 +17,18 @@ class RenderPassScheduler;
 class ImGuiRenderPass final : public IRenderPass
 {
 public:
-    ImGuiRenderPass(RenderPassScheduler& renderPassScheduler);
+    ImGuiRenderPass();
     ~ImGuiRenderPass();
 
+    const std::string& GetName() const override { return m_name; }
+
+    void OnSchedule(RenderPassScheduler& renderPassScheduler) const override;
     void OnCreate(RenderPassBuilder& renderPassBuilder) override;
     void OnRender(const RenderContext& renderContext) const override;
 
 private:
+    const std::string   m_name;
+
     ImGuiContext*       m_imguiContext;
 
     RenderPassHandle    m_swapchainRenderPassHandle;

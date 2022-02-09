@@ -25,7 +25,7 @@ const i32 glfw_CursorMode[] = {
 };
 
 
-#ifdef SNV_ENABLE_DEBUG
+#ifdef SNV_LOGGING_ENABLED
 void GlfwErrorCallback(i32 what_is_this, const char* error)
 {
     LOG_ERROR("GLFW: {}", error);
@@ -50,7 +50,7 @@ void Window::Init()
 
     const auto isOpenGL = EngineSettings::GraphicsSettings.GraphicsApi == GraphicsApi::OpenGL;
 
-#ifdef SNV_ENABLE_DEBUG
+#ifdef SNV_LOGGING_ENABLED
     glfwSetErrorCallback(GlfwErrorCallback);
 #endif
     glfwInit();

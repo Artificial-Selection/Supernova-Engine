@@ -62,8 +62,13 @@ private:
     static ui32 CreateShader(const char* shaderSource, ui32 shaderType);
     static ui32 CreateShaderProgram(i32 vertexShaderID, i32 fragmentShaderID);
 
+#ifdef SNV_GPU_API_DEBUG_ENABLED
     static void CheckShaderCompilationStatus(ui32 shaderID);
     static void CheckShaderProgramLinkStatus(ui32 shaderProgramID);
+#else
+    static void CheckShaderCompilationStatus(ui32 shaderID) {}
+    static void CheckShaderProgramLinkStatus(ui32 shaderProgramID) {}
+#endif
 
 private:
     ui32                m_shaderProgramID;

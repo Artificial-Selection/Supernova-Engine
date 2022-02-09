@@ -16,14 +16,18 @@
 namespace snv
 {
 
-EngineRenderPass::EngineRenderPass(RenderPassScheduler& renderPassScheduler)
-    : m_renderPassHandle(RenderPassHandle::InvalidHandle)
+EngineRenderPass::EngineRenderPass()
+    : m_name("Engine")
+    , m_renderPassHandle(RenderPassHandle::InvalidHandle)
+{}
+
+
+void EngineRenderPass::OnSchedule(RenderPassScheduler& renderPassScheduler) const
 {
-    LOG_INFO("EngineRenderPass::EngineRenderPass");
+    LOG_INFO("EngineRenderPass::OnSchedule");
     renderPassScheduler.CreateTexture(ResourceNames::EngineColor);
     renderPassScheduler.CreateTexture(ResourceNames::EngineDepth);
 }
-
 
 void EngineRenderPass::OnCreate(RenderPassBuilder& renderPassBuilder)
 {

@@ -17,11 +17,46 @@ using f32 = float;
 using f64 = double;
 
 
-#define SNV_ENABLE_DEBUG
+// TODO(v.matushkin): CMake should define this
+#define SNV_CONFIGURATION_DEBUG
 
 
-#ifdef SNV_ENABLE_DEBUG
+// TODO(v.matushkin): Replace all '#define *_ENABLED' with '#define *_ENABLED [true|false]'
+//  and all '#ifdef *_ENABLED' with '#if *_ENABLED'
+
+#if defined(SNV_CONFIGURATION_DEBUG)
+
     #define SNV_LOGGING_ENABLED
     #define SNV_ASSERTS_ENABLED
     #define SNV_GPU_API_DEBUG_ENABLED
-#endif // SNV_ENABLE_DEBUG
+    #define SNV_GPU_API_DEBUG_NAMES_ENABLED true
+
+#elif defined(SNV_CONFIGURATION_RELEASE)
+
+    #define SNV_LOGGING_ENABLED
+    #define SNV_ASSERTS_ENABLED
+    #define SNV_GPU_API_DEBUG_ENABLED
+    #define SNV_GPU_API_DEBUG_NAMES_ENABLED true
+
+#elif defined(SNV_CONFIGURATION_FINAL)
+
+    #define SNV_GPU_API_DEBUG_NAMES_ENABLED false
+
+#else
+    #error Undefined build configuration
+#endif 
+
+
+// TODO(v.matushkin): Compiler dependent macros
+//  Use new attribute syntax? Eg. [[gnu::pure]]
+//  https://artificial-mind.net/blog/2021/10/17/optimize-without-inline
+
+// TODO(v.matushkin): This should depend on compiler, not on platform, but there is no macro for compiler right now
+#ifdef SNV_PLATFORM_WINDOWS
+
+    #define SNV_FUNC_INLINE       inline
+    #define SNV_FUNC_FORCE_INLINE __forceinline
+
+#else
+    #error Unsupported platform
+#endif

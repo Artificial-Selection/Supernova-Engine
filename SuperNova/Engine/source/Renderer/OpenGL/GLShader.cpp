@@ -8,6 +8,9 @@
 #include <utility>
 
 
+// NOTE(v.matushkin): Shader compilation errors checks shouldn't be under 'SNV_GPU_API_DEBUG_ENABLED' ?
+
+
 namespace snv
 {
 
@@ -288,10 +291,10 @@ ui32 GLShader::CreateShaderProgram(i32 vertexShaderID, i32 fragmentShaderID)
 }
 
 
+#ifdef SNV_GPU_API_DEBUG_ENABLED
+
 void GLShader::CheckShaderCompilationStatus(ui32 shaderID)
 {
-#ifdef SNV_ENABLE_DEBUG
-
     i32 isCompiled;
     glGetShaderiv(shaderID, GL_COMPILE_STATUS, &isCompiled);
 
@@ -304,14 +307,10 @@ void GLShader::CheckShaderCompilationStatus(ui32 shaderID)
         glGetShaderInfoLog(shaderID, logLength, nullptr, errorLog.get());
         LOG_ERROR("OpenGL Shader compilation error, Log:\n{)", errorLog.get());
     }
-
-#endif // SNV_ENABLE_DEBUG
 }
 
 void GLShader::CheckShaderProgramLinkStatus(ui32 shaderProgramID)
 {
-#ifdef SNV_ENABLE_DEBUG
-
     i32 isCompiled;
     glGetProgramiv(shaderProgramID, GL_LINK_STATUS, &isCompiled);
 
@@ -324,8 +323,8 @@ void GLShader::CheckShaderProgramLinkStatus(ui32 shaderProgramID)
         glGetProgramInfoLog(shaderProgramID, logLength, NULL, errorLog.get());
         LOG_ERROR("OpenGL ShaderProgram link error, Log:\n{)", errorLog.get());
     }
-
-#endif // SNV_ENABLE_DEBUG
 }
+
+#endif // SNV_GPU_API_DEBUG_ENABLED
 
 } // namespace snv

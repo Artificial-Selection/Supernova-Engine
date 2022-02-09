@@ -5,7 +5,10 @@
 #include <cstdlib>
 
 
-// TODO(v.matushkin): Probably this should depend on compiler, not on platform
+// TODO(v.matushkin): https://artificial-mind.net/blog/2020/10/17/static-registration-macro
+
+
+// TODO(v.matushkin): This should depend on compiler, not on platform, but there is no macro for it right now
 #ifdef SNV_PLATFORM_WINDOWS
     #define SNV_DEBUG_BREAK() __debugbreak()
 #else

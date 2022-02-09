@@ -168,18 +168,17 @@ static const DXGI_FORMAT dx12_TextureFormat[] = {
 
 static constexpr D3D12_RESOURCE_STATES dx12_AttachmentLayout(snv::AttachmentLayout attachmentLayout, snv::RenderTextureType renderTextureType)
 {
-    if (attachmentLayout == snv::AttachmentLayout::Render)
+    switch (attachmentLayout)
     {
-        return renderTextureType == snv::RenderTextureType::Color
-                                 ? D3D12_RESOURCE_STATE_RENDER_TARGET
-                                 : D3D12_RESOURCE_STATE_DEPTH_WRITE;
-    }
-    else if (attachmentLayout == snv::AttachmentLayout::ShaderSample)
+    case snv::AttachmentLayout::Undefined:    return D3D12_RESOURCE_STATE_COMMON;
+    case snv::AttachmentLayout::Render:
     {
-        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        return renderTextureType == snv::RenderTextureType::Color ? D3D12_RESOURCE_STATE_RENDER_TARGET
+                                                                  : D3D12_RESOURCE_STATE_DEPTH_WRITE;
     }
-
-    return D3D12_RESOURCE_STATE_PRESENT;
+    case snv::AttachmentLayout::ShaderSample: return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    case snv::AttachmentLayout::Present:      return D3D12_RESOURCE_STATE_PRESENT;
+    }
 }
 
 static D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE dx12_AttachmentLoadAction(snv::AttachmentLoadAction attachmentLoadAction)
@@ -188,6 +187,7 @@ static D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE dx12_AttachmentLoadAction(snv::At
         D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE,
         D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR,
         D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD,
+        // D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS,
     };
 
     return d3dAttachmentLoadAction[static_cast<ui8>(attachmentLoadAction)];
@@ -198,6 +198,7 @@ static D3D12_RENDER_PASS_ENDING_ACCESS_TYPE dx12_AttachmentStoreAction(snv::Atta
     static const D3D12_RENDER_PASS_ENDING_ACCESS_TYPE d3dAttachmentStoreAction[] = {
         D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE,
         D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD,
+        // D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS,
     };
 
     return d3dAttachmentStoreAction[static_cast<ui8>(attachmentStoreAction)];
@@ -774,71 +775,71 @@ RenderPassHandle DX12Backend::CreateRenderPass(const RenderPassDesc& renderPassD
     //  may be get them once at the start?
 
     //- Barriers
+    //-- Color
+    for (const auto& colorAttachmentDesc : renderPassDesc.ColorAttachments)
     {
-        for (const auto& colorAttachmentDesc : renderPassDesc.ColorAttachments)
+        const auto needInitialBarrier = colorAttachmentDesc.InitialLayout != AttachmentLayout::Render;
+        const auto needFinalBarrier   = colorAttachmentDesc.FinalLayout != AttachmentLayout::Render;
+
+        // NOTE(v.matushkin): Move this code to lambda? Doubt this is possible with constexpr usage
+        if (needInitialBarrier || needFinalBarrier)
         {
-            const auto needInitialBarrier = colorAttachmentDesc.InitialLayout != AttachmentLayout::Render;
-            const auto needFinalBarrier   = colorAttachmentDesc.FinalLayout != AttachmentLayout::Render;
+            auto* d3dTexture = m_renderTextures[colorAttachmentDesc.RenderTextureHandle]->Texture.Get();
 
-            // NOTE(v.matushkin): Move this code to lambda? Doubt this is possible with constexpr usage
-            if (needInitialBarrier || needFinalBarrier)
+            if (needInitialBarrier)
             {
-                auto* d3dTexture = m_renderTextures[colorAttachmentDesc.RenderTextureHandle]->Texture.Get();
+                constexpr auto d3dFinalLayout = dx12_AttachmentLayout(AttachmentLayout::Render, RenderTextureType::Color);
 
-                if (needInitialBarrier)
-                {
-                    constexpr auto d3dFinalLayout = dx12_AttachmentLayout(AttachmentLayout::Render, RenderTextureType::Color);
+                dx12RenderPass.InitialBarriers.push_back(ResourceTransition(
+                    d3dTexture,
+                    dx12_AttachmentLayout(colorAttachmentDesc.InitialLayout, RenderTextureType::Color),
+                    d3dFinalLayout
+                ));
+            }
+            if (needFinalBarrier)
+            {
+                constexpr auto d3dInitialLayout = dx12_AttachmentLayout(AttachmentLayout::Render, RenderTextureType::Color);
 
-                    dx12RenderPass.InitialBarriers.push_back(ResourceTransition(
-                        d3dTexture,
-                        dx12_AttachmentLayout(colorAttachmentDesc.InitialLayout, RenderTextureType::Color),
-                        d3dFinalLayout
-                    ));
-                }
-                if (needFinalBarrier)
-                {
-                    constexpr auto d3dInitialLayout = dx12_AttachmentLayout(AttachmentLayout::Render, RenderTextureType::Color);
-
-                    dx12RenderPass.FinalBarriers.push_back(ResourceTransition(
-                        d3dTexture,
-                        d3dInitialLayout,
-                        dx12_AttachmentLayout(colorAttachmentDesc.FinalLayout, RenderTextureType::Color)
-                    ));
-                }
+                dx12RenderPass.FinalBarriers.push_back(ResourceTransition(
+                    d3dTexture,
+                    d3dInitialLayout,
+                    dx12_AttachmentLayout(colorAttachmentDesc.FinalLayout, RenderTextureType::Color)
+                ));
             }
         }
-        if (renderPassDesc.DepthStencilAttachment.has_value())
+    }
+    //-- DepthStencil
+    if (renderPassDesc.DepthStencilAttachment.has_value())
+    {
+        const auto depthStencilAttachmentDesc = renderPassDesc.DepthStencilAttachment.value();
+
+        const auto needInitialBarrier = depthStencilAttachmentDesc.InitialLayout != AttachmentLayout::Render;
+        const auto needFinalBarrier   = depthStencilAttachmentDesc.FinalLayout != AttachmentLayout::Render;
+
+        if (needInitialBarrier || needFinalBarrier)
         {
-            const auto depthStencilAttachmentDesc = renderPassDesc.DepthStencilAttachment.value();
+            auto* d3dTexture = m_renderTextures[depthStencilAttachmentDesc.RenderTextureHandle]->Texture.Get();
 
-            const auto needInitialBarrier = depthStencilAttachmentDesc.InitialLayout != AttachmentLayout::Render;
-            const auto needFinalBarrier   = depthStencilAttachmentDesc.FinalLayout != AttachmentLayout::Render;
-
-            if (needInitialBarrier || needFinalBarrier)
+            if (needInitialBarrier)
             {
-                auto* d3dTexture = m_renderTextures[depthStencilAttachmentDesc.RenderTextureHandle]->Texture.Get();
+                // For D3D12_RESOURCE_STATES it doesn't matter if type is Depth/Stencil/DepthStencil
+                constexpr auto d3dFinalLayout = dx12_AttachmentLayout(AttachmentLayout::Render, RenderTextureType::Depth);
 
-                if (needInitialBarrier)
-                {
-                    // For D3D12_RESOURCE_STATES it doesn't matter if type is Depth/Stencil/DepthStencil
-                    constexpr auto d3dFinalLayout = dx12_AttachmentLayout(AttachmentLayout::Render, RenderTextureType::Depth);
+                dx12RenderPass.InitialBarriers.push_back(ResourceTransition(
+                    d3dTexture,
+                    dx12_AttachmentLayout(depthStencilAttachmentDesc.InitialLayout, RenderTextureType::Depth),
+                    d3dFinalLayout
+                ));
+            }
+            if (needFinalBarrier)
+            {
+                constexpr auto d3dInitialLayout = dx12_AttachmentLayout(AttachmentLayout::Render, RenderTextureType::Depth);
 
-                    dx12RenderPass.InitialBarriers.push_back(ResourceTransition(
-                        d3dTexture,
-                        dx12_AttachmentLayout(depthStencilAttachmentDesc.InitialLayout, RenderTextureType::Depth),
-                        d3dFinalLayout
-                    ));
-                }
-                if (needFinalBarrier)
-                {
-                    constexpr auto d3dInitialLayout = dx12_AttachmentLayout(AttachmentLayout::Render, RenderTextureType::Depth);
-
-                    dx12RenderPass.FinalBarriers.push_back(ResourceTransition(
-                        d3dTexture,
-                        d3dInitialLayout,
-                        dx12_AttachmentLayout(depthStencilAttachmentDesc.FinalLayout, RenderTextureType::Depth)
-                    ));
-                }
+                dx12RenderPass.FinalBarriers.push_back(ResourceTransition(
+                    d3dTexture,
+                    d3dInitialLayout,
+                    dx12_AttachmentLayout(depthStencilAttachmentDesc.FinalLayout, RenderTextureType::Depth)
+                ));
             }
         }
     }
@@ -1408,15 +1409,6 @@ void DX12Backend::CreateSwapchain()
         // NOTE(v.matushkin): D3D12_RENDER_TARGET_VIEW_DESC = null?
         m_device->CreateRenderTargetView(d3dColorTexture, nullptr, d3dRtvColorDescriptor);
 
-        DX12RenderTexture dx12ColorAttachment = {
-            .Texture    = d3dColorTexture,
-            .Descriptor = d3dRtvColorDescriptor,
-            // .SrvCpuDescriptor = ,
-            // .SrvGpuDescriptor = ,
-            .ClearValue = {.Format = dxgiSwapchainFormat, .Color = {0.0f, 0.0f, 0.0f, 0.0f}},
-            .Type       = RenderTextureType::Color,
-        };
-
         const auto renderTextureHandle        = static_cast<RenderTextureHandle>(g_RenderTextureHandleWorkaround++);
         m_renderTextures[renderTextureHandle] = std::make_shared<DX12RenderTexture>(DX12RenderTexture{
             .Texture    = d3dColorTexture,
@@ -1440,7 +1432,7 @@ void DX12Backend::CreateSwapchain()
             // .DepthStencilAttachment = ,
             .Subpass = {
                 .ColorAttachmentIndices = {0},
-                // .DepthStencilAttachmentIndex = ,
+                // .UseDepthStencilAttachment = ,
             },
         });
     }

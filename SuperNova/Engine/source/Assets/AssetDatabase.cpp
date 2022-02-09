@@ -17,15 +17,18 @@
 #include <assimp/postprocess.h>
 
 // NOTE(v.matushkin): Put stb in a normal conan package? not this fucking trash that I get rn
-#ifdef SNV_ENABLE_DEBUG
+// NOTE(v.matushkin): It's kinda dumb that stb error checking depends on 'SNV_ASSERTS_ENABLED'
+#ifdef SNV_ASSERTS_ENABLED
     #define STBI_FAILURE_USERMSG
 #else
     #define STBI_NO_FAILURE_STRINGS
 #endif
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #undef STB_IMAGE_IMPLEMENTATION
-#ifdef SNV_ENABLE_DEBUG
+
+#ifdef SNV_ASSERTS_ENABLED
     #undef STBI_FAILURE_USERMSG
 #else
     #undef STBI_NO_FAILURE_STRINGS

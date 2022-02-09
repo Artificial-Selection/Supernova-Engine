@@ -21,10 +21,13 @@
 #include <Engine/Components/Camera.hpp>
 #include <Engine/Components/Transform.hpp>
 
+#include <memory>
+
 
 // TODO(v.matushkin):
 //  - <RenderGraphBuild>
 //    There should be some way to build RenderGraph after all RenderPasses has been added, but before rendering starts
+//    UPDATE: Fixed ?
 
 
 namespace snv
@@ -52,8 +55,8 @@ void Renderer::Init()
 
     // TODO(v.matushkin): <RenderGraphBuild>
     s_renderGraph = new RenderGraph();
-    s_renderGraph->AddRenderPass<EngineRenderPass>("Engine");
-    s_renderGraph->AddRenderPass<ImGuiRenderPass>("ImGui");
+    s_renderGraph->AddRenderPass(std::make_unique<EngineRenderPass>());
+    s_renderGraph->AddRenderPass(std::make_unique<ImGuiRenderPass>());
     s_renderGraph->Build(ResourceNames::EditorUI);
 }
 

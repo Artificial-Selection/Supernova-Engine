@@ -15,13 +15,18 @@ class RenderPassScheduler;
 class EngineRenderPass final : public IRenderPass
 {
 public:
-    EngineRenderPass(RenderPassScheduler& renderPassScheduler);
+    EngineRenderPass();
 
+    const std::string& GetName() const override { return m_name; }
+
+    void OnSchedule(RenderPassScheduler& renderPassScheduler) const override;
     void OnCreate(RenderPassBuilder& renderPassBuilder) override;
     void OnRender(const RenderContext& renderContext) const override;
 
 private:
-    RenderPassHandle m_renderPassHandle;
+    const std::string m_name;
+
+    RenderPassHandle  m_renderPassHandle;
 };
 
 } // namespace snv

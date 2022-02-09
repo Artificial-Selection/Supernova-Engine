@@ -1,4 +1,6 @@
 #include <Engine/Renderer/RenderGraph.hpp>
+
+#include <Engine/Core/Assert.hpp>
 #include <Engine/Renderer/RenderContext.hpp>
 #include <Engine/Renderer/Renderer.hpp>
 
@@ -15,6 +17,7 @@
 //  - <AttachmentLayout>
 //    - First InitialLayout in the frame should be equal to the last FinalLayout in the frame
 //    - Add AttachmentLayout::Present support
+
 
 namespace snv
 {
@@ -78,6 +81,22 @@ void RenderGraph::Execute(const RenderContext& renderContext) const
     }
 }
 
+void RenderGraph::AddRenderPass(std::unique_ptr<IRenderPass> renderPass)
+{
+    const auto& renderPassName = renderPass->GetName();
+    SNV_ASSERT(m_renderPassNameToID.contains(renderPassName) == false, "Trying to add RenderPass with already registered name");
+    const RenderPassID renderPassID      = static_cast<RenderPassID>(m_renderGraphNodes.size());
+    m_renderPassNameToID[renderPassName] = renderPassID;
+
+    auto& renderGraphNode = m_renderGraphNodes.emplace_back(RenderGraphNode{
+        .Pass             = std::move(renderPass),
+        .ReadAttachmentID = RenderTextureID::InvalidID,
+    });
+
+    auto renderPassBuilder = RenderPassScheduler(renderPassID, renderGraphNode, *this);
+    renderGraphNode.Pass->OnSchedule(renderPassBuilder);
+}
+
 
 // ----------------------------------------------------------------------------------------------------
 // --------------------------------------- RenderPassScheduler ----------------------------------------
@@ -93,7 +112,7 @@ RenderPassScheduler::RenderPassScheduler(RenderPassID renderPassID, RenderGraphN
 
 void RenderPassScheduler::CreateTexture(const std::string& renderTextureName)
 {
-    RenderTextureID renderTextureID = GetRenderTextureID(renderTextureName);
+    const RenderTextureID renderTextureID = GetRenderTextureID(renderTextureName);
 
     auto& renderTextureAccess = m_renderTexturesAccess[static_cast<ui8>(renderTextureID)];
     SNV_ASSERT(renderTextureAccess.CreatePassID == RenderPassID::InvalidID, "Trying to create RenderTexture with the same name twice");
@@ -104,10 +123,10 @@ void RenderPassScheduler::CreateTexture(const std::string& renderTextureName)
 
 void RenderPassScheduler::ReadTexture(const std::string& renderTextureName)
 {
-    RenderTextureID renderTextureID = GetRenderTextureID(renderTextureName);
+    const RenderTextureID renderTextureID = GetRenderTextureID(renderTextureName);
 
     auto& renderTextureAccess = m_renderTexturesAccess[static_cast<ui8>(renderTextureID)];
-    SNV_ASSERT(m_renderGraphNode.ReadAttachmentID == RenderTextureID::InvalidID, "Only one RenderTexture read access is supported");
+    SNV_ASSERT(renderTextureAccess.ReadPassID == RenderPassID::InvalidID, "Only one RenderTexture read access is supported");
     renderTextureAccess.ReadPassID = m_renderPassID;
 
     SNV_ASSERT(m_renderGraphNode.ReadAttachmentID == RenderTextureID::InvalidID, "RenderPass can read only one RenderTexture");
@@ -141,7 +160,7 @@ RenderPassScheduler::RenderTextureID RenderPassScheduler::GetRenderTextureID(con
 // ----------------------------------------------------------------------------------------------------
 
 RenderPassBuilder::RenderPassBuilder(RenderGraph& renderGraph)
-    : m_renderTextures(renderGraph.m_renderTextures)
+    : m_renderTextureNameToHandle(renderGraph.m_renderTextureNameToHandle)
     , m_renderTextureUsages(renderGraph.m_renderTextureUsages)
     , m_renderTextureNameToID(renderGraph.m_renderTextureNameToID)
     , m_renderTextureHandleToID(renderGraph.m_renderTextureHandleToID)
@@ -151,7 +170,7 @@ RenderPassBuilder::RenderPassBuilder(RenderGraph& renderGraph)
 
 RenderTextureHandle RenderPassBuilder::GetRenderTexture(const std::string& name) const
 {
-    return m_renderTextures.at(name);
+    return m_renderTextureNameToHandle.at(name);
 }
 
 void* RenderPassBuilder::GetNativeRenderTexture(RenderTextureHandle renderTextureHandle) const
@@ -190,8 +209,8 @@ RenderTextureHandle RenderPassBuilder::CreateRenderTexture(
     };
 
     const auto renderTextureHandle = Renderer::CreateRenderTexture(renderTextureDesc);
-    m_renderTextures[name]         = renderTextureHandle;
 
+    m_renderTextureNameToHandle[name]              = renderTextureHandle;
     m_renderTextureHandleToID[renderTextureHandle] = renderTextureID;
 
     return renderTextureHandle;
@@ -231,9 +250,8 @@ AttachmentDesc RenderPassBuilder::CreateAttachmentDesc(RenderTextureHandle rende
         const auto attachmentUsage = colorAttachmentUsages.top();
         colorAttachmentUsages.pop();
 
-        initialLayout = attachmentUsage == AttachmentUsage::Create
-                      ? AttachmentLayout::Render
-                      : AttachmentLayout::ShaderSample;
+        initialLayout = attachmentUsage == AttachmentUsage::Create ? AttachmentLayout::Render
+                                                                   : AttachmentLayout::ShaderSample;
     }
 
     //- Final layout
@@ -263,9 +281,8 @@ AttachmentDesc RenderPassBuilder::CreateAttachmentDesc(RenderTextureHandle rende
 
     //- Store action
     // NOTE(v.matushkin): Not sure about this one also. What if finalLayout = Present ?
-    const auto storeAction = finalLayout == AttachmentLayout::Render
-                           ? AttachmentStoreAction::DontCare
-                           : AttachmentStoreAction::Store;
+    const auto storeAction = finalLayout == AttachmentLayout::Render ? AttachmentStoreAction::DontCare
+                                                                     : AttachmentStoreAction::Store;
 
     return AttachmentDesc{
         .RenderTextureHandle = renderTextureHandle,

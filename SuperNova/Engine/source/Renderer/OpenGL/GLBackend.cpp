@@ -64,7 +64,7 @@ static ui32 g_ShaderHandleWorkaround        = 0;
 namespace snv
 {
 
-#ifdef SNV_ENABLE_DEBUG
+#ifdef SNV_GPU_API_DEBUG_ENABLED
 void APIENTRY openGLMessageCallback(
     GLenum source, GLenum type, ui32 id, GLenum severity, GLsizei length, const char* message, const void* userParam
 )
@@ -128,7 +128,7 @@ void APIENTRY openGLMessageCallback(
             break;
     }
 }
-#endif // SNV_ENABLE_DEBUG
+#endif // SNV_GPU_API_DEBUG_ENABLED
 
 
 GLBackend::GLBackend()
@@ -142,7 +142,7 @@ GLBackend::GLBackend()
         glGetString(GL_VENDOR), glGetString(GL_RENDERER), glGetString(GL_VERSION)
     );
 
-#ifdef SNV_ENABLE_DEBUG
+#ifdef SNV_GPU_API_DEBUG_ENABLED
     i32 flags;
     glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
     if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
@@ -152,7 +152,7 @@ GLBackend::GLBackend()
         glDebugMessageCallback(openGLMessageCallback, nullptr);
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
     }
-#endif // SNV_ENABLE_DEBUG
+#endif // SNV_GPU_API_DEBUG_ENABLED
 
     //- Set default state
     {
