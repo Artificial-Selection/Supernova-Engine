@@ -8,15 +8,25 @@
 
 
 // TODO(v.matushkin):
-//  - <AttachmentNames>
-//    Right now the connection between RenderTexture and its name done in a shitty way, but idk how to improve it
-//
 //  - <GetNativeRenderTexture>
 //    This method probably can be removed when I'll replace '#include <imgui_impl_*.h>' with my own implementation
 //
 //  - <AttachmentLayout>
+//    - May be set InitialLayout in CreateRenderTexture ?
 //    - First InitialLayout in the frame should be equal to the last FinalLayout in the frame
 //    - Add AttachmentLayout::Present support
+//
+//  - <RenderGraphBuild>
+//    I gave up for now with RenderGraph::Build, just add and execute all RenderPasses in the order they were added.
+//    Right now there is no RenderPasses, no Subpasses, so it's hard to decide how it should be implemented,
+//     when you have no experience.
+//
+//  - <CreateRenderPass>
+//    For RenderPassBuilder::CreateRenderPass it's the same as with <RenderGraphBuild>, it's hard to decide
+//     how RenderTexture layout transitions should be implemented, what initial RenderTexture layout should be.
+//    - For Vulkan there is VkSubpassDependency, barriers, split barriers(vkCmdSetEvent, vkCmdWaitEvent)
+//    - For DX12 there is only barriers and split barriers, and there is new "enhanced" barriers, which might change some things.
+//    Again, it's hard to generate this transitions efficiently when there is not a lot of Render/Sub passes.
 
 
 namespace snv
@@ -26,6 +36,21 @@ namespace snv
 // ------------------------------------------- RenderGraph --------------------------------------------
 // ----------------------------------------------------------------------------------------------------
 
+void RenderGraph::Build(const std::string& outputRenderTextureName)
+{
+    for (const auto& renderPassNode : m_renderGraphNodes)
+    {
+        m_renderPasses.push_back(renderPassNode.Pass.get());
+    }
+
+    for (auto* renderPass : m_renderPasses)
+    {
+        auto renderPassBuilder = RenderPassBuilder(*this);
+        renderPass->OnCreate(renderPassBuilder);
+    }
+}
+
+/*
 void RenderGraph::Build(const std::string& outputRenderTextureName)
 {
     std::stack<RenderPassID> renderPassStack;
@@ -72,6 +97,7 @@ void RenderGraph::Build(const std::string& outputRenderTextureName)
         renderPass->OnCreate(renderPassBuilder);
     }
 }
+*/
 
 void RenderGraph::Execute(const RenderContext& renderContext) const
 {
@@ -161,7 +187,7 @@ RenderPassScheduler::RenderTextureID RenderPassScheduler::GetRenderTextureID(con
 
 RenderPassBuilder::RenderPassBuilder(RenderGraph& renderGraph)
     : m_renderTextureNameToHandle(renderGraph.m_renderTextureNameToHandle)
-    , m_renderTextureUsages(renderGraph.m_renderTextureUsages)
+    // , m_renderTextureUsages(renderGraph.m_renderTextureUsages)
     , m_renderTextureNameToID(renderGraph.m_renderTextureNameToID)
     , m_renderTextureHandleToID(renderGraph.m_renderTextureHandleToID)
     , m_renderTexturesAccess(renderGraph.m_renderTexturesAccess)
@@ -216,6 +242,12 @@ RenderTextureHandle RenderPassBuilder::CreateRenderTexture(
     return renderTextureHandle;
 }
 
+RenderPassHandle RenderPassBuilder::CreateRenderPass(const RenderPassDesc& renderPassDesc)
+{
+    return Renderer::CreateRenderPass(renderPassDesc);
+}
+
+/*
 RenderPassHandle RenderPassBuilder::CreateRenderPass(
     const std::vector<RenderTextureHandle>& colorAttachments,
     std::optional<RenderTextureHandle>      depthStencilAttachment,
@@ -292,5 +324,6 @@ AttachmentDesc RenderPassBuilder::CreateAttachmentDesc(RenderTextureHandle rende
         .FinalLayout         = finalLayout,
     };
 }
+*/
 
 } // namespace snv

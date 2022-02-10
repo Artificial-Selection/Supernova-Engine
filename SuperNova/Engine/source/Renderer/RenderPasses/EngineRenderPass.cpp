@@ -50,14 +50,38 @@ void EngineRenderPass::OnCreate(RenderPassBuilder& renderPassBuilder)
         {.DepthStencil = {.Depth = 1.f, .Stencil = 0}}
     );
 
-    m_renderPassHandle = renderPassBuilder.CreateRenderPass(
-        {engineColorRenderTextureHandle},
-        engineDepthRenderTextureHandle,
-        SubpassDesc{
+    m_renderPassHandle = renderPassBuilder.CreateRenderPass(RenderPassDesc{
+        .ColorAttachments = {
+            {
+                .RenderTextureHandle = engineColorRenderTextureHandle,
+                .LoadAction          = AttachmentLoadAction::Clear,
+                .StoreAction         = AttachmentStoreAction::Store,
+                .InitialLayout       = AttachmentLayout::ShaderSample,
+                .FinalLayout         = AttachmentLayout::ShaderSample,
+            },
+        },
+        .DepthStencilAttachment = AttachmentDesc{
+            .RenderTextureHandle = engineDepthRenderTextureHandle,
+            .LoadAction          = AttachmentLoadAction::Clear,
+            .StoreAction         = AttachmentStoreAction::DontCare,
+            .InitialLayout       = AttachmentLayout::Render,
+            .FinalLayout         = AttachmentLayout::Render,
+        },
+        .Subpass = {
             .ColorAttachmentIndices    = {0},
             .UseDepthStencilAttachment = true,
-        }
-    );
+        },
+    });
+
+    // TODO(v.matushkin): <CreateRenderPass>
+    // m_renderPassHandle = renderPassBuilder.CreateRenderPass(
+    //     {engineColorRenderTextureHandle},
+    //     engineDepthRenderTextureHandle,
+    //     SubpassDesc{
+    //         .ColorAttachmentIndices    = {0},
+    //         .UseDepthStencilAttachment = true,
+    //     }
+    // );
 }
 
 void EngineRenderPass::OnRender(const RenderContext& renderContext) const

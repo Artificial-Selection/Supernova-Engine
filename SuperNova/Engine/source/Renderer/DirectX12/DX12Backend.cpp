@@ -649,7 +649,10 @@ RenderTextureHandle DX12Backend::CreateRenderTexture(const RenderTextureDesc& re
         if (isColorRenderTexture)
         {
             d3dResourceFlags          = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-            d3dResourceInitialState   = D3D12_RESOURCE_STATE_RENDER_TARGET;
+            // TODO(v.matushkin): This is depends on <AttachmentLayout> and <RenderGraphBuild>
+            //  Right now just create it with COMMON initial state to fix validation errors
+            // d3dResourceInitialState   = D3D12_RESOURCE_STATE_RENDER_TARGET;
+            d3dResourceInitialState   = D3D12_RESOURCE_STATE_COMMON;
             d3dRenderTargetDescriptor = m_descriptorHeap->AllocateRTV();
 
             const auto* value     = renderTextureDesc.ClearValue.Color.Value;

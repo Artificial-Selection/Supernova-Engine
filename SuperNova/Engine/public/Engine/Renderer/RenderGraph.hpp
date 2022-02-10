@@ -46,7 +46,7 @@ class RenderGraph
 
 
     using RenderTextureNameToHandleMap = std::unordered_map<std::string, RenderTextureHandle>;
-    using RenderTextureUsageMap        = std::unordered_map<RenderTextureID, std::stack<AttachmentUsage>>;
+    // using RenderTextureUsageMap        = std::unordered_map<RenderTextureID, std::stack<AttachmentUsage>>;
     using RenderPassNameIDMap          = std::unordered_map<std::string, RenderPassID>;
     using RenderTextureNameToIDMap     = std::unordered_map<std::string, RenderTextureID>;
     using RenderTextureHandleToIDMap   = std::unordered_map<RenderTextureHandle, RenderTextureID>;
@@ -65,7 +65,7 @@ private:
     RenderTextureNameToHandleMap     m_renderTextureNameToHandle;
     // Current render passes
     std::vector<IRenderPass*>        m_renderPasses;
-    RenderTextureUsageMap            m_renderTextureUsages;
+    // RenderTextureUsageMap            m_renderTextureUsages;
     // Render passes schedule info
     RenderPassNameIDMap              m_renderPassNameToID;
     RenderTextureNameToIDMap         m_renderTextureNameToID;
@@ -112,7 +112,7 @@ class RenderPassBuilder
     using RenderPassID                 = RenderGraph::RenderPassID;
     using RenderTextureAccess          = RenderGraph::RenderTextureAccess;
     using RenderTextureNameToHandleMap = RenderGraph::RenderTextureNameToHandleMap;
-    using RenderTextureUsageMap        = RenderGraph::RenderTextureUsageMap;
+    // using RenderTextureUsageMap        = RenderGraph::RenderTextureUsageMap;
     using RenderTextureNameToIDMap     = RenderGraph::RenderTextureNameToIDMap;
     using RenderTextureHandleToIDMap   = RenderGraph::RenderTextureHandleToIDMap;
 
@@ -129,20 +129,21 @@ public:
         RenderTextureFormat            format,
         const RenderTextureClearValue& clearValue
     );
-    [[nodiscard]] RenderPassHandle    CreateRenderPass(
-        const std::vector<RenderTextureHandle>& colorAttachments,
-        std::optional<RenderTextureHandle>      depthStencilAttachment,
-        SubpassDesc&&                           subpassDesc
-    );
+    [[nodiscard]] RenderPassHandle CreateRenderPass(const RenderPassDesc& renderPassDesc);
+    // [[nodiscard]] RenderPassHandle    CreateRenderPass(
+    //     const std::vector<RenderTextureHandle>& colorAttachments,
+    //     std::optional<RenderTextureHandle>      depthStencilAttachment,
+    //     SubpassDesc&&                           subpassDesc
+    // );
 
 private:
     RenderPassBuilder(RenderGraph& renderGraph);
 
-    [[nodiscard]] AttachmentDesc CreateAttachmentDesc(RenderTextureHandle renderTextureHandle);
+    // [[nodiscard]] AttachmentDesc CreateAttachmentDesc(RenderTextureHandle renderTextureHandle);
 
 private:
     RenderTextureNameToHandleMap&     m_renderTextureNameToHandle;
-    RenderTextureUsageMap&            m_renderTextureUsages;
+    // RenderTextureUsageMap&            m_renderTextureUsages;
     RenderTextureNameToIDMap&         m_renderTextureNameToID;
     RenderTextureHandleToIDMap&       m_renderTextureHandleToID;
     std::vector<RenderTextureAccess>& m_renderTexturesAccess;
